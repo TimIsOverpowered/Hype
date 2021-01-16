@@ -1,0 +1,13 @@
+.hype-root {
+    overflow: hidden!important;
+    flex-direction: column!important;
+    position: absolute!important;
+    top: 0!important;
+    right: 0!important;
+    bottom: 0!important;
+    left: 0!important;
+    display: flex!important;
+    flex-wrap: nowrap!important;
+    color: #fff;
+    font-family: 'Roboto', sans-serif;
+}
