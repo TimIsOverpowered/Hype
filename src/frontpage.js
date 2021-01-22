@@ -18,7 +18,7 @@ export default function Frontpage(props) {
   }, []);
 
   const login = () => {
-    window.location.href = `https://api.hype.lol/oauth/twitch`;
+    window.location.href = `https://api.hype.lol/oauth/twitch?redirect=`;
   };
 
   const handleChannelChange = (evt) => {
@@ -26,10 +26,8 @@ export default function Frontpage(props) {
   }
 
   const handleChannelSubmit = (e) => {
-    if (e.which === 13) {
-      if (channel.length > 0) {
-        window.location.href = `/${channel}`;
-      }
+    if (e.which === 13 && channel.length > 0) {
+      props.history.push(`/${channel}`)
     }
   };
 
@@ -50,7 +48,7 @@ export default function Frontpage(props) {
       <div className={classes.parent}>
         <div style={{ textAlign: "center" }}>
           <div>
-            <img alt src={Logo} height="auto" width="360px" />
+            <img alt="" src={Logo} height="auto" width="360px" />
           </div>
           <Button
             variant="contained"
