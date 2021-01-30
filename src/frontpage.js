@@ -97,6 +97,12 @@ export default function Frontpage(props) {
         <Typography variant="h4" className={classes.marginTop2}>
           {`Welcome back ${props.user.display_name}!`}
         </Typography>
+        <Typography
+          variant="h5"
+          className={`${classes.marginTop2} ${classes.bold} ${classes.status}`}
+        >
+          {`Status: ${props.user.whitelist ? "Active" : "Not Active"}`}
+        </Typography>
         <TextField
           inputProps={{
             style: {
@@ -108,6 +114,7 @@ export default function Frontpage(props) {
           InputLabelProps={{
             style: { color: "#fff" },
           }}
+          disabled={!props.user.whitelist}
           variant="outlined"
           margin="normal"
           fullWidth
@@ -152,5 +159,11 @@ const useStyles = makeStyles(() => ({
   },
   marginTop2: {
     marginTop: "2rem",
+  },
+  bold: {
+    fontWeight: "700",
+  },
+  status: {
+    color: "#fc1212",
   },
 }));

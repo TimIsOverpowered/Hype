@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
 import { HashRouter, Route, Switch } from "react-router-dom";
-import client from "./feathers";
+import client from "./client";
 import Frontpage from "./frontpage";
 import Channel from "./channel";
 import NavBar from "./navbar";
+import Vod from "./vod";
 
 export default function App() {
   const [user, setUser] = React.useState(undefined);
@@ -34,6 +35,7 @@ export default function App() {
         <Switch>
           <Route exact path="/" render={(props) => <Frontpage {...props} user={user} />} />
           <Route exact path="/:channel" render={(props) => <> <NavBar {...props} /> <Channel {...props} user={user} /> </>} />
+          <Route exact path="/:channel/:vodId" render={(props) => <> <NavBar {...props} /> <Vod {...props} user={user} /> </>} />
         </Switch>
       </HashRouter>
     </div>

@@ -23,9 +23,11 @@
     "react-loader-spinner": "^3.1.14",
     "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.1",
+    "react-twitch-embed": "^2.1.0",
     "simplebar-react": "^2.3.0",
     "socket.io-client": "^2.4.0",
-    "web-vitals": "^1.1.0"
+    "web-vitals": "^1.1.0",
+    "zstddec": "0.0.2"
   },
   "config-overrides-path": "/src/config-overrides.js",
   "scripts": {

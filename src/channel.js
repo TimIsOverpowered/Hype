@@ -9,6 +9,7 @@ import {
 import moment from "moment";
 import Logo from "./assets/logo.svg";
 import SimpleBar from "simplebar-react";
+import client from "./client";
 
 export default function Channel(props) {
   const classes = useStyles();
@@ -20,10 +21,12 @@ export default function Channel(props) {
   useEffect(() => {
     document.title = `${channel}'s Vods - Hype`;
     const checkWhitelist = async () => {
+      const { accessToken } = await client.get("authentication");
       await fetch(`https://api.hype.lol/v1/${channel}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
       })
         .then((response) => response.json())
@@ -41,11 +44,13 @@ export default function Channel(props) {
     checkWhitelist();
 
     const fetchVods = async () => {
+      const { accessToken } = await client.get("authentication");
       let vods;
       await fetch(`https://api.hype.lol/v1/${channel}/vods`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
       })
         .then((response) => response.json())
@@ -100,7 +105,7 @@ export default function Channel(props) {
                       <div style={{ marginBottom: "0.1rem" }}>
                         <Link
                           className={classes.title}
-                          href={`/${channel}/${vod.id}`}
+                          href={`#/${channel}/${vod.id}`}
                           variant="caption"
                         >
                           {vod.title}
@@ -110,7 +115,7 @@ export default function Channel(props) {
                   </div>
                 </div>
                 <div className={classes.imageBox}>
-                  <Link href={`/${channel}/${vod.id}`}>
+                  <Link href={`#/${channel}/${vod.id}`}>
                     <img
                       alt={vod.title}
                       title={new Date().toDateString().slice(4)}
@@ -172,8 +177,6 @@ export default function Channel(props) {
         </div>
       </div>
     );
-
-  if (!props.user) return props.history.push(`/`);
 
   if (loading)
     return (
