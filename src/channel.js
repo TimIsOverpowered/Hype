@@ -194,7 +194,7 @@ export default function Channel(props) {
           <div>
             <img alt="" src={Logo} height="auto" width="15%" />
           </div>
-          <Typography variant="h4" style={{ marginTop: "2rem" }}>
+          <Typography variant="h6" style={{ marginTop: "2rem" }}>
             {channel} is not whitelisted for this service
           </Typography>
         </div>
