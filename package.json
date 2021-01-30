@@ -13,6 +13,7 @@
     "@testing-library/jest-dom": "^5.11.9",
     "@testing-library/react": "^11.2.3",
     "@testing-library/user-event": "^12.6.0",
+    "cross-env": "^7.0.3",
     "electron-is-dev": "^1.2.0",
     "electron-squirrel-startup": "^1.0.0",
     "electron-window-state": "^5.0.3",
@@ -25,8 +26,9 @@
     "socket.io-client": "^2.4.0",
     "web-vitals": "^1.1.0"
   },
+  "config-overrides-path": "/src/config-overrides.js",
   "scripts": {
-    "dev": "concurrently -k \"BROWSER=none npm start\" \"npm:electron\"",
+    "dev": "concurrently -k \"cross-env BROWSER=none npm start\" \"npm:electron\"",
     "electron": "wait-on tcp:3000 && electron-forge start",
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -60,7 +62,7 @@
     "@electron-forge/maker-squirrel": "^6.0.0-beta.54",
     "@electron-forge/maker-zip": "^6.0.0-beta.54",
     "concurrently": "^5.3.0",
-    "electron": "^11.2.0",
+    "electron": "^11.2.1",
     "wait-on": "^5.2.1"
   },
   "config": {

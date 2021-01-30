@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { BrowserRouter, Route, Switch, Redirect } from "react-router-dom";
+import { HashRouter, Route, Switch } from "react-router-dom";
 import client from "./feathers";
 import Frontpage from "./frontpage";
 
@@ -28,11 +28,11 @@ export default function App() {
 
   return (
     <div className="hype-root">
-      <BrowserRouter>
+      <HashRouter>
         <Switch>
           <Route exact path="/" render={(props) => <Frontpage {...props} user={user} />} />
         </Switch>
-      </BrowserRouter>
+      </HashRouter>
     </div>
   );
 }

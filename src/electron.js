@@ -9,6 +9,7 @@ if (require("electron-squirrel-startup")) {
 }
 
 function createWindow() {
+  //fix window state after finishing oauth.
   let mainWindowState = windowStateKeeper({
     defaultWidth: 1000,
     defaultHeight: 800,
@@ -16,12 +17,11 @@ function createWindow() {
 
   // Create the browser window.
   const win = new BrowserWindow({
-    x: mainWindowState.x,
-    y: mainWindowState.y,
-    width: mainWindowState.width,
-    height: mainWindowState.height,
+    width: 800,
+    height: 600,
     webPreferences: {
       nodeIntegration: false,
+      contextIsolation: true,
     },
   });
 
@@ -38,32 +38,39 @@ function createWindow() {
     win.webContents.openDevTools({ mode: "detach" });
   }
 
-  /*
-  const PROTOCOL_PREFIX = "hype";
-  protocol.registerStandardSchemes([PROTOCOL_PREFIX]);
-  protocol.registerHttpProtocol(PROTOCOL_PREFIX, (req, cb) => {
-    console.log("passed params " + req);
-  });*/
+  protocol.registerFileProtocol("hype", (request, callback) => {
+    const url = request.url;
+    if (url.includes("oauth")) {
+      const access_token = url.substring(
+        url.indexOf("?access_token=") + 14,
+        url.length
+      );
+      win.webContents
+        .executeJavaScript(
+          `localStorage.setItem('feathers-jwt', '${access_token}');`,
+          true
+        )
+        .then(() => {
+          //then sometimes doesn't get called.
+          //win.webContents.reload();
+        })
+        .catch((err) => {
+          console.log("failed?");
+          console.error(err);
+        });
+      setTimeout(() => {
+        win.webContents.reload();
+      }, 5000);
+    }
+  });
 
-  mainWindowState.manage(win);
+  //mainWindowState.manage(win);
 }
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  protocol.registerFileProtocol(
-    "hype",
-    (request, callback) => {
-      console.log(request);
-      console.log(callback);
-    },
-    (error) => {
-      if (error) console.error("Failed to register protocol");
-    }
-  );
-  createWindow();
-});
+app.whenReady().then(createWindow);
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
