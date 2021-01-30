@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { HashRouter, Route, Switch } from "react-router-dom";
 import client from "./feathers";
 import Frontpage from "./frontpage";
+import Channel from "./channel";
 
 export default function App() {
   const [user, setUser] = React.useState(undefined);
@@ -31,6 +32,7 @@ export default function App() {
       <HashRouter>
         <Switch>
           <Route exact path="/" render={(props) => <Frontpage {...props} user={user} />} />
+          <Route exact path="/:channel" render={(props) => <Channel {...props} user={user} />} />
         </Switch>
       </HashRouter>
     </div>

@@ -64,6 +64,11 @@ function createWindow() {
     }
   });
 
+  win.webContents.on("new-window", (event, url) => {
+    event.preventDefault()
+    win.loadURL(url)
+  });
+
   //mainWindowState.manage(win);
 }
 

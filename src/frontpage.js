@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   makeStyles,
   Typography,
@@ -12,10 +12,6 @@ export default function Frontpage(props) {
   const classes = useStyles();
   const [channel, setChannel] = React.useState("");
   const [loadingLogin, setLoadingLogin] = React.useState(false);
-
-  useEffect(() => {
-    return;
-  }, []);
 
   const login = () => {
     setLoadingLogin(true);
