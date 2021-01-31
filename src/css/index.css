@@ -36,3 +36,7 @@ input::-webkit-inner-spin-button {
 input[type=number] {
     -moz-appearance:textfield; /* Firefox */
 }
+
+.recharts-cartesian-axis-ticks {
+  font-size: 0.8rem;
+}

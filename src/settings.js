@@ -23,8 +23,7 @@ export default function Settings(props) {
   const [searchThreshold, setSearchThreshold] = useState(1);
   const [messageThreshold, setMessageThreshold] = useState(5);
   const [volumeThreshold, setVolumeThreshold] = useState(-40);
-
-  const player = props.player;
+  const { player, handleIntervalChange, interval } = props;
 
   const handleStartInput = (evt) => {
     setStart(evt.target.value);
@@ -374,6 +373,36 @@ export default function Settings(props) {
                       fullWidth
                       defaultValue={messageThreshold}
                       onChange={handleMessageThreshold}
+                    />
+                  </Box>
+                </div>
+                <div style={{ marginLeft: "2rem" }}>
+                  <Box width="5rem">
+                    <TextField
+                      inputProps={{
+                        style: {
+                          backgroundColor: "hsla(0,0%,100%,.15)",
+                          color: "#efeff1",
+                          paddingLeft: "0.1rem",
+                          paddingRight: "0.1rem",
+                          textAlign: "center",
+                          "&:disabled": {
+                            cursor: "not-allowed",
+                            pointerEvents: "all",
+                          },
+                        },
+                      }}
+                      InputLabelProps={{
+                        style: { color: "#fff", textAlign: "center" },
+                      }}
+                      type="number"
+                      min={1}
+                      variant="standard"
+                      margin="none"
+                      label="Interval"
+                      fullWidth
+                      defaultValue={interval}
+                      onChange={handleIntervalChange}
                     />
                   </Box>
                 </div>

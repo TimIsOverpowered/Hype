@@ -12,6 +12,8 @@ import Logo from "./assets/logo.svg";
 import { ZSTDDecoder } from "zstddec";
 import SimpleBar from "simplebar-react";
 import Settings from "./settings";
+import Graph from "./graph";
+import moment from "moment";
 
 class Vod extends Component {
   constructor(props) {
@@ -40,6 +42,11 @@ class Vod extends Component {
       volumeData: null,
       clipsData: null,
       chaptersData: null,
+      interval: 30,
+      graphData: null,
+      messageThreshold: 1,
+      searchThreshold: 1,
+      volumeThreshold: -40,
     };
   }
 
@@ -239,8 +246,21 @@ class Vod extends Component {
       });
   };
 
-  handlePlayerReady = (player) => {
+  handlePlayerReady = async (player) => {
     this.player = player;
+    while (this.player.getDuration() === 0) {
+      await this.sleep(50);
+    }
+    this.setState(
+      {
+        messageThreshold:
+          Math.round(this.state.logs.length / this.player.getDuration()) * 25 ||
+          1,
+      },
+      () => {
+        this.buildMessageGraph();
+      }
+    );
   };
 
   handlePlayerPlay = () => {
@@ -548,18 +568,15 @@ class Vod extends Component {
               >
                 <Box flexGrow={1}>
                   {this.transformBadges(comment.user_badges)}
-                  <a
-                    href={`https://twitch.tv/${comment.display_name}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#615b5b", textDecoration: "none" }}
+                  <div
+                    style={{ color: "#615b5b", textDecoration: "none", display:"inline" }}
                   >
                     <span
                       style={{ color: comment.user_color, fontWeight: "700" }}
                     >
                       {comment.display_name}
                     </span>
-                  </a>
+                  </div>
                   <Box display="inline">
                     <span>: </span>
                     {this.transformMessage(comment.message)}
@@ -588,6 +605,142 @@ class Vod extends Component {
     );
   };
 
+  buildMessageGraph = () => {
+    let data = [];
+    const duration = this.player.getDuration();
+    let logs = this.state.logs.slice(0),
+      chapters = this.state.chaptersData;
+    for (
+      let seconds = this.state.interval;
+      seconds < duration;
+      seconds += this.state.interval
+    ) {
+      let json = { emotes: {}, messages: 0 };
+
+      if (chapters) {
+        for (let chapter of chapters) {
+          if (moment.duration(chapter.duration).asSeconds() <= seconds) {
+            json.game = chapter.name;
+          }
+        }
+      }
+      for (let log of logs) {
+        const timestampAsSeconds = moment
+          .duration(log.substring(1, 9))
+          .asSeconds();
+
+        if (timestampAsSeconds > seconds) break;
+
+        json.messages = json.messages + 1;
+
+        const username = log.substring(
+          log.indexOf("] ") + 2,
+          log.indexOf(": ")
+        );
+        if (username === "twitchnotify") {
+          json.subs = json.subs + 1 || 1;
+        }
+
+        const messageArray = log
+          .substring(log.indexOf(": ") + 2, log.length)
+          .trim()
+          .split(" ");
+
+        for (let message of messageArray) {
+          let found;
+          if (this.FFZEmotes) {
+            for (let ffz_emote of this.FFZEmotes) {
+              if (message === ffz_emote.name) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.BTTVGlobalEmotes) {
+            for (let bttv_emote of this.BTTVGlobalEmotes) {
+              if (message === bttv_emote.code) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.BTTVEmotes) {
+            for (let bttv_emote of this.BTTVEmotes) {
+              if (message === bttv_emote.code) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+        }
+      }
+      logs.splice(0, json.messages);
+
+      if (json.messages >= this.state.messageThreshold) {
+        json.duration = moment.utc(seconds * 1000).format("HH:mm:ss");
+
+        let sortable = [];
+
+        for (let emoteKey of Object.keys(json.emotes)) {
+          sortable.push([emoteKey, json.emotes[emoteKey]]);
+        }
+
+        delete json["emotes"];
+
+        sortable.sort(function (a, b) {
+          return b[1] - a[1];
+        });
+
+        if (sortable.length > 5) {
+          sortable = sortable.slice(0, 5);
+        }
+
+        sortable.forEach((emote) => {
+          json[emote[0]] = emote[1];
+        });
+
+        data.push(json);
+      }
+    }
+    this.setState({ graphData: data });
+  };
+
+  handleIntervalChange = (evt) => {
+    this.setState({ interval: evt.target.value });
+  };
+
+  handleChartClick = (evt) => {
+    if (!evt) return;
+    const duration =
+      moment.duration(evt.activeLabel).asSeconds() - this.state.interval - 10;
+    this.setState({
+      start: moment.utc(duration * 1000).format("HH:mm:ss"),
+      end: evt.activeLabel,
+    });
+    this.setTimestamp(duration);
+  };
+
+  setTimestamp = (duration) => {
+    if (this.player.isPaused()) {
+      this.player.play();
+      setTimeout(() => {
+        this.player.seek(duration);
+      }, 50);
+    } else {
+      this.player.seek(duration);
+    }
+    if (this.loopTimeout) clearTimeout(this.loopTimeout);
+    if (this.timeout) clearTimeout(this.timeout);
+  };
+
   render() {
     const { classes, user } = this.props;
     if (user === undefined || this.state.logs === undefined)
@@ -597,7 +750,7 @@ class Vod extends Component {
             <div>
               <img alt="" src={Logo} height="auto" width="15%" />
             </div>
-            <CircularProgress style={{ marginTop: "2rem" }} size="3%" />
+            <CircularProgress style={{ marginTop: "2rem" }} size="1rem" />
           </div>
         </div>
       );
@@ -620,7 +773,11 @@ class Vod extends Component {
       <Container
         maxWidth={false}
         disableGutters
-        style={{ height: "calc(100% - 48px)" }}
+        style={{
+          height: "calc(100% - 48px)",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         <Box display="flex" height="50%" width="100%">
           <TwitchPlayer
@@ -637,11 +794,13 @@ class Vod extends Component {
             {this.state.chatLoading ? (
               <div
                 style={{
-                  textAlign: "center",
-                  marginTop: "20vh",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
                 }}
               >
-                <CircularProgress style={{ marginTop: "2rem" }} size="15%" />
+                <CircularProgress size="3rem" />
               </div>
             ) : (
               <SimpleBar
@@ -662,11 +821,29 @@ class Vod extends Component {
             )}
           </div>
         </Box>
-        <Settings player={this.player} volumeData={this.state.volumeData} clipsData={this.state.clipsData} />
+        <Settings
+          player={this.player}
+          volumeData={this.state.volumeData}
+          clipsData={this.state.clipsData}
+          handleIntervalChange={this.handleIntervalChange}
+          interval={this.state.interval}
+        />
+
+        {!this.state.graphData ? (
+          <div className={classes.graphRoot}>
+            <div className={classes.graphLoading}>
+              <CircularProgress size="3rem" />
+            </div>
+          </div>
+        ) : (
+          <Graph data={this.state.graphData} handleChartClick={this.handleChartClick} />
+        )}
       </Container>
     );
   }
 }
+
+//MUTATE CLIPSDATA USING GQL GET CORRECT OFFSET?
 
 const useStyles = (theme) => ({
   parent: {
@@ -720,6 +897,15 @@ const useStyles = (theme) => ({
     verticalAlign: "middle",
     border: "none",
     maxWidth: "100%",
+  },
+  graphRoot: {
+    flex: 1,
+  },
+  graphLoading: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
   },
 });
 

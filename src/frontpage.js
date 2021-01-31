@@ -36,7 +36,7 @@ export default function Frontpage(props) {
           <div>
             <img alt="" src={Logo} height="auto" width="15%" />
           </div>
-          <CircularProgress style={{ marginTop: "2rem" }} size="3%" />
+          <CircularProgress style={{ marginTop: "2rem" }} size="1rem" />
         </div>
       </div>
     );
