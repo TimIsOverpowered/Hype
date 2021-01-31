@@ -11,6 +11,7 @@ import {
 import Logo from "./assets/logo.svg";
 import { ZSTDDecoder } from "zstddec";
 import SimpleBar from "simplebar-react";
+import Settings from "./settings";
 
 class Vod extends Component {
   constructor(props) {
@@ -36,6 +37,9 @@ class Vod extends Component {
       replayMessages: null,
       comments: [],
       stoppedAtIndex: 0,
+      volumeData: null,
+      clipsData: null,
+      chaptersData: null,
     };
   }
 
@@ -43,8 +47,74 @@ class Vod extends Component {
     document.title = `${this.channel} - ${this.vodId}`;
     if (!this.props.user) return;
     this.fetchLogs();
+    this.fetchVolume();
+    this.fetchClips();
+    this.fetchChapters();
     this.getTwitchId();
   }
+
+  fetchClips = async () => {
+    const { accessToken } = await client.get("authentication");
+
+    await fetch(`https://api.hype.lol/v1/vods/${this.vodId}/clips`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.error) {
+          return;
+        }
+        this.setState({ clipsData: data });
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  };
+
+  fetchChapters = async () => {
+    const { accessToken } = await client.get("authentication");
+
+    await fetch(`https://api.hype.lol/v1/vods/${this.vodId}/chapters`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.error) {
+          return;
+        }
+        this.setState({ chaptersData: data });
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  };
+
+  fetchVolume = async () => {
+    const { accessToken } = await client.get("authentication");
+
+    await fetch(`https://api.hype.lol/v1/vods/${this.vodId}/volume`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.error) {
+          return;
+        }
+        this.setState({ volumeData: data });
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  };
 
   fetchLogs = async () => {
     const { accessToken } = await client.get("authentication");
@@ -552,7 +622,7 @@ class Vod extends Component {
         disableGutters
         style={{ height: "calc(100% - 48px)" }}
       >
-        <Box display="flex" height="100%" width="100%">
+        <Box display="flex" height="50%" width="100%">
           <TwitchPlayer
             id="twitch-player"
             className={classes.player}
@@ -592,6 +662,7 @@ class Vod extends Component {
             )}
           </div>
         </Box>
+        <Settings player={this.player} volumeData={this.state.volumeData} clipsData={this.state.clipsData} />
       </Container>
     );
   }
@@ -609,7 +680,7 @@ const useStyles = (theme) => ({
     width: "70%!important",
   },
   horizChat: {
-    backgroundColor: "#0e0e10",
+    backgroundColor: "rgb(14 14 14 / 1)",
     width: "30%",
     height: "100%",
   },
@@ -619,7 +690,7 @@ const useStyles = (theme) => ({
   },
   chat: {
     height: "100%",
-    backgroundColor: "#0e0e10",
+    backgroundColor: "rgb(14 14 14 / 1)",
     fontSize: "1rem",
     flex: "1 1 auto",
     lineHeight: "1rem",

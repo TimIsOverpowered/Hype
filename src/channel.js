@@ -19,7 +19,7 @@ export default function Channel(props) {
   const channel = props.match.params.channel;
 
   useEffect(() => {
-    if(!props.user) return;
+    if (!props.user) return;
     document.title = `${channel}'s Vods - Hype`;
     const checkWhitelist = async () => {
       const { accessToken } = await client.get("authentication");
@@ -69,6 +69,7 @@ export default function Channel(props) {
         if (vods.length === 0) {
           setVods(null);
           setLoading(false);
+          return;
         }
         for (let vod of vods) {
           if (vod.thumbnail_url) {
