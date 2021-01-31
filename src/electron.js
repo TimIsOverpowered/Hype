@@ -1,6 +1,6 @@
 const path = require("path");
 
-const { app, BrowserWindow, protocol } = require("electron");
+const { app, BrowserWindow, protocol, shell } = require("electron");
 const isDev = require("electron-is-dev");
 const windowStateKeeper = require("electron-window-state");
 
@@ -22,6 +22,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      enableRemoteModule: false,
     },
   });
 
@@ -64,9 +65,31 @@ function createWindow() {
     }
   });
 
+  win.webContents.on("will-navigate", (event, url) => {
+    const parsedUrl = new URL(url);
+
+    if (
+      parsedUrl.origin !== "https://twitch.tv" ||
+      parsedUrl.origin !== "https://api.hype.lol" ||
+      parsedUrl.origin !== "https://id.twitch.tv"
+    ) {
+      event.preventDefault();
+    }
+  });
+
   win.webContents.on("new-window", (event, url) => {
-    event.preventDefault()
-    win.loadURL(url)
+    event.preventDefault();
+    setImmediate(() => {
+      const parsedUrl = new URL(url);
+      if (
+        parsedUrl.origin === "https://twitch.tv" ||
+        parsedUrl.origin === "https://api.hype.lol" ||
+        parsedUrl.origin === "https://id.twitch.tv"
+      ) {
+        shell.openExternal(url);
+      }
+    });
+    return { action: "deny" };
   });
 
   //mainWindowState.manage(win);
