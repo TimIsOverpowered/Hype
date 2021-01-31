@@ -1,13 +1,27 @@
 .hype-root {
-    overflow: hidden!important;
-    flex-direction: column!important;
-    position: absolute!important;
-    top: 0!important;
-    right: 0!important;
-    bottom: 0!important;
-    left: 0!important;
-    display: flex!important;
-    flex-wrap: nowrap!important;
-    color: #fff;
-    font-family: 'Roboto', sans-serif;
+  overflow: hidden !important;
+  flex-direction: column !important;
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  color: #fff;
+  font-family: "Roboto", sans-serif;
+}
+
+ul {
+  border: 0;
+  font: inherit;
+  font-size: 100%;
+  margin: 0;
+  padding: 0;
+  vertical-align: baseline;
+  list-style: none;
+}
+
+li {
+  list-style-position: inside;
 }

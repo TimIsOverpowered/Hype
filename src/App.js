@@ -11,11 +11,13 @@ export default function App() {
   useEffect(() => {
     client.authenticate().catch(() => setUser(null));
 
-    client.on("authenticated", (user) => {
-      setUser(user.user);
+    client.on("authenticated", (paramUser) => {
+      setUser(paramUser.user);
     });
 
     client.service("users").on("patched", (paramUser) => {
+      if(!paramUser) return;
+      if(!user) return;
       if (paramUser.id === user.id) {
         setUser(paramUser);
       }

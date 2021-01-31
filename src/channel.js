@@ -19,6 +19,7 @@ export default function Channel(props) {
   const channel = props.match.params.channel;
 
   useEffect(() => {
+    if(!props.user) return;
     document.title = `${channel}'s Vods - Hype`;
     const checkWhitelist = async () => {
       const { accessToken } = await client.get("authentication");
@@ -164,7 +165,7 @@ export default function Channel(props) {
     }
 
     return;
-  }, [channel, channelWhitelist, classes]);
+  }, [channel, channelWhitelist, classes, props.user]);
 
   if (props.user === undefined)
     return (
