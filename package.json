@@ -1,5 +1,5 @@
 {
-  "name": "hype-electron",
+  "name": "Hype",
   "version": "0.1.0",
   "private": true,
   "main": "src/electron.js",
@@ -19,11 +19,12 @@
     "electron-progressbar": "^2.0.0",
     "electron-squirrel-startup": "^1.0.0",
     "electron-window-state": "^5.0.3",
+    "ffmpeg-static": "^4.2.7",
+    "fluent-ffmpeg": "git+https://github.com/fluent-ffmpeg/node-fluent-ffmpeg.git",
     "hls-parser": "^0.7.0",
     "moment": "^2.29.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
-    "react-loader-spinner": "^3.1.14",
     "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.1",
     "react-twitch-embed": "^2.1.0",
@@ -33,16 +34,15 @@
     "web-vitals": "^1.1.0",
     "zstddec": "0.0.2"
   },
-  "config-overrides-path": "/src/config-overrides.js",
   "scripts": {
     "dev": "concurrently -k \"cross-env BROWSER=none npm start\" \"npm:electron\"",
     "electron": "wait-on tcp:3000 && electron-forge start",
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts start",
+    "build": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "package": "react-scripts build && electron-forge package",
-    "make": "react-scripts build && electron-forge make"
+    "package": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge package",
+    "make": "cross-env DEBUG=* react-scripts build && electron-forge make"
   },
   "eslintConfig": {
     "extends": [
@@ -70,8 +70,6 @@
     "@electron-forge/maker-zip": "^6.0.0-beta.54",
     "concurrently": "^5.3.0",
     "electron": "^11.2.1",
-    "ffmpeg-static": "^4.2.7",
-    "fluent-ffmpeg": "git+https://github.com/fluent-ffmpeg/node-fluent-ffmpeg.git",
     "wait-on": "^5.2.1"
   },
   "config": {
@@ -84,7 +82,7 @@
         {
           "name": "@electron-forge/maker-squirrel",
           "config": {
-            "name": "hype_electron"
+            "name": "Hype"
           }
         },
         {

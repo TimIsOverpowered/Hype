@@ -13,49 +13,55 @@ const ffmpegPath = require("ffmpeg-static");
 const ffmpeg = require("fluent-ffmpeg");
 const twitch = require("./twitch");
 const ProgressBar = require("electron-progressbar");
-const { errors } = require("@feathersjs/client");
 
 if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
 function createWindow() {
-  //fix window state
   let mainWindowState = windowStateKeeper({
     defaultWidth: 900,
     defaultHeight: 600,
   });
 
-  // Create the browser window.
+  console.log(app.getPath('userData'));
+
   const win = new BrowserWindow({
     minWidth: 900,
     minHeight: 600,
+    x: mainWindowState.x,
+    y: mainWindowState.y,
+    width: mainWindowState.width,
+    height: mainWindowState.height,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: true,
       preload: path.join(__dirname, "preload.js"),
+      devTools: isDev ? true : false,
     },
   });
 
   win.setTitle("Hype");
+  win.setMenu(null);
 
-  // and load the index.html of the app.
-  // win.loadFile("index.html");
   win.loadURL(
     isDev
       ? "http://localhost:3000"
       : `file://${path.join(__dirname, "../build/index.html")}`
   );
 
-  // Open the DevTools.
   if (isDev) {
     win.webContents.openDevTools({ mode: "detach" });
   }
 
+  let authWindow;
+
   protocol.registerFileProtocol("hype", (request, callback) => {
     const url = request.url;
     if (url.includes("oauth")) {
+      authWindow.close();
+      authWindow = null;
       const access_token = url.substring(
         url.indexOf("?access_token=") + 14,
         url.length
@@ -78,31 +84,53 @@ function createWindow() {
     }
   });
 
-  win.webContents.on("will-navigate", (event, url) => {
-    const parsedUrl = new URL(url);
+  ipcMain.on("login", async (event, args) => {
+    authWindow = new BrowserWindow({
+      width: 800,
+      height: 800,
+      show: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      devTools: false,
+    });
+    authWindow.setMenu(null);
+    authWindow.loadURL("https://api.hype.lol/oauth/twitch?redirect=electron");
+    authWindow.show();
+  });
 
+  win.webContents.on("will-navigate", (event, url) => {
+    event.preventDefault();
+    const parsedUrl = new URL(url);
     if (
-      parsedUrl.origin !== "https://twitch.tv" ||
-      parsedUrl.origin !== "https://api.hype.lol" ||
-      parsedUrl.origin !== "https://id.twitch.tv"
+      parsedUrl.origin === "https://twitch.tv" ||
+      parsedUrl.origin === "https://www.twitch.tv" ||
+      parsedUrl.origin === "https://hype.lol" ||
+      parsedUrl.origin === "https://www.hype.lol" ||
+      parsedUrl.origin === "https://patreon.com" ||
+      parsedUrl.origin === "https://www.patreon.com" ||
+      parsedUrl.origin === "https://discord.gg" ||
+      parsedUrl.origin === "https://www.discord.gg"
     ) {
-      event.preventDefault();
+      shell.openExternal(url);
     }
   });
 
   win.webContents.on("new-window", (event, url) => {
     event.preventDefault();
-    setImmediate(() => {
-      const parsedUrl = new URL(url);
-      if (
-        parsedUrl.origin === "https://twitch.tv" ||
-        parsedUrl.origin === "https://api.hype.lol" ||
-        parsedUrl.origin === "https://id.twitch.tv"
-      ) {
-        shell.openExternal(url);
-      }
-    });
-    return { action: "deny" };
+    const parsedUrl = new URL(url);
+    if (
+      parsedUrl.origin === "https://twitch.tv" ||
+      parsedUrl.origin === "https://www.twitch.tv" ||
+      parsedUrl.origin === "https://hype.lol" ||
+      parsedUrl.origin === "https://www.hype.lol" ||
+      parsedUrl.origin === "https://patreon.com" ||
+      parsedUrl.origin === "https://www.patreon.com" ||
+      parsedUrl.origin === "https://discord.gg" ||
+      parsedUrl.origin === "https://www.discord.gg"
+    ) {
+      shell.openExternal(url);
+    }
   });
 
   let m3u8;
@@ -150,6 +178,7 @@ function createWindow() {
   const clip = (start, end, m3u8, progressBar, path) => {
     return new Promise((resolve, reject) => {
       const ffmpeg_process = ffmpeg(m3u8)
+        .setFfmpegPath(ffmpegPath)
         .seekInput(start)
         .videoCodec("copy")
         .audioCodec("copy")
@@ -224,6 +253,7 @@ function createWindow() {
   const vod = (m3u8, progressBar, path) => {
     return new Promise((resolve, reject) => {
       const ffmpeg_process = ffmpeg(m3u8)
+        .setFfmpegPath(ffmpegPath)
         .videoCodec("copy")
         .audioCodec("copy")
         .outputOptions(["-bsf:a aac_adtstoasc"])
@@ -247,17 +277,11 @@ function createWindow() {
     });
   };
 
-  //mainWindowState.manage(win);
+  mainWindowState.manage(win);
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(createWindow);
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
@@ -265,8 +289,6 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  // On macOS it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }

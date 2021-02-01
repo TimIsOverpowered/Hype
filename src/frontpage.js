@@ -5,6 +5,7 @@ import {
   TextField,
   Button,
   CircularProgress,
+  Box,
 } from "@material-ui/core";
 import Logo from "./assets/logo.svg";
 
@@ -15,8 +16,7 @@ export default function Frontpage(props) {
 
   const login = () => {
     setLoadingLogin(true);
-    window.location.href =
-      "https://api.hype.lol/oauth/twitch?redirect=electron";
+    window.api.send("login", null);
   };
 
   const handleChannelChange = (evt) => {
@@ -102,37 +102,68 @@ export default function Frontpage(props) {
         <Typography variant="h4" className={classes.marginTop2}>
           {`Welcome back ${props.user.display_name}!`}
         </Typography>
-        <Typography
-          variant="h5"
-          className={`${classes.marginTop2} ${classes.bold} ${classes.status}`}
-        >
-          {`Status: ${status ? "Active" : "Not Active"}`}
-        </Typography>
-        <TextField
-          autoFocus
-          inputProps={{
-            style: {
-              backgroundColor: "hsla(0,0%,100%,.15)",
-              color: "#fff",
-              textAlign: "center",
-            },
-          }}
-          InputLabelProps={{
-            style: { color: "#fff" },
-          }}
-          disabled={!status}
-          variant="outlined"
-          margin="normal"
-          fullWidth
-          label="Enter a Twitch Channel"
-          name="channel"
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          autoFocus
-          onChange={handleChannelChange}
-          onKeyPress={handleChannelSubmit}
-        />
+        <Box className={classes.marginTop2}>
+          <Typography
+            variant="h5"
+            className={`${classes.bold} ${classes.status}`}
+          >
+            {`Status: ${status ? "Active" : "Not Active"}`}
+          </Typography>
+          {status ? (
+            <></>
+          ) : (
+            <Button
+              style={{ marginTop: "1rem" }}
+              href="https://patreon.com/join/overpoweredgg"
+              target="_blank"
+              rel="noopenere noreferrer"
+              color="primary"
+            >
+              Join Patreon Today
+            </Button>
+          )}
+        </Box>
+        {status ? (
+          <TextField
+            autoFocus
+            inputProps={{
+              style: {
+                backgroundColor: "hsla(0,0%,100%,.15)",
+                color: "#fff",
+                textAlign: "center",
+              },
+            }}
+            InputLabelProps={{
+              style: { color: "#fff" },
+            }}
+            disabled={!status}
+            variant="outlined"
+            margin="normal"
+            fullWidth
+            label="Enter a Twitch Channel"
+            name="channel"
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            onChange={handleChannelChange}
+            onKeyPress={handleChannelSubmit}
+          />
+        ) : (
+          <Box marginTop="1rem">
+            <Typography variant="h6" className={`${classes.bold}`}>
+              {`If you are a patron, please verify your patreon in settings.`}
+            </Typography>
+            <Button
+              style={{ marginTop: "1rem" }}
+              href="https://hype.lol/settings/connections"
+              target="_blank"
+              rel="noopenere noreferrer"
+              color="primary"
+            >
+              Settings (Opens Browser)
+            </Button>
+          </Box>
+        )}
       </div>
     </div>
   );

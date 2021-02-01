@@ -28,13 +28,13 @@ li {
 
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
-    /* display: none; <- Crashes Chrome on hover */
-    -webkit-appearance: none;
-    margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+  /* display: none; <- Crashes Chrome on hover */
+  -webkit-appearance: none;
+  margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
 }
 
-input[type=number] {
-    -moz-appearance:textfield; /* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
 }
 
 .recharts-cartesian-axis-ticks {
@@ -42,4 +42,10 @@ input[type=number] {
 }
 .recharts-brush-texts {
   font-size: 0.6rem;
+}
+
+img {
+  max-width: 100%;
+  vertical-align: top;
+  border: none;
 }
