@@ -88,6 +88,7 @@ export default function Frontpage(props) {
       </div>
     );
 
+    //add patreon logo if not active and link to settings connections.
   return (
     <div className={classes.parent}>
       <div style={{ textAlign: "center" }}>

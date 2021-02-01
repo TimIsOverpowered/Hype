@@ -9,25 +9,47 @@ import {
   Button,
   TextField,
 } from "@material-ui/core";
-import moment from "moment";
-import { Movie, Search, Equalizer, Theaters, GetApp } from "@material-ui/icons";
+import {
+  Movie,
+  Search,
+  Equalizer,
+  Theaters,
+  GetApp,
+  Close,
+} from "@material-ui/icons";
 import SettingsIcon from "@material-ui/icons/Settings";
 
 export default function Settings(props) {
   const classes = useStyles();
-  const [start, setStart] = useState("00:00:00");
   const [showStartInput, setShowStartInput] = useState(false);
-  const [end, setEnd] = useState("00:00:00");
   const [showEndInput, setShowEndInput] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [searchThreshold, setSearchThreshold] = useState(1);
-  const [messageThreshold, setMessageThreshold] = useState(5);
-  const [volumeThreshold, setVolumeThreshold] = useState(-40);
-  const { player, handleIntervalChange, interval } = props;
-
-  const handleStartInput = (evt) => {
-    setStart(evt.target.value);
-  };
+  const {
+    player,
+    handleIntervalChange,
+    interval,
+    handleSearchThreshold,
+    handleVolumeThreshold,
+    handleMessageThreshold,
+    handleStartInput,
+    handleEndInput,
+    handleStartButton,
+    handleEndButton,
+    handleClip,
+    searchThreshold,
+    volumeThreshold,
+    messageThreshold,
+    searchToggle,
+    volumeToggle,
+    clipsToggle,
+    handleSearchToggle,
+    handleVolumeToggle,
+    handleClipsToggle,
+    handleSearchInput,
+    searchTerm,
+    start,
+    end,
+  } = props;
 
   const handleStartInputClick = () => {
     setShowStartInput(true);
@@ -36,15 +58,6 @@ export default function Settings(props) {
   const handleLostFocusStartInput = () => {
     if (!showStartInput) return;
     setShowStartInput(false);
-  };
-
-  const getTimeStampForStart = () => {
-    if (!player) return;
-    setStart(moment.utc(player.getCurrentTime() * 1000).format("HH:mm:ss"));
-  };
-
-  const handleEndInput = (evt) => {
-    setEnd(evt.target.value);
   };
 
   const handleEndInputClick = () => {
@@ -56,40 +69,12 @@ export default function Settings(props) {
     setShowEndInput(false);
   };
 
-  const getTimeStampForEnd = () => {
-    if (!player) return;
-    setEnd(moment.utc(player.getCurrentTime() * 1000).format("HH:mm:ss"));
-  };
-
-  const handleClip = () => {};
-
   const handleShowSettingsModal = () => {
     setShowSettingsModal(true);
   };
 
   const handleCloseSettingsModal = () => {
     setShowSettingsModal(false);
-  };
-
-  const handleSearchThreshold = (evt) => {
-    setSearchThreshold(evt.target.value);
-    /*
-    if (this.timeout) clearTimeout(this.timeout);
-    this.timeout = setTimeout(this.makeSearchGraph, 500);*/
-  };
-
-  const handleVolumeThreshold = (evt) => {
-    setVolumeThreshold(evt.target.value);
-    /*
-    if (this.timeout) clearTimeout(this.timeout);
-    this.timeout = setTimeout(this.makeSearchGraph, 500);*/
-  };
-
-  const handleMessageThreshold = (evt) => {
-    setMessageThreshold(evt.target.value);
-    /*
-    if (this.timeout) clearTimeout(this.timeout);
-    this.timeout = setTimeout(this.makeSearchGraph, 500);*/
   };
 
   return (
@@ -133,8 +118,9 @@ export default function Settings(props) {
             <Box display="inline-flex" position="relative">
               <div className={classes.buttonDiv}>
                 <button
+                  title="Get Video Timestamp"
                   className={classes.button}
-                  onClick={getTimeStampForStart}
+                  onClick={handleStartButton}
                 >
                   <div className={classes.icon}>
                     <figure className={classes.svg}>
@@ -192,7 +178,11 @@ export default function Settings(props) {
 
             <Box display="inline-flex" position="relative">
               <div className={classes.buttonDiv}>
-                <button className={classes.button} onClick={getTimeStampForEnd}>
+                <button
+                  title="Get Video Timestamp"
+                  className={classes.button}
+                  onClick={handleEndButton}
+                >
                   <div className={classes.icon}>
                     <figure className={classes.svg}>
                       <svg
@@ -216,7 +206,11 @@ export default function Settings(props) {
 
             <Box display="inline-flex" position="relative">
               <div className={classes.buttonDiv}>
-                <IconButton className={classes.button} onClick={handleClip}>
+                <IconButton
+                  title="Clip"
+                  className={classes.button}
+                  onClick={handleClip}
+                >
                   <Movie className={classes.svgAsset} />
                 </IconButton>
               </div>
@@ -227,39 +221,180 @@ export default function Settings(props) {
         <Box display="flex" flexDirection="row" justifyContent="space-between">
           <Box display="inline-flex" position="relative">
             <div className={classes.buttonDiv}>
-              <IconButton
-                disabled={props.clipsData ? false : true}
-                className={classes.button}
-                onClick={null}
-              >
-                <Theaters className={classes.svgAsset} />
-              </IconButton>
+              {clipsToggle ? (
+                <IconButton
+                  title="Close"
+                  className={classes.button}
+                  onClick={handleClipsToggle}
+                >
+                  <Close className={classes.svgAsset} />
+                </IconButton>
+              ) : (
+                <IconButton
+                  title="Clips Graph"
+                  disabled={props.clipsData ? false : true}
+                  className={classes.button}
+                  onClick={handleClipsToggle}
+                >
+                  <Theaters className={classes.svgAsset} />
+                </IconButton>
+              )}
             </div>
           </Box>
           <Box display="inline-flex" position="relative">
             <div className={classes.buttonDiv}>
-              <IconButton
-                disabled={props.volumeData ? false : true}
-                className={classes.button}
-                onClick={null}
-              >
-                <Equalizer className={classes.svgAsset} />
-              </IconButton>
+              {volumeToggle ? (
+                <IconButton
+                  title="Close"
+                  className={classes.button}
+                  onClick={handleVolumeToggle}
+                >
+                  <Close className={classes.svgAsset} />
+                </IconButton>
+              ) : (
+                <IconButton
+                  title="Volume Graph"
+                  disabled={props.volumeData ? false : true}
+                  className={classes.button}
+                  onClick={handleVolumeToggle}
+                >
+                  <Equalizer className={classes.svgAsset} />
+                </IconButton>
+              )}
             </div>
           </Box>
           <Box display="inline-flex" position="relative">
             <div className={classes.buttonDiv}>
-              <IconButton className={classes.button} onClick={null}>
-                <Search className={classes.svgAsset} />
-              </IconButton>
+              {searchToggle ? (
+                <>
+                  <div>
+                    <IconButton
+                      title="Close"
+                      className={classes.button}
+                      onClick={handleSearchToggle}
+                    >
+                      <Close className={classes.svgAsset} />
+                    </IconButton>
+                  </div>
+                  <div className={classes.timeInputDiv}>
+                    <input
+                      autoFocus
+                      type="text"
+                      className={`${classes.thresholdInput} ${classes.timeInput} ${classes.input}`}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="off"
+                      placeholder="Search"
+                      required={true}
+                      defaultValue={searchTerm}
+                      onChange={handleSearchInput}
+                    />
+                  </div>
+                </>
+              ) : (
+                <IconButton
+                  title="Search Graph"
+                  className={classes.button}
+                  onClick={handleSearchToggle}
+                >
+                  <Search className={classes.svgAsset} />
+                </IconButton>
+              )}
             </div>
           </Box>
         </Box>
         <Box className={classes.divider} />
+
         <Box display="flex" flexDirection="row" justifyContent="space-between">
           <Box display="inline-flex" position="relative">
+            {searchToggle ? (
+              <div className={`${classes.timeButton} ${classes.thresholdDiv}`}>
+                <div className={classes.timeLabel}>
+                  <Typography
+                    variant="caption"
+                    className={classes.timeLabelText}
+                  >
+                    Search Threshold
+                  </Typography>
+                </div>
+                <div className={classes.timeInputDiv}>
+                  <Box paddingLeft="1rem" paddingRight="1rem">
+                    <input
+                      key="searchInput"
+                      type="number"
+                      className={`${classes.thresholdInput} ${classes.timeInput} ${classes.input}`}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="off"
+                      min={1}
+                      required={true}
+                      defaultValue={searchThreshold}
+                      onChange={handleSearchThreshold}
+                    />
+                  </Box>
+                </div>
+              </div>
+            ) : clipsToggle ? (
+              <></>
+            ) : volumeToggle ? (
+              <div className={`${classes.timeButton} ${classes.thresholdDiv}`}>
+                <div className={classes.timeLabel}>
+                  <Typography
+                    variant="caption"
+                    className={classes.timeLabelText}
+                  >
+                    Volume Threshold
+                  </Typography>
+                </div>
+                <div className={classes.timeInputDiv}>
+                  <Box paddingLeft="1rem" paddingRight="1rem">
+                    <input
+                      key="volumeInput"
+                      type="number"
+                      className={`${classes.thresholdInput} ${classes.timeInput} ${classes.input}`}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="off"
+                      min={-200}
+                      max={100}
+                      required={true}
+                      defaultValue={volumeThreshold}
+                      onChange={handleVolumeThreshold}
+                    />
+                  </Box>
+                </div>
+              </div>
+            ) : (
+              <div className={`${classes.timeButton} ${classes.thresholdDiv}`}>
+                <div className={classes.timeLabel}>
+                  <Typography
+                    variant="caption"
+                    className={classes.timeLabelText}
+                  >
+                    Message Threshold
+                  </Typography>
+                </div>
+                <div className={classes.timeInputDiv}>
+                  <Box paddingLeft="1rem" paddingRight="1rem">
+                    <input
+                      key="messageInput"
+                      type="number"
+                      className={`${classes.thresholdInput} ${classes.timeInput} ${classes.input}`}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="off"
+                      min={1}
+                      required={true}
+                      defaultValue={messageThreshold}
+                      onChange={handleMessageThreshold}
+                    />
+                  </Box>
+                </div>
+              </div>
+            )}
             <div className={classes.buttonDiv}>
               <IconButton
+                title="Settings"
                 className={classes.button}
                 onClick={handleShowSettingsModal}
               >
@@ -268,166 +403,163 @@ export default function Settings(props) {
             </div>
           </Box>
         </Box>
-        <Modal open={showSettingsModal} onClose={handleCloseSettingsModal}>
-          <div className={`${classes.modalContent} ${classes.modal}`}>
-            <div style={{ width: "40rem", height: "30rem" }}>
-              <Box
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-                p={1}
-              >
-                <Typography className={classes.modalHeader} variant="h3">
-                  Settings
-                </Typography>
-              </Box>
-              <Box display="flex" marginTop="2rem">
-                <div style={{ marginLeft: "2rem" }}>
-                  <Button
-                    className={classes.settingsButton}
-                    variant="contained"
-                    color="primary"
-                    onClick={null}
-                  >
-                    Download Whole Vod
-                  </Button>
-                </div>
-                <div style={{ marginLeft: "2rem" }}>
-                  <Box width="5rem">
-                    <TextField
-                      inputProps={{
-                        style: {
-                          backgroundColor: "hsla(0,0%,100%,.15)",
-                          color: "#efeff1",
-                          paddingLeft: "0.1rem",
-                          paddingRight: "0.1rem",
-                          textAlign: "center",
-                        },
-                      }}
-                      InputLabelProps={{
-                        style: { color: "#fff", textAlign: "center" },
-                      }}
-                      type="number"
-                      min={1}
-                      variant="standard"
-                      margin="none"
-                      label="Search Threshold"
-                      fullWidth
-                      defaultValue={searchThreshold}
-                      onChange={handleSearchThreshold}
-                    />
-                  </Box>
-                </div>
-                <div style={{ marginLeft: "2rem" }}>
-                  <Box width="5rem">
-                    <TextField
-                      inputProps={{
-                        style: {
-                          backgroundColor: "hsla(0,0%,100%,.15)",
-                          color: "#efeff1",
-                          paddingLeft: "0.1rem",
-                          paddingRight: "0.1rem",
-                          textAlign: "center",
-                        },
-                      }}
-                      InputLabelProps={{
-                        style: { color: "#fff", textAlign: "center" },
-                      }}
-                      type="number"
-                      min={-200}
-                      max={200}
-                      disabled={props.volumeData ? false : true}
-                      variant="standard"
-                      margin="none"
-                      label="Volume Threshold"
-                      fullWidth
-                      defaultValue={volumeThreshold}
-                      onChange={handleVolumeThreshold}
-                    />
-                  </Box>
-                </div>
-                <div style={{ marginLeft: "2rem" }}>
-                  <Box width="5rem">
-                    <TextField
-                      inputProps={{
-                        style: {
-                          backgroundColor: "hsla(0,0%,100%,.15)",
-                          color: "#efeff1",
-                          paddingLeft: "0.1rem",
-                          paddingRight: "0.1rem",
-                          textAlign: "center",
-                          "&:disabled": {
-                            cursor: "not-allowed",
-                            pointerEvents: "all",
-                          },
-                        },
-                      }}
-                      InputLabelProps={{
-                        style: { color: "#fff", textAlign: "center" },
-                      }}
-                      type="number"
-                      min={1}
-                      variant="standard"
-                      margin="none"
-                      label="Message Threshold"
-                      fullWidth
-                      defaultValue={messageThreshold}
-                      onChange={handleMessageThreshold}
-                    />
-                  </Box>
-                </div>
-                <div style={{ marginLeft: "2rem" }}>
-                  <Box width="5rem">
-                    <TextField
-                      inputProps={{
-                        style: {
-                          backgroundColor: "hsla(0,0%,100%,.15)",
-                          color: "#efeff1",
-                          paddingLeft: "0.1rem",
-                          paddingRight: "0.1rem",
-                          textAlign: "center",
-                          "&:disabled": {
-                            cursor: "not-allowed",
-                            pointerEvents: "all",
-                          },
-                        },
-                      }}
-                      InputLabelProps={{
-                        style: { color: "#fff", textAlign: "center" },
-                      }}
-                      type="number"
-                      min={1}
-                      variant="standard"
-                      margin="none"
-                      label="Interval"
-                      fullWidth
-                      defaultValue={interval}
-                      onChange={handleIntervalChange}
-                    />
-                  </Box>
-                </div>
-              </Box>
-              <Box display="flex" marginTop="2rem">
-                <div style={{ marginLeft: "2rem", display: "flex" }}>
-                  <div className={classes.labelDiv}>
-                    <Typography
-                      className={classes.settingsLabel}
-                      variant="body2"
-                    >
-                      Test
-                    </Typography>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <IconButton className={classes.button} onClick={null}>
-                      <GetApp className={classes.svgAsset} />
-                    </IconButton>
-                  </div>
-                </div>
-              </Box>
-            </div>
-          </div>
-        </Modal>
       </div>
+      <Modal open={showSettingsModal} onClose={handleCloseSettingsModal}>
+        <div className={`${classes.modalContent} ${classes.modal}`}>
+          <div style={{ width: "40rem", height: "30rem" }}>
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              p={1}
+            >
+              <Typography className={classes.modalHeader} variant="h3">
+                Settings
+              </Typography>
+            </Box>
+            <Box display="flex" marginTop="2rem">
+              <div style={{ marginLeft: "2rem" }}>
+                <Button
+                  className={classes.settingsButton}
+                  variant="contained"
+                  color="primary"
+                  onClick={null}
+                >
+                  Download Whole Vod
+                </Button>
+              </div>
+              <div style={{ marginLeft: "2rem" }}>
+                <Box width="5rem">
+                  <TextField
+                    inputProps={{
+                      style: {
+                        backgroundColor: "hsla(0,0%,100%,.15)",
+                        color: "#efeff1",
+                        paddingLeft: "0.1rem",
+                        paddingRight: "0.1rem",
+                        textAlign: "center",
+                      },
+                    }}
+                    InputLabelProps={{
+                      style: { color: "#fff", textAlign: "center" },
+                    }}
+                    type="number"
+                    min={1}
+                    variant="standard"
+                    margin="none"
+                    label="Search Threshold"
+                    fullWidth
+                    defaultValue={searchThreshold}
+                    onChange={handleSearchThreshold}
+                  />
+                </Box>
+              </div>
+              <div style={{ marginLeft: "2rem" }}>
+                <Box width="5rem">
+                  <TextField
+                    inputProps={{
+                      style: {
+                        backgroundColor: "hsla(0,0%,100%,.15)",
+                        color: "#efeff1",
+                        paddingLeft: "0.1rem",
+                        paddingRight: "0.1rem",
+                        textAlign: "center",
+                      },
+                    }}
+                    InputLabelProps={{
+                      style: { color: "#fff", textAlign: "center" },
+                    }}
+                    type="number"
+                    min={-200}
+                    max={200}
+                    disabled={props.volumeData ? false : true}
+                    variant="standard"
+                    margin="none"
+                    label="Volume Threshold"
+                    fullWidth
+                    defaultValue={volumeThreshold}
+                    onChange={handleVolumeThreshold}
+                  />
+                </Box>
+              </div>
+              <div style={{ marginLeft: "2rem" }}>
+                <Box width="5rem">
+                  <TextField
+                    inputProps={{
+                      style: {
+                        backgroundColor: "hsla(0,0%,100%,.15)",
+                        color: "#efeff1",
+                        paddingLeft: "0.1rem",
+                        paddingRight: "0.1rem",
+                        textAlign: "center",
+                        "&:disabled": {
+                          cursor: "not-allowed",
+                          pointerEvents: "all",
+                        },
+                      },
+                    }}
+                    InputLabelProps={{
+                      style: { color: "#fff", textAlign: "center" },
+                    }}
+                    type="number"
+                    min={1}
+                    variant="standard"
+                    margin="none"
+                    label="Message Threshold"
+                    fullWidth
+                    defaultValue={messageThreshold}
+                    onChange={handleMessageThreshold}
+                  />
+                </Box>
+              </div>
+              <div style={{ marginLeft: "2rem" }}>
+                <Box width="5rem">
+                  <TextField
+                    inputProps={{
+                      style: {
+                        backgroundColor: "hsla(0,0%,100%,.15)",
+                        color: "#efeff1",
+                        paddingLeft: "0.1rem",
+                        paddingRight: "0.1rem",
+                        textAlign: "center",
+                        "&:disabled": {
+                          cursor: "not-allowed",
+                          pointerEvents: "all",
+                        },
+                      },
+                    }}
+                    InputLabelProps={{
+                      style: { color: "#fff", textAlign: "center" },
+                    }}
+                    type="number"
+                    min={1}
+                    variant="standard"
+                    margin="none"
+                    label="Interval"
+                    fullWidth
+                    defaultValue={interval}
+                    onChange={handleIntervalChange}
+                  />
+                </Box>
+              </div>
+            </Box>
+            <Box display="flex" marginTop="2rem">
+              <div style={{ marginLeft: "2rem", display: "flex" }}>
+                <div className={classes.labelDiv}>
+                  <Typography className={classes.settingsLabel} variant="body2">
+                    Test
+                  </Typography>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <IconButton className={classes.button} onClick={null}>
+                    <GetApp className={classes.svgAsset} />
+                  </IconButton>
+                </div>
+              </div>
+            </Box>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -502,6 +634,12 @@ const useStyles = makeStyles(() => ({
       borderColor: "#2079ff",
       outline: "none",
     },
+  },
+  thresholdInput: {
+    backgroundColor: "hsl(0 0% 100%/.15)",
+  },
+  thresholdDiv: {
+    borderRight: "1px solid hsla(0,0%,100%,.1)",
   },
   buttonDiv: {
     borderRight: "1px solid hsla(0,0%,100%,.1)",

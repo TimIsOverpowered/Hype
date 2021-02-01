@@ -3,7 +3,6 @@ import { TwitchPlayer } from "react-twitch-embed";
 import client from "./client";
 import {
   CircularProgress,
-  Typography,
   Box,
   withStyles,
   Container,
@@ -44,9 +43,19 @@ class Vod extends Component {
       chaptersData: null,
       interval: 30,
       graphData: null,
-      messageThreshold: 1,
+      messageGraphData: null,
+      volumeGraphData: null,
+      clipsGraphData: null,
+      searchGraphData: null,
+      messageThreshold: null,
       searchThreshold: 1,
       volumeThreshold: -40,
+      searchToggle: false,
+      volumeToggle: false,
+      clipsToggle: false,
+      start: "00:00:00",
+      end: "00:00:00",
+      searchTerm: "",
     };
   }
 
@@ -70,15 +79,69 @@ class Vod extends Component {
       },
     })
       .then((response) => response.json())
-      .then((data) => {
+      .then(async (data) => {
         if (data.error) {
           return;
         }
-        this.setState({ clipsData: data });
+        let newClips = [],
+          index = 0;
+        while (newClips.length !== data.length) {
+          let tempClips = data.slice(index, index + 35);
+          const mutatedClips = await this.mutateClips(tempClips);
+          newClips = newClips.concat(mutatedClips);
+          await this.sleep(1000);
+          index += 35;
+        }
+        this.setState({ clipsData: newClips });
       })
       .catch((e) => {
         console.error(e);
       });
+  };
+
+  mutateClips = async (clips) => {
+    const gqlClips = [];
+    for (let clip of clips) {
+      gqlClips.push({
+        operationName: "ClipsFullVideoButton",
+        variables: {
+          slug: clip.slug,
+        },
+        extensions: {
+          persistedQuery: {
+            version: 1,
+            sha256Hash:
+              "d519a5a70419d97a3523be18fe6be81eeb93429e0a41c3baa9441fc3b1dffebf",
+          },
+        },
+      });
+    }
+    const gqlResponse = await this.getVideoOffsets(gqlClips);
+    for (let i = 0; i < gqlResponse.length; i++) {
+      clips[i].duration = moment
+        .utc(gqlResponse[i].data.clip.videoOffsetSeconds * 1000)
+        .format("HH:mm:ss");
+    }
+    return clips;
+  };
+
+  getVideoOffsets = async (gqlClips) => {
+    let gqlResponse;
+    await fetch(`https://gql.twitch.tv/gql`, {
+      method: "POST",
+      headers: {
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+      },
+      body: JSON.stringify(gqlClips),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        gqlResponse = data;
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+    return gqlResponse;
   };
 
   fetchChapters = async () => {
@@ -493,7 +556,6 @@ class Vod extends Component {
             if (found) continue;
           }
 
-          //rest is just text
           textFragments.push(
             <span key={this.messageCount++}>{`${message} `}</span>
           );
@@ -569,7 +631,11 @@ class Vod extends Component {
                 <Box flexGrow={1}>
                   {this.transformBadges(comment.user_badges)}
                   <div
-                    style={{ color: "#615b5b", textDecoration: "none", display:"inline" }}
+                    style={{
+                      color: "#615b5b",
+                      textDecoration: "none",
+                      display: "inline",
+                    }}
                   >
                     <span
                       style={{ color: comment.user_color, fontWeight: "700" }}
@@ -611,7 +677,7 @@ class Vod extends Component {
     let logs = this.state.logs.slice(0),
       chapters = this.state.chaptersData;
     for (
-      let seconds = this.state.interval;
+      let seconds = this.state.interval.valueOf();
       seconds < duration;
       seconds += this.state.interval
     ) {
@@ -710,17 +776,40 @@ class Vod extends Component {
         data.push(json);
       }
     }
-    this.setState({ graphData: data });
+    this.setState({
+      graphData: data,
+      messageGraphData: data,
+      graphKey: "messages",
+    });
   };
 
   handleIntervalChange = (evt) => {
-    this.setState({ interval: evt.target.value });
+    if (this.intervalTimeout) clearTimeout(this.intervalTimeout);
+    this.intervalTimeout = setTimeout(() => {
+      this.setState(
+        {
+          interval: parseInt(evt.target.value),
+          searchGraphData: null,
+          messageGraphData: null,
+        },
+        () => {
+          this.state.searchToggle
+            ? this.buildSearchGraph()
+            : this.state.clipsToggle
+            ? void 0
+            : this.state.volumeToggle
+            ? void 0
+            : this.buildMessageGraph();
+        }
+      );
+    }, 500);
   };
 
   handleChartClick = (evt) => {
     if (!evt) return;
-    const duration =
-      moment.duration(evt.activeLabel).asSeconds() - this.state.interval - 10;
+    const duration = this.state.clipsToggle
+      ? moment.duration(evt.activeLabel).asSeconds() - 5
+      : moment.duration(evt.activeLabel).asSeconds() - this.state.interval;
     this.setState({
       start: moment.utc(duration * 1000).format("HH:mm:ss"),
       end: evt.activeLabel,
@@ -741,6 +830,315 @@ class Vod extends Component {
     if (this.timeout) clearTimeout(this.timeout);
   };
 
+  handleSearchToggle = () => {
+    const newValue = !this.state.searchToggle;
+    this.setState({
+      searchToggle: newValue,
+      volumeToggle: false,
+      clipsToggle: false,
+      graphData: newValue
+        ? this.state.searchGraphData
+        : this.state.messageGraphData,
+      graphKey: newValue ? this.state.searchTerm : "messages",
+    });
+  };
+
+  handleVolumeToggle = () => {
+    const newValue = !this.state.volumeToggle;
+    this.setState(
+      {
+        volumeToggle: newValue,
+        searchToggle: false,
+        clipsToggle: false,
+        graphData: newValue
+          ? this.state.volumeGraphData
+          : this.state.messageGraphData,
+        graphKey: newValue ? "volume" : "messages",
+      },
+      () => {
+        if (!this.state.volumeGraphData) {
+          this.buildVolumeGraph();
+        }
+      }
+    );
+  };
+
+  handleClipsToggle = () => {
+    const newValue = !this.state.clipsToggle;
+    this.setState(
+      {
+        clipsToggle: newValue,
+        searchToggle: false,
+        volumeToggle: false,
+        graphData: newValue
+          ? this.state.clipsGraphData
+          : this.state.messageGraphData,
+        graphKey: newValue ? "views" : "messages",
+      },
+      () => {
+        if (!this.state.clipsGraphData) {
+          this.buildClipsGraph();
+        }
+      }
+    );
+  };
+
+  buildVolumeGraph = () => {
+    if (!this.state.volumeData) return;
+
+    let data = [];
+    for (let volume of this.state.volumeData) {
+      if (volume.volume > this.state.volumeThreshold) {
+        data.push({
+          duration: moment.utc(volume.duration * 1000).format("HH:mm:ss"),
+          volume: volume.volume,
+        });
+      }
+    }
+
+    console.log(data);
+
+    this.setState({
+      volumeGraphData: data,
+      graphData: data,
+      graphKey: "volume",
+    });
+  };
+
+  buildClipsGraph = () => {
+    if (!this.state.clipsData) return;
+
+    let data = [],
+      chapters = this.state.chapters;
+    for (let clip of this.state.clipsData) {
+      let json = {
+        duration: clip.duration,
+      };
+      if (chapters) {
+        for (let chapter of chapters) {
+          if (
+            moment.duration(chapter.duration).asSeconds() <=
+            moment.duration(clip.duration).asSeconds()
+          ) {
+            json.game = chapter.name;
+          }
+        }
+      }
+      json.title = clip.title;
+      json.views = clip.views;
+      json.url = clip.url;
+      data.push(json);
+    }
+
+    this.setState({ clipsGraphData: data, graphData: data, graphKey: "views" });
+  };
+
+  buildSearchGraph = () => {
+    if (this.state.searchTerm.length < 1) return;
+
+    let data = [];
+    const duration = this.player.getDuration();
+    let logs = this.state.logs.slice(0),
+      chapters = this.state.chapters;
+    for (
+      let seconds = this.state.interval.valueOf();
+      seconds < duration;
+      seconds += this.state.interval
+    ) {
+      let json = { emotes: {} };
+      let searchMessages = 0,
+        messages = 0,
+        subs = 0;
+      if (chapters) {
+        for (let chapter of chapters) {
+          if (moment.duration(chapter.duration).asSeconds() <= seconds) {
+            json.game = chapter.name;
+          }
+        }
+      }
+      for (let log of logs) {
+        const timestampAsSeconds = moment
+          .duration(log.substring(1, 9))
+          .asSeconds();
+
+        if (timestampAsSeconds > seconds) break;
+        messages++;
+
+        const username = log.substring(
+          log.indexOf("] ") + 2,
+          log.indexOf(": ")
+        );
+        if (username === "twitchnotify") {
+          subs++;
+        }
+
+        const messageArray = log
+          .substring(log.indexOf(": ") + 2, log.length)
+          .trim()
+          .split(" ");
+        for (let message of messageArray) {
+          if (this.state.phrase) {
+            if (
+              message
+                .toLowerCase()
+                .includes(this.state.searchTerm.valueOf().toLowerCase())
+            ) {
+              searchMessages++;
+            }
+          } else {
+            if (
+              message.toLowerCase() ===
+              this.state.searchTerm.valueOf().toLowerCase()
+            ) {
+              searchMessages++;
+            }
+          }
+
+          let found;
+          if (this.FFZEmotes) {
+            for (let ffz_emote of this.FFZEmotes) {
+              if (message === ffz_emote.name) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.BTTVGlobalEmotes) {
+            for (let bttv_emote of this.BTTVGlobalEmotes) {
+              if (message === bttv_emote.code) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.BTTVEmotes) {
+            for (let bttv_emote of this.BTTVEmotes) {
+              if (message === bttv_emote.code) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+        }
+      }
+      logs.splice(0, messages);
+
+      if (searchMessages >= this.state.searchThreshold) {
+        json.duration = moment.utc(seconds * 1000).format("HH:mm:ss");
+        json[`${this.state.searchTerm}`] = searchMessages;
+        json.messages = messages;
+        if (subs > 0) {
+          json.subs = subs;
+        }
+
+        let sortable = [];
+
+        for (let emoteKey of Object.keys(json.emotes)) {
+          sortable.push([emoteKey, json.emotes[emoteKey]]);
+        }
+
+        delete json["emotes"];
+
+        sortable.sort(function (a, b) {
+          return b[1] - a[1];
+        });
+
+        if (sortable.length > 5) {
+          sortable = sortable.slice(0, 5);
+        }
+
+        sortable.forEach((emote) => {
+          json[emote[0]] = emote[1];
+        });
+
+        data.push(json);
+      }
+    }
+
+    this.setState({
+      searchGraphData: data,
+      graphData: data,
+      graphKey: this.state.searchTerm,
+    });
+  };
+
+  handleSearchThreshold = (evt) => {
+    const value = parseInt(evt.target.value);
+    if (isNaN(value)) return;
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.setState({ searchThreshold: value }, () => {
+        this.buildSearchGraph();
+      });
+    }, 500);
+  };
+
+  handleVolumeThreshold = (evt) => {
+    console.log(evt.target.value);
+    const value = parseInt(evt.target.value);
+    if (isNaN(value)) return;
+    if (this.volumeTimeout) clearTimeout(this.volumeTimeout);
+    this.volumeTimeout = setTimeout(() => {
+      this.setState({ volumeThreshold: value }, () => {
+        this.buildVolumeGraph();
+      });
+    }, 500);
+  };
+
+  handleMessageThreshold = (evt) => {
+    const value = parseInt(evt.target.value);
+    if (isNaN(value)) return;
+    if (this.messageTimeout) clearTimeout(this.messageTimeout);
+    this.messageTimeout = setTimeout(() => {
+      this.setState({ messageThreshold: value }, () => {
+        this.buildMessageGraph();
+      });
+    }, 500);
+  };
+
+  handleStartInput = (evt) => {
+    this.setState({ start: evt.target.value });
+  };
+
+  handleEndInput = (evt) => {
+    this.setState({ end: evt.target.value });
+  };
+
+  handleStartButton = () => {
+    if (!this.player) return;
+    this.setState({
+      start: moment.utc(this.player.getCurrentTime() * 1000).format("HH:mm:ss"),
+    });
+  };
+
+  handleEndButton = () => {
+    if (!this.player) return;
+    this.setState({
+      end: moment.utc(this.player.getCurrentTime() * 1000).format("HH:mm:ss"),
+    });
+  };
+
+  handleClip = () => {
+    if (!this.player) return;
+  };
+
+  handleSearchInput = (evt) => {
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.setState({ searchTerm: evt.target.value }, () => {
+        this.buildSearchGraph();
+      });
+    }, 500);
+  };
+
   render() {
     const { classes, user } = this.props;
     if (user === undefined || this.state.logs === undefined)
@@ -751,20 +1149,6 @@ class Vod extends Component {
               <img alt="" src={Logo} height="auto" width="15%" />
             </div>
             <CircularProgress style={{ marginTop: "2rem" }} size="1rem" />
-          </div>
-        </div>
-      );
-
-    if (this.state.logs === null)
-      return (
-        <div className={classes.parent}>
-          <div style={{ textAlign: "center" }}>
-            <div>
-              <img alt="" src={Logo} height="auto" width="15%" />
-            </div>
-            <Typography variant="h6" style={{ marginTop: "2rem" }}>
-              This Vod has no Logs.
-            </Typography>
           </div>
         </div>
       );
@@ -826,7 +1210,28 @@ class Vod extends Component {
           volumeData={this.state.volumeData}
           clipsData={this.state.clipsData}
           handleIntervalChange={this.handleIntervalChange}
+          handleSearchToggle={this.handleSearchToggle}
+          handleClipsToggle={this.handleClipsToggle}
+          handleVolumeToggle={this.handleVolumeToggle}
+          handleMessageThreshold={this.handleMessageThreshold}
+          handleVolumeThreshold={this.handleVolumeThreshold}
+          handleSearchThreshold={this.handleSearchThreshold}
+          handleStartInput={this.handleStartInput}
+          handleEndInput={this.handleEndInput}
+          handleStartButton={this.handleStartButton}
+          handleEndButton={this.handleEndButton}
+          handleClip={this.handleClip}
+          messageThreshold={this.state.messageThreshold}
+          volumeThreshold={this.state.volumeThreshold}
+          searchThreshold={this.state.searchThreshold}
           interval={this.state.interval}
+          start={this.state.start}
+          end={this.state.end}
+          searchToggle={this.state.searchToggle}
+          volumeToggle={this.state.volumeToggle}
+          clipsToggle={this.state.clipsToggle}
+          handleSearchInput={this.handleSearchInput}
+          searchTerm={this.searchTerm}
         />
 
         {!this.state.graphData ? (
@@ -836,7 +1241,11 @@ class Vod extends Component {
             </div>
           </div>
         ) : (
-          <Graph data={this.state.graphData} handleChartClick={this.handleChartClick} />
+          <Graph
+            data={this.state.graphData}
+            handleChartClick={this.handleChartClick}
+            graphKey={this.state.graphKey}
+          />
         )}
       </Container>
     );
@@ -845,7 +1254,7 @@ class Vod extends Component {
 
 //MUTATE CLIPSDATA USING GQL GET CORRECT OFFSET?
 
-const useStyles = (theme) => ({
+const useStyles = () => ({
   parent: {
     display: "flex",
     justifyContent: "center",

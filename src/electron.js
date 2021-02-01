@@ -9,16 +9,16 @@ if (require("electron-squirrel-startup")) {
 }
 
 function createWindow() {
-  //fix window state after finishing oauth.
+  //fix window state
   let mainWindowState = windowStateKeeper({
-    defaultWidth: 1000,
-    defaultHeight: 800,
+    defaultWidth: 900,
+    defaultHeight: 600,
   });
 
   // Create the browser window.
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    minWidth: 900,
+    minHeight: 600,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

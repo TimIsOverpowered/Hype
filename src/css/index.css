@@ -40,3 +40,6 @@ input[type=number] {
 .recharts-cartesian-axis-ticks {
   font-size: 0.8rem;
 }
+.recharts-brush-texts {
+  font-size: 0.6rem;
+}
