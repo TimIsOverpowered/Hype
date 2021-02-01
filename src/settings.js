@@ -3,20 +3,15 @@ import {
   makeStyles,
   Typography,
   IconButton,
-  CircularProgress,
   Box,
   Modal,
   Button,
   TextField,
+  NativeSelect,
+  FormControl,
+  InputLabel,
 } from "@material-ui/core";
-import {
-  Movie,
-  Search,
-  Equalizer,
-  Theaters,
-  GetApp,
-  Close,
-} from "@material-ui/icons";
+import { Movie, Search, Equalizer, Theaters, Close } from "@material-ui/icons";
 import SettingsIcon from "@material-ui/icons/Settings";
 
 export default function Settings(props) {
@@ -25,7 +20,6 @@ export default function Settings(props) {
   const [showEndInput, setShowEndInput] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const {
-    player,
     handleIntervalChange,
     interval,
     handleSearchThreshold,
@@ -49,6 +43,9 @@ export default function Settings(props) {
     searchTerm,
     start,
     end,
+    handleVariantInput,
+    handleDownloadVod,
+    variant,
   } = props;
 
   const handleStartInputClick = () => {
@@ -419,100 +416,6 @@ export default function Settings(props) {
             </Box>
             <Box display="flex" marginTop="2rem">
               <div style={{ marginLeft: "2rem" }}>
-                <Button
-                  className={classes.settingsButton}
-                  variant="contained"
-                  color="primary"
-                  onClick={null}
-                >
-                  Download Whole Vod
-                </Button>
-              </div>
-              <div style={{ marginLeft: "2rem" }}>
-                <Box width="5rem">
-                  <TextField
-                    inputProps={{
-                      style: {
-                        backgroundColor: "hsla(0,0%,100%,.15)",
-                        color: "#efeff1",
-                        paddingLeft: "0.1rem",
-                        paddingRight: "0.1rem",
-                        textAlign: "center",
-                      },
-                    }}
-                    InputLabelProps={{
-                      style: { color: "#fff", textAlign: "center" },
-                    }}
-                    type="number"
-                    min={1}
-                    variant="standard"
-                    margin="none"
-                    label="Search Threshold"
-                    fullWidth
-                    defaultValue={searchThreshold}
-                    onChange={handleSearchThreshold}
-                  />
-                </Box>
-              </div>
-              <div style={{ marginLeft: "2rem" }}>
-                <Box width="5rem">
-                  <TextField
-                    inputProps={{
-                      style: {
-                        backgroundColor: "hsla(0,0%,100%,.15)",
-                        color: "#efeff1",
-                        paddingLeft: "0.1rem",
-                        paddingRight: "0.1rem",
-                        textAlign: "center",
-                      },
-                    }}
-                    InputLabelProps={{
-                      style: { color: "#fff", textAlign: "center" },
-                    }}
-                    type="number"
-                    min={-200}
-                    max={200}
-                    disabled={props.volumeData ? false : true}
-                    variant="standard"
-                    margin="none"
-                    label="Volume Threshold"
-                    fullWidth
-                    defaultValue={volumeThreshold}
-                    onChange={handleVolumeThreshold}
-                  />
-                </Box>
-              </div>
-              <div style={{ marginLeft: "2rem" }}>
-                <Box width="5rem">
-                  <TextField
-                    inputProps={{
-                      style: {
-                        backgroundColor: "hsla(0,0%,100%,.15)",
-                        color: "#efeff1",
-                        paddingLeft: "0.1rem",
-                        paddingRight: "0.1rem",
-                        textAlign: "center",
-                        "&:disabled": {
-                          cursor: "not-allowed",
-                          pointerEvents: "all",
-                        },
-                      },
-                    }}
-                    InputLabelProps={{
-                      style: { color: "#fff", textAlign: "center" },
-                    }}
-                    type="number"
-                    min={1}
-                    variant="standard"
-                    margin="none"
-                    label="Message Threshold"
-                    fullWidth
-                    defaultValue={messageThreshold}
-                    onChange={handleMessageThreshold}
-                  />
-                </Box>
-              </div>
-              <div style={{ marginLeft: "2rem" }}>
                 <Box width="5rem">
                   <TextField
                     inputProps={{
@@ -546,14 +449,33 @@ export default function Settings(props) {
             <Box display="flex" marginTop="2rem">
               <div style={{ marginLeft: "2rem", display: "flex" }}>
                 <div className={classes.labelDiv}>
-                  <Typography className={classes.settingsLabel} variant="body2">
-                    Test
-                  </Typography>
+                  <FormControl className={classes.formControl}>
+                    <InputLabel style={{ color: "#fff" }} shrink>
+                      Quality
+                    </InputLabel>
+                    <NativeSelect
+                      value={variant}
+                      onChange={handleVariantInput}
+                      className={classes.select}
+                    >
+                      <option value={0}>Source</option>
+                      <option value={1}>720p60</option>
+                      <option value={2}>720p30</option>
+                      <option value={5}>Audio</option>
+                    </NativeSelect>
+                  </FormControl>
                 </div>
+
                 <div style={{ textAlign: "center" }}>
-                  <IconButton className={classes.button} onClick={null}>
-                    <GetApp className={classes.svgAsset} />
-                  </IconButton>
+                  <Button
+                    className={classes.settingsButton}
+                    style={{ marginTop: "0.5rem" }}
+                    variant="contained"
+                    color="primary"
+                    onClick={handleDownloadVod}
+                  >
+                    Download Whole Vod
+                  </Button>
                 </div>
               </div>
             </Box>
@@ -712,5 +634,20 @@ const useStyles = makeStyles(() => ({
   },
   settingsButton: {
     height: "100%",
+  },
+  formControl: {
+    minWidth: 120,
+    marginRight: "1rem",
+  },
+  select: {
+    backgroundColor: "hsl(0 0% 100%/.15)",
+    color: "#fff",
+    "& option": {
+      backgroundColor: "rgb(14 14 14 / 1)!important",
+      color: "#fff",
+    },
+  },
+  menuItemText: {
+    color: "#fff",
   },
 }));

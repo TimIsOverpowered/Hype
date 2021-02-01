@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { IconButton, makeStyles, TextField } from "@material-ui/core";
 import { ArrowBackIos } from "@material-ui/icons";
 
-//ADD DISCORD NAVBAR and VIGOR HOMEPAGE ICON?
+//ADD DISCORD NAVBAR and VIGOR HOMEPAGE ICON? REPLACE INPUT WITH BETTER ONE
 export default function NavBar(props) {
   const classes = useStyles();
   const [channel, setChannel] = useState("");

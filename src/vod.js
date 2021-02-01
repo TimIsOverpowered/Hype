@@ -56,11 +56,12 @@ class Vod extends Component {
       start: "00:00:00",
       end: "00:00:00",
       searchTerm: "",
+      variant: 0,
     };
   }
 
   componentDidMount() {
-    document.title = `${this.channel} - ${this.vodId}`;
+    document.title = `${this.channel} - ${this.vodId} - Hype`;
     if (!this.props.user) return;
     this.fetchLogs();
     this.fetchVolume();
@@ -672,6 +673,7 @@ class Vod extends Component {
   };
 
   buildMessageGraph = () => {
+    if (!this.state.logs) return;
     let data = [];
     const duration = this.player.getDuration();
     let logs = this.state.logs.slice(0),
@@ -896,8 +898,6 @@ class Vod extends Component {
       }
     }
 
-    console.log(data);
-
     this.setState({
       volumeGraphData: data,
       graphData: data,
@@ -934,7 +934,7 @@ class Vod extends Component {
   };
 
   buildSearchGraph = () => {
-    if (this.state.searchTerm.length < 1) return;
+    if (this.state.searchTerm.length < 1 || this.state.logs) return;
 
     let data = [];
     const duration = this.player.getDuration();
@@ -1128,6 +1128,38 @@ class Vod extends Component {
 
   handleClip = () => {
     if (!this.player) return;
+
+    const startMoment = moment(this.state.start, "HH:mm:ss", true);
+    const endMoment = moment(this.state.end, "HH:mm:ss", true);
+
+    if (!startMoment.isValid() || !endMoment.isValid())
+      return alert("Invalid input. Please format as HH:mm:ss", "Hype");
+
+    if (startMoment.isSameOrAfter(endMoment))
+      return alert(
+        "Invalid input. Start Timestamp is (the same as or after) End Timestamp",
+        "Hype"
+      );
+
+    window.api.send("clip", {
+      vodId: this.vodId,
+      start: this.state.start,
+      end: this.state.end,
+    });
+  };
+
+  handleVariantInput = (evt) => {
+    const value = evt.target.value;
+    this.setState({
+      variant: value,
+    });
+  };
+
+  handleDownloadVod = () => {
+    window.api.send("vod", {
+      vodId: this.vodId,
+      variant: this.state.variant,
+    });
   };
 
   handleSearchInput = (evt) => {
@@ -1232,6 +1264,9 @@ class Vod extends Component {
           clipsToggle={this.state.clipsToggle}
           handleSearchInput={this.handleSearchInput}
           searchTerm={this.searchTerm}
+          handleVariantInput={this.handleVariantInput}
+          handleDownloadVod={this.handleDownloadVod}
+          variant={this.state.variant}
         />
 
         {!this.state.graphData ? (
@@ -1251,8 +1286,6 @@ class Vod extends Component {
     );
   }
 }
-
-//MUTATE CLIPSDATA USING GQL GET CORRECT OFFSET?
 
 const useStyles = () => ({
   parent: {

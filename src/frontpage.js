@@ -88,7 +88,11 @@ export default function Frontpage(props) {
       </div>
     );
 
-    //add patreon logo if not active and link to settings connections.
+  const status = props.user.patreon
+    ? props.user.patreon.tier >= 1 && props.user.patreon.isPatron
+    : false || props.user.whitelist;
+
+  //add patreon logo if not active and link to settings connections.
   return (
     <div className={classes.parent}>
       <div style={{ textAlign: "center" }}>
@@ -102,9 +106,10 @@ export default function Frontpage(props) {
           variant="h5"
           className={`${classes.marginTop2} ${classes.bold} ${classes.status}`}
         >
-          {`Status: ${props.user.whitelist ? "Active" : "Not Active"}`}
+          {`Status: ${status ? "Active" : "Not Active"}`}
         </Typography>
         <TextField
+          autoFocus
           inputProps={{
             style: {
               backgroundColor: "hsla(0,0%,100%,.15)",
@@ -115,7 +120,7 @@ export default function Frontpage(props) {
           InputLabelProps={{
             style: { color: "#fff" },
           }}
-          disabled={!props.user.whitelist}
+          disabled={!status}
           variant="outlined"
           margin="normal"
           fullWidth

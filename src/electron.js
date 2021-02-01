@@ -1,8 +1,19 @@
 const path = require("path");
-
-const { app, BrowserWindow, protocol, shell } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  protocol,
+  shell,
+  ipcMain,
+  dialog,
+} = require("electron");
 const isDev = require("electron-is-dev");
 const windowStateKeeper = require("electron-window-state");
+const ffmpegPath = require("ffmpeg-static");
+const ffmpeg = require("fluent-ffmpeg");
+const twitch = require("./twitch");
+const ProgressBar = require("electron-progressbar");
+const { errors } = require("@feathersjs/client");
 
 if (require("electron-squirrel-startup")) {
   app.quit();
@@ -22,9 +33,12 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      enableRemoteModule: false,
+      enableRemoteModule: true,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
+
+  win.setTitle("Hype");
 
   // and load the index.html of the app.
   // win.loadFile("index.html");
@@ -56,7 +70,6 @@ function createWindow() {
           //win.webContents.reload();
         })
         .catch((err) => {
-          console.log("failed?");
           console.error(err);
         });
       setTimeout(() => {
@@ -91,6 +104,148 @@ function createWindow() {
     });
     return { action: "deny" };
   });
+
+  let m3u8;
+
+  ipcMain.on("clip", async (event, args) => {
+    const saveDialog = await dialog.showSaveDialog({
+      filters: [{ name: "Videos", extensions: ["mp4"] }],
+      defaultPath: __dirname + `/out/${args.vodId}-clip.mp4`,
+      properties: ["showOverwriteConfirmation", "createDirectory"],
+      nameFieldLabel: `${args.vodId}-clip`,
+    });
+
+    if (saveDialog.canceled) return;
+    const clipPath = saveDialog.filePath;
+
+    const progressBar = new ProgressBar({
+      indeterminate: false,
+      text: "Clipping",
+      title: "Hype by Overpowered",
+    });
+
+    progressBar
+      .on("completed", function () {
+        progressBar.detail = "Done!";
+      })
+      .on("aborted", function (error) {
+        console.error(error);
+      })
+      .on("progress", function (value) {
+        progressBar.detail = `${value}%`;
+      });
+
+    if (m3u8) {
+      await clip(args.start, args.end, m3u8, progressBar, clipPath);
+      return;
+    }
+    const vodTokenSig = await twitch.gqlGetVodTokenSig(args.vodId);
+    m3u8 = twitch.getParsedM3u8(
+      await twitch.getM3u8(args.vodId, vodTokenSig.value, vodTokenSig.signature)
+    );
+
+    await clip(args.start, args.end, m3u8, progressBar, clipPath);
+  });
+
+  const clip = (start, end, m3u8, progressBar, path) => {
+    return new Promise((resolve, reject) => {
+      const ffmpeg_process = ffmpeg(m3u8)
+        .seekInput(start)
+        .videoCodec("copy")
+        .audioCodec("copy")
+        .outputOptions(["-bsf:a aac_adtstoasc"])
+        .seekOutput(start)
+        .outputOptions([`-to ${end}`])
+        .toFormat("mp4")
+        .on("progress", (progress) => {
+          progressBar.value = Math.round(progress.percent);
+        })
+        .on("start", (cmd) => {
+          //console.info(cmd);
+        })
+        .on("error", function (err) {
+          progressBar.close(err);
+          reject(err);
+          ffmpeg_process.kill("SIGKILL");
+        })
+        .on("end", function () {
+          progressBar.setCompleted();
+          resolve();
+        })
+        .saveToFile(path);
+    });
+  };
+
+  ipcMain.on("vod", async (event, args) => {
+    const saveDialog = await dialog.showSaveDialog({
+      filters: [{ name: "Videos", extensions: ["mp4"] }],
+      defaultPath: __dirname + `/out/${args.vodId}.mp4`,
+      properties: ["showOverwriteConfirmation", "createDirectory"],
+      nameFieldLabel: `${args.vodId}`,
+    });
+
+    if (saveDialog.canceled) return;
+    const vodPath = saveDialog.filePath;
+
+    const progressBar = new ProgressBar({
+      indeterminate: false,
+      text: "Downloading Vod",
+      title: "Hype by Overpowered",
+    });
+
+    progressBar
+      .on("completed", function () {
+        progressBar.detail = "Done!";
+      })
+      .on("aborted", function (error) {
+        console.error(error);
+      })
+      .on("progress", function (value) {
+        progressBar.detail = `${value}%`;
+      });
+
+    if (m3u8) {
+      await vod(m3u8, progressBar, vodPath);
+      return;
+    }
+    const vodTokenSig = await twitch.gqlGetVodTokenSig(args.vodId);
+    m3u8 = twitch.getParsedM3u8(
+      await twitch.getM3u8(
+        args.vodId,
+        vodTokenSig.value,
+        vodTokenSig.signature
+      ),
+      args.variant
+    );
+
+    await vod(m3u8, progressBar, vodPath);
+  });
+
+  const vod = (m3u8, progressBar, path) => {
+    return new Promise((resolve, reject) => {
+      const ffmpeg_process = ffmpeg(m3u8)
+        .videoCodec("copy")
+        .audioCodec("copy")
+        .outputOptions(["-bsf:a aac_adtstoasc"])
+        .toFormat("mp4")
+        .on("progress", (progress) => {
+          progressBar.value = Math.round(progress.percent);
+        })
+        .on("start", (cmd) => {
+          //console.info(cmd);
+        })
+        .on("error", function (err) {
+          progressBar.close(err);
+          reject(err);
+          ffmpeg_process.kill("SIGKILL");
+        })
+        .on("end", function () {
+          progressBar.setCompleted();
+          resolve();
+        })
+        .saveToFile(path);
+    });
+  };
 
   //mainWindowState.manage(win);
 }
