@@ -42,7 +42,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "package": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge package",
-    "make": "cross-env DEBUG=* react-scripts build && electron-forge make"
+    "make": "react-scripts build && electron-forge make"
   },
   "eslintConfig": {
     "extends": [
