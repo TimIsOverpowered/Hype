@@ -1,5 +1,4 @@
 import React, { Component } from "react";
-import { TwitchPlayer } from "react-twitch-embed";
 import client from "./client";
 import {
   CircularProgress,
@@ -13,6 +12,7 @@ import SimpleBar from "simplebar-react";
 import Settings from "./settings";
 import Graph from "./graph";
 import moment from "moment";
+import Player from "./player";
 
 class Vod extends Component {
   constructor(props) {
@@ -369,7 +369,7 @@ class Vod extends Component {
     await fetch(
       `https://api.twitch.tv/v5/videos/${this.vodId}/comments?content_offset_seconds=${offset}`,
       {
-        credentials: 'omit',
+        credentials: "omit",
         method: "GET",
         headers: {
           "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
@@ -817,7 +817,11 @@ class Vod extends Component {
       : moment.duration(evt.activeLabel).asSeconds() - this.state.interval;
     this.setState({
       start: moment.utc(duration * 1000).format("HH:mm:ss"),
-      end: this.state.clipsToggle ? moment.utc((moment.duration(evt.activeLabel).asSeconds() + 25) * 1000).format("HH:mm:ss") : evt.activeLabel, 
+      end: this.state.clipsToggle
+        ? moment
+            .utc((moment.duration(evt.activeLabel).asSeconds() + 25) * 1000)
+            .format("HH:mm:ss")
+        : evt.activeLabel,
       //(maybe add duration to label so its more accurate to the clip?)
     });
     this.setTimestamp(duration);
@@ -1155,9 +1159,8 @@ class Vod extends Component {
   };
 
   handleVariantInput = (evt) => {
-    const value = evt.target.value;
     this.setState({
-      variant: value,
+      variant: parseInt(evt.target.value),
     });
   };
 
@@ -1202,16 +1205,12 @@ class Vod extends Component {
         }}
       >
         <Box display="flex" height="50%" width="100%">
-          <TwitchPlayer
-            id="twitch-player"
+          <Player
             className={classes.player}
-            video={this.vodId}
-            height="100%"
-            width="100%"
-            onPause={this.handlePlayerPause}
-            onPlaying={this.handlePlayerPlay}
-            onReady={this.handlePlayerReady}
-            parent={("hype.lol", "www.hype.lol")}
+            vodId={this.vodId}
+            handlePlayerPause={this.handlePlayerPause}
+            handlePlayerPlay={this.handlePlayerPlay}
+            handlePlayerReady={this.handlePlayerReady}
           />
           <div className={classes.horizChat}>
             {this.state.chatLoading ? (

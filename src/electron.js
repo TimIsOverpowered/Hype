@@ -12,7 +12,7 @@ const isDev = require("electron-is-dev");
 const windowStateKeeper = require("electron-window-state");
 const ffmpegPath = require("ffmpeg-static");
 const ffmpeg = require("fluent-ffmpeg");
-ffmpeg.setFfmpegPath(ffmpegPath)
+ffmpeg.setFfmpegPath(ffmpegPath);
 const twitch = require("./twitch");
 const ProgressBar = require("electron-progressbar");
 
@@ -43,19 +43,19 @@ function createWindow() {
   });
 
   //To fix Twitch player in prod mode.
-  session.defaultSession.webRequest.onHeadersReceived({
-    urls: [
-      'https://player.twitch.tv/*',
-      'https://embed.twitch.tv/*'
-    ]
-  }, (details, cb) => {
-    var responseHeaders = details.responseHeaders;
-    delete responseHeaders['Content-Security-Policy'];
-    cb({
-      cancel: false,
-      responseHeaders
-    });
-  });
+  session.defaultSession.webRequest.onHeadersReceived(
+    {
+      urls: ["https://player.twitch.tv/*", "https://embed.twitch.tv/*"],
+    },
+    (details, cb) => {
+      var responseHeaders = details.responseHeaders;
+      delete responseHeaders["Content-Security-Policy"];
+      cb({
+        cancel: false,
+        responseHeaders,
+      });
+    }
+  );
 
   win.setTitle("Hype");
   win.setMenu(null);
@@ -208,6 +208,10 @@ function createWindow() {
         .on("error", function (err) {
           progressBar.close(err);
           reject(err);
+          dialog.showErrorBox({
+            title: "Hype",
+            context: "Something went wrong! Either try again or report it in Discord. \n" + err
+          })
           ffmpeg_process.kill("SIGKILL");
         })
         .on("end", function () {
@@ -219,11 +223,19 @@ function createWindow() {
   };
 
   ipcMain.on("vod", async (event, args) => {
+    const variantName =
+      args.variant === 0
+        ? "Source"
+        : args.variant === 1
+        ? "720p60"
+        : args.variant === 2
+        ? "720p30"
+        : "audio";
     const saveDialog = await dialog.showSaveDialog({
-      filters: [{ name: "Videos", extensions: ["mp4"] }],
-      defaultPath: __dirname + `/out/${args.vodId}.mp4`,
+      filters: args.variant === 5 ? [{ name: "Audio", extensions: ["m4a"] }] : [{ name: "Video", extensions: ["mp4"] }],
+      defaultPath: args.variant === 5 ? __dirname + `out/${args.vodId}_${variantName}.m4a` : __dirname + `/out/${args.vodId}_${variantName}.mp4`,
       properties: ["showOverwriteConfirmation", "createDirectory"],
-      nameFieldLabel: `${args.vodId}`,
+      nameFieldLabel: `${args.vodId}_${variantName}`,
     });
 
     if (saveDialog.canceled) return;
@@ -247,9 +259,10 @@ function createWindow() {
       });
 
     if (m3u8) {
-      await vod(m3u8, progressBar, vodPath);
+      await vod(m3u8, progressBar, vodPath, args.variant === 5);
       return;
     }
+
     const vodTokenSig = await twitch.gqlGetVodTokenSig(args.vodId);
     m3u8 = twitch.getParsedM3u8(
       await twitch.getM3u8(
@@ -260,32 +273,62 @@ function createWindow() {
       args.variant
     );
 
-    await vod(m3u8, progressBar, vodPath);
+    await vod(m3u8, progressBar, vodPath, args.variant === 5);
   });
 
-  const vod = (m3u8, progressBar, path) => {
+  const vod = (m3u8, progressBar, path, audio) => {
     return new Promise((resolve, reject) => {
-      const ffmpeg_process = ffmpeg(m3u8)
-        .videoCodec("copy")
-        .audioCodec("copy")
-        .outputOptions(["-bsf:a aac_adtstoasc"])
-        .toFormat("mp4")
-        .on("progress", (progress) => {
-          progressBar.value = Math.round(progress.percent);
-        })
-        .on("start", (cmd) => {
-          //console.info(cmd);
-        })
-        .on("error", function (err) {
-          progressBar.close(err);
-          reject(err);
-          ffmpeg_process.kill("SIGKILL");
-        })
-        .on("end", function () {
-          progressBar.setCompleted();
-          resolve();
-        })
-        .saveToFile(path);
+      if (audio) {
+        const ffmpeg_process = ffmpeg(m3u8)
+          .noVideo()
+          .audioCodec("copy")
+          .on("progress", (progress) => {
+            progressBar.value = Math.round(progress.percent);
+          })
+          .on("start", (cmd) => {
+            console.info(cmd);
+          })
+          .on("error", function (err) {
+            progressBar.close(err);
+            reject(err);
+            dialog.showErrorBox({
+              title: "Hype",
+              context: "Something went wrong! Either try again or report it in Discord. \n" + err
+            })
+            ffmpeg_process.kill("SIGKILL");
+          })
+          .on("end", function () {
+            progressBar.setCompleted();
+            resolve();
+          })
+          .saveToFile(path);
+      } else {
+        const ffmpeg_process = ffmpeg(m3u8)
+          .videoCodec("copy")
+          .audioCodec("copy")
+          .outputOptions(["-bsf:a aac_adtstoasc"])
+          .toFormat("mp4")
+          .on("progress", (progress) => {
+            progressBar.value = Math.round(progress.percent);
+          })
+          .on("start", (cmd) => {
+            //console.info(cmd);
+          })
+          .on("error", function (err) {
+            progressBar.close(err);
+            reject(err);
+            dialog.showErrorBox({
+              title: "Hype",
+              context: "Something went wrong! Either try again or report it in Discord. \n" + err
+            })
+            ffmpeg_process.kill("SIGKILL");
+          })
+          .on("end", function () {
+            progressBar.setCompleted();
+            resolve();
+          })
+          .saveToFile(path);
+      }
     });
   };
 
