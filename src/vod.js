@@ -817,7 +817,8 @@ class Vod extends Component {
       : moment.duration(evt.activeLabel).asSeconds() - this.state.interval;
     this.setState({
       start: moment.utc(duration * 1000).format("HH:mm:ss"),
-      end: evt.activeLabel,
+      end: this.state.clipsToggle ? moment.utc((moment.duration(evt.activeLabel).asSeconds() + 25) * 1000).format("HH:mm:ss") : evt.activeLabel, 
+      //(maybe add duration to label so its more accurate to the clip?)
     });
     this.setTimestamp(duration);
   };

@@ -93,24 +93,24 @@ export default function NavBar(props) {
           justifyContent="flex-end"
         >
           <div className={classes.linkButton}>
-            <Box alignSelf="center" display="flex" height="100%">
+            <Box height="100%">
               <a
                 href="https://patreon.com/join/overpoweredgg"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <img alt="" width="45px" height="auto" href={patreon} />
+                <img alt="" height="100%" src={patreon} />
               </a>
             </Box>
           </div>
           <div className={classes.linkButton}>
-            <Box alignSelf="center" display="flex" height="100%">
+            <Box height="100%">
               <a
                 href="https://discord.gg/chUMEPR"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <img alt="" width="45px" height="auto" href={discord} />
+                <img alt="" height="100%" src={discord} />
               </a>
             </Box>
           </div>

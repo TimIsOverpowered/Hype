@@ -2,7 +2,7 @@
   "name": "Hype",
   "version": "0.1.0",
   "private": true,
-  "main": "src/electron.js",
+  "main": "./src/electron.js",
   "author": "Overpowered",
   "description": "Hype Electron App",
   "homepage": "./",
