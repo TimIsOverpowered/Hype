@@ -9,6 +9,15 @@ import Vod from "./vod";
 export default function App() {
   const [user, setUser] = React.useState(undefined);
   useEffect(() => {
+    window.api.receive("access_token", (access_token) => {
+      client
+        .authenticate({
+          strategy: "jwt",
+          accessToken: access_token,
+        })
+        .catch(() => setUser(null));
+    });
+
     client.authenticate().catch(() => setUser(null));
 
     client.on("authenticated", (paramUser) => {
@@ -16,10 +25,16 @@ export default function App() {
     });
 
     client.service("users").on("patched", (paramUser) => {
-      if(!paramUser) return;
-      if(!user) return;
       if (paramUser.id === user.id) {
-        setUser(paramUser);
+        client
+          .service("users")
+          .get(user.id)
+          .then((user) => {
+            setUser(user);
+          })
+          .catch((e) => {
+            console.error(e);
+          });
       }
     });
 
@@ -35,9 +50,31 @@ export default function App() {
     <div className="hype-root">
       <HashRouter>
         <Switch>
-          <Route exact path="/" render={(props) => <Frontpage {...props} user={user} />} />
-          <Route exact path="/:channel" render={(props) => <> <NavBar {...props} /> <Channel {...props} user={user} /> </>} />
-          <Route exact path="/:channel/:vodId" render={(props) => <> <NavBar {...props} /> <Vod {...props} user={user} /> </>} />
+          <Route
+            exact
+            path="/"
+            render={(props) => <Frontpage {...props} user={user} />}
+          />
+          <Route
+            exact
+            path="/:channel"
+            render={(props) => (
+              <>
+                {" "}
+                <NavBar {...props} /> <Channel {...props} user={user} />{" "}
+              </>
+            )}
+          />
+          <Route
+            exact
+            path="/:channel/:vodId"
+            render={(props) => (
+              <>
+                {" "}
+                <NavBar {...props} /> <Vod {...props} user={user} />{" "}
+              </>
+            )}
+          />
         </Switch>
       </HashRouter>
     </div>

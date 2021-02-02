@@ -81,21 +81,7 @@ function createWindow() {
         url.indexOf("?access_token=") + 14,
         url.length
       );
-      win.webContents
-        .executeJavaScript(
-          `localStorage.setItem('feathers-jwt', '${access_token}');`,
-          true
-        )
-        .then(() => {
-          //then sometimes doesn't get called.
-          //win.webContents.reload();
-        })
-        .catch((err) => {
-          console.error(err);
-        });
-      setTimeout(() => {
-        win.webContents.reload();
-      }, 5000);
+      win.webContents.send('access_token', access_token);
     }
   });
 

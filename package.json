@@ -76,11 +76,15 @@
     "forge": {
       "packagerConfig": {
         "icon": "src/icons/win/icon.ico",
-        "name": "Hype"
+        "name": "Hype",
+        "asar": true
       },
       "makers": [
         {
-          "name": "@electron-forge/maker-zip"
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "name": "Hype"
+          }
         }
       ]
     }
