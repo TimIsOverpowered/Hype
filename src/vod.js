@@ -129,6 +129,7 @@ class Vod extends Component {
   getVideoOffsets = async (gqlClips) => {
     let gqlResponse;
     await fetch(`https://gql.twitch.tv/gql`, {
+      credentials: "omit",
       method: "POST",
       headers: {
         "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
@@ -368,6 +369,7 @@ class Vod extends Component {
     await fetch(
       `https://api.twitch.tv/v5/videos/${this.vodId}/comments?content_offset_seconds=${offset}`,
       {
+        credentials: 'omit',
         method: "GET",
         headers: {
           "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
@@ -402,6 +404,7 @@ class Vod extends Component {
     await fetch(
       `https://api.twitch.tv/v5/videos/${this.vodId}/comments?cursor=${this.state.cursor}`,
       {
+        credentials: "omit",
         method: "GET",
         headers: {
           "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
@@ -1144,7 +1147,9 @@ class Vod extends Component {
     window.api.send("clip", {
       vodId: this.vodId,
       start: this.state.start,
-      end: this.state.end,
+      end:
+        moment.duration(this.state.end).asSeconds() -
+        moment.duration(this.state.start).asSeconds(),
     });
   };
 
@@ -1205,6 +1210,7 @@ class Vod extends Component {
             onPause={this.handlePlayerPause}
             onPlaying={this.handlePlayerPlay}
             onReady={this.handlePlayerReady}
+            parent={("hype.lol", "www.hype.lol")}
           />
           <div className={classes.horizChat}>
             {this.state.chatLoading ? (

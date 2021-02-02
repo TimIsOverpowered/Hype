@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld("api", {
     }
   },
   receive: (channel, func) => {
-    let validChannels = ["clip", "vod"];
+    let validChannels = [];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }

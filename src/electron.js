@@ -6,11 +6,13 @@ const {
   shell,
   ipcMain,
   dialog,
+  session,
 } = require("electron");
 const isDev = require("electron-is-dev");
 const windowStateKeeper = require("electron-window-state");
 const ffmpegPath = require("ffmpeg-static");
 const ffmpeg = require("fluent-ffmpeg");
+ffmpeg.setFfmpegPath(ffmpegPath)
 const twitch = require("./twitch");
 const ProgressBar = require("electron-progressbar");
 
@@ -23,8 +25,6 @@ function createWindow() {
     defaultWidth: 900,
     defaultHeight: 600,
   });
-
-  console.log(app.getPath('userData'));
 
   const win = new BrowserWindow({
     minWidth: 900,
@@ -40,6 +40,21 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       devTools: isDev ? true : false,
     },
+  });
+
+  //To fix Twitch player in prod mode.
+  session.defaultSession.webRequest.onHeadersReceived({
+    urls: [
+      'https://player.twitch.tv/*',
+      'https://embed.twitch.tv/*'
+    ]
+  }, (details, cb) => {
+    var responseHeaders = details.responseHeaders;
+    delete responseHeaders['Content-Security-Policy'];
+    cb({
+      cancel: false,
+      responseHeaders
+    });
   });
 
   win.setTitle("Hype");
@@ -178,19 +193,17 @@ function createWindow() {
   const clip = (start, end, m3u8, progressBar, path) => {
     return new Promise((resolve, reject) => {
       const ffmpeg_process = ffmpeg(m3u8)
-        .setFfmpegPath(ffmpegPath)
         .seekInput(start)
         .videoCodec("copy")
         .audioCodec("copy")
         .outputOptions(["-bsf:a aac_adtstoasc"])
-        .seekOutput(start)
-        .outputOptions([`-to ${end}`])
+        .duration(end)
         .toFormat("mp4")
         .on("progress", (progress) => {
           progressBar.value = Math.round(progress.percent);
         })
         .on("start", (cmd) => {
-          //console.info(cmd);
+          console.info(cmd);
         })
         .on("error", function (err) {
           progressBar.close(err);
@@ -253,7 +266,6 @@ function createWindow() {
   const vod = (m3u8, progressBar, path) => {
     return new Promise((resolve, reject) => {
       const ffmpeg_process = ffmpeg(m3u8)
-        .setFfmpegPath(ffmpegPath)
         .videoCodec("copy")
         .audioCodec("copy")
         .outputOptions(["-bsf:a aac_adtstoasc"])
