@@ -5,6 +5,7 @@ import {
   Box,
   withStyles,
   Container,
+  Typography,
 } from "@material-ui/core";
 import Logo from "./assets/logo.svg";
 import { ZSTDDecoder } from "zstddec";
@@ -313,6 +314,11 @@ class Vod extends Component {
 
   handlePlayerReady = async (player) => {
     this.player = player;
+    if (!this.state.logs)
+      return this.setState({
+        error:
+          "There are no logs for this vod. This streamer may not be whitelisted..",
+      });
     while (this.player.getDuration() === 0) {
       await this.sleep(50);
     }
@@ -676,7 +682,11 @@ class Vod extends Component {
   };
 
   buildMessageGraph = () => {
-    if (!this.state.logs) return;
+    if (!this.state.logs)
+      return this.setState({
+        error:
+          "There are no logs for this vod. This streamer may not be whitelisted..",
+      });
     let data = [];
     const duration = this.player.getDuration();
     let logs = this.state.logs.slice(0),
@@ -942,7 +952,12 @@ class Vod extends Component {
   };
 
   buildSearchGraph = () => {
-    if (this.state.searchTerm.length < 1 || this.state.logs) return;
+    if (this.state.searchTerm.length < 1) return;
+    if (!this.state.logs)
+      return this.setState({
+        error:
+          "There are no logs for this vod. This streamer may not be whitelisted..",
+      });
 
     let data = [];
     const duration = this.player.getDuration();
@@ -1276,11 +1291,21 @@ class Vod extends Component {
         />
 
         {!this.state.graphData ? (
-          <div className={classes.graphRoot}>
-            <div className={classes.graphLoading}>
-              <CircularProgress size="3rem" />
+          !this.state.logs ? (
+            <div className={classes.graphRoot}>
+              <div className={classes.graphLoading}>
+                <Typography variant="h5">
+                  {this.state.error}
+                </Typography>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className={classes.graphRoot}>
+              <div className={classes.graphLoading}>
+                <CircularProgress size="3rem" />
+              </div>
+            </div>
+          )
         ) : (
           <Graph
             data={this.state.graphData}

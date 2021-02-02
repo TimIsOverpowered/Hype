@@ -14,35 +14,12 @@ import client from "./client";
 export default function Channel(props) {
   const classes = useStyles();
   const [loading, setLoading] = React.useState(true);
-  const [channelWhitelist, setChannelWhitelist] = React.useState(true);
   const [vods, setVods] = React.useState(undefined);
   const channel = props.match.params.channel;
 
   useEffect(() => {
     if (!props.user) return;
     document.title = `${channel}'s Vods - Hype`;
-    const checkWhitelist = async () => {
-      const { accessToken } = await client.get("authentication");
-      await fetch(`https://api.hype.lol/v1/${channel}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.error || data.code > 400 || data.status > 400) {
-            return console.error(data.errorMsg);
-          }
-          setChannelWhitelist(data.whitelist);
-          setLoading(false);
-        })
-        .catch((e) => {
-          console.error(e);
-        });
-    };
-    checkWhitelist();
 
     const fetchVods = async () => {
       const { accessToken } = await client.get("authentication");
@@ -57,11 +34,13 @@ export default function Channel(props) {
         .then((response) => response.json())
         .then((data) => {
           if (data.error || data.code > 400 || data.status > 400) {
+            setVods(null)
             return console.error(data.errorMsg);
           }
           vods = data;
         })
         .catch((e) => {
+          setVods(null)
           console.error(e);
         });
 
@@ -159,14 +138,9 @@ export default function Channel(props) {
         setLoading(false);
       }
     };
-
-    if (channelWhitelist) {
-      setLoading(true);
-      fetchVods();
-    }
-
+    fetchVods();
     return;
-  }, [channel, channelWhitelist, classes, props.user]);
+  }, [channel, classes, props.user]);
 
   if (props.user === undefined)
     return (
@@ -188,20 +162,6 @@ export default function Channel(props) {
             <img alt="" src={Logo} height="auto" width="15%" />
           </div>
           <CircularProgress style={{ marginTop: "2rem" }} size="1rem" />
-        </div>
-      </div>
-    );
-
-  if (!channelWhitelist)
-    return (
-      <div className={classes.parent}>
-        <div style={{ textAlign: "center" }}>
-          <div>
-            <img alt="" src={Logo} height="auto" width="15%" />
-          </div>
-          <Typography variant="h6" style={{ marginTop: "2rem" }}>
-            {channel} is not whitelisted for this service
-          </Typography>
         </div>
       </div>
     );
