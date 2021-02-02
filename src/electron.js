@@ -10,15 +10,22 @@ const {
 } = require("electron");
 const isDev = require("electron-is-dev");
 const windowStateKeeper = require("electron-window-state");
-const ffmpegPath = require("ffmpeg-static");
+const ffmpegStatic = require("ffmpeg-static").replace(
+  "app.asar",
+  "app.asar.unpacked"
+);
 const ffmpeg = require("fluent-ffmpeg");
-ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfmpegPath(ffmpegStatic);
 const twitch = require("./twitch");
 const ProgressBar = require("electron-progressbar");
 
-if (require("electron-squirrel-startup")) {
-  app.quit();
-}
+if (require("electron-squirrel-startup")) return;
+
+require("update-electron-app")({
+  repo: "TimIsOverpowered/Hype",
+  updateInterval: "10 minutes",
+  logger: require("electron-log"),
+});
 
 function createWindow() {
   let mainWindowState = windowStateKeeper({
@@ -81,7 +88,7 @@ function createWindow() {
         url.indexOf("?access_token=") + 14,
         url.length
       );
-      win.webContents.send('access_token', access_token);
+      win.webContents.send("access_token", access_token);
     }
   });
 
@@ -196,8 +203,10 @@ function createWindow() {
           reject(err);
           dialog.showErrorBox({
             title: "Hype",
-            context: "Something went wrong! Either try again or report it in Discord. \n" + err
-          })
+            context:
+              "Something went wrong! Either try again or report it in Discord. \n" +
+              err,
+          });
           ffmpeg_process.kill("SIGKILL");
         })
         .on("end", function () {
@@ -218,8 +227,14 @@ function createWindow() {
         ? "720p30"
         : "audio";
     const saveDialog = await dialog.showSaveDialog({
-      filters: args.variant === 5 ? [{ name: "Audio", extensions: ["m4a"] }] : [{ name: "Video", extensions: ["mp4"] }],
-      defaultPath: args.variant === 5 ? __dirname + `out/${args.vodId}_${variantName}.m4a` : __dirname + `/out/${args.vodId}_${variantName}.mp4`,
+      filters:
+        args.variant === 5
+          ? [{ name: "Audio", extensions: ["m4a"] }]
+          : [{ name: "Video", extensions: ["mp4"] }],
+      defaultPath:
+        args.variant === 5
+          ? __dirname + `out/${args.vodId}_${variantName}.m4a`
+          : __dirname + `/out/${args.vodId}_${variantName}.mp4`,
       properties: ["showOverwriteConfirmation", "createDirectory"],
       nameFieldLabel: `${args.vodId}_${variantName}`,
     });
@@ -279,8 +294,10 @@ function createWindow() {
             reject(err);
             dialog.showErrorBox({
               title: "Hype",
-              context: "Something went wrong! Either try again or report it in Discord. \n" + err
-            })
+              context:
+                "Something went wrong! Either try again or report it in Discord. \n" +
+                err,
+            });
             ffmpeg_process.kill("SIGKILL");
           })
           .on("end", function () {
@@ -305,8 +322,10 @@ function createWindow() {
             reject(err);
             dialog.showErrorBox({
               title: "Hype",
-              context: "Something went wrong! Either try again or report it in Discord. \n" + err
-            })
+              context:
+                "Something went wrong! Either try again or report it in Discord. \n" +
+                err,
+            });
             ffmpeg_process.kill("SIGKILL");
           })
           .on("end", function () {

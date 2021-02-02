@@ -14,8 +14,8 @@
     "@testing-library/react": "^11.2.3",
     "@testing-library/user-event": "^12.6.0",
     "axios": "^0.21.1",
-    "cross-env": "^7.0.3",
     "electron-is-dev": "^1.2.0",
+    "electron-log": "^4.3.1",
     "electron-progressbar": "^2.0.0",
     "electron-squirrel-startup": "^1.0.0",
     "electron-window-state": "^5.0.3",
@@ -31,6 +31,7 @@
     "recharts": "^2.0.4",
     "simplebar-react": "^2.3.0",
     "socket.io-client": "^2.4.0",
+    "update-electron-app": "^2.0.1",
     "web-vitals": "^1.1.0",
     "zstddec": "0.0.2"
   },
@@ -69,6 +70,7 @@
     "@electron-forge/maker-squirrel": "^6.0.0-beta.54",
     "@electron-forge/maker-zip": "^6.0.0-beta.54",
     "concurrently": "^5.3.0",
+    "cross-env": "^7.0.3",
     "electron": "^11.2.1",
     "wait-on": "^5.2.1"
   },
@@ -77,13 +79,16 @@
       "packagerConfig": {
         "icon": "src/icons/win/icon.ico",
         "name": "Hype",
-        "asar": true
+        "asar": {
+          "unpackDir": "node_modules/ffmpeg-static"
+        }
       },
       "makers": [
         {
           "name": "@electron-forge/maker-squirrel",
           "config": {
-            "name": "Hype"
+            "loadingGif": "src/assets/vigor.png",
+            "setupIcon": "src/icons/win/icon.ico"
           }
         }
       ]
