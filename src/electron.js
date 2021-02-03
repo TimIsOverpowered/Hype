@@ -23,7 +23,7 @@ if (require("electron-squirrel-startup")) return;
 
 require("update-electron-app")({
   repo: "TimIsOverpowered/Hype",
-  updateInterval: "10 minutes",
+  updateInterval: "30 minutes",
   logger: require("electron-log"),
 });
 
@@ -83,6 +83,9 @@ function createWindow() {
     const url = request.url;
     if (url.includes("oauth")) {
       authWindow.close();
+      session.defaultSession.clearStorageData({
+        storages: ["cookies", "filesystem"],
+      });
       authWindow = null;
       const access_token = url.substring(
         url.indexOf("?access_token=") + 14,
