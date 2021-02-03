@@ -60,8 +60,8 @@ export default function App() {
             path="/:channel"
             render={(props) => (
               <>
-                {" "}
-                <NavBar {...props} /> <Channel {...props} user={user} />{" "}
+                <NavBar {...props} />
+                <Channel {...props} user={user} />
               </>
             )}
           />
@@ -70,8 +70,8 @@ export default function App() {
             path="/:channel/:vodId"
             render={(props) => (
               <>
-                {" "}
-                <NavBar {...props} /> <Vod {...props} user={user} />{" "}
+                <NavBar {...props} />
+                <Vod {...props} user={user} />
               </>
             )}
           />
