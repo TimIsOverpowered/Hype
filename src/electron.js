@@ -18,13 +18,16 @@ const ffmpeg = require("fluent-ffmpeg");
 ffmpeg.setFfmpegPath(ffmpegStatic);
 const twitch = require("./twitch");
 const ProgressBar = require("electron-progressbar");
+const log = require("electron-log");
 
 if (require("electron-squirrel-startup")) return;
+
+let mainWindow = null;
 
 require("update-electron-app")({
   repo: "TimIsOverpowered/Hype",
   updateInterval: "30 minutes",
-  logger: require("electron-log"),
+  logger: log,
 });
 
 function createWindow() {
@@ -33,7 +36,7 @@ function createWindow() {
     defaultHeight: 600,
   });
 
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     minWidth: 900,
     minHeight: 600,
     x: mainWindowState.x,
@@ -64,17 +67,17 @@ function createWindow() {
     }
   );
 
-  win.setTitle("Hype");
-  win.setMenu(null);
+  mainWindow.setTitle("Hype");
+  mainWindow.setMenu(null);
 
-  win.loadURL(
+  mainWindow.loadURL(
     isDev
       ? "http://localhost:3000"
       : `file://${path.join(__dirname, "../build/index.html")}`
   );
 
   if (isDev) {
-    win.webContents.openDevTools({ mode: "detach" });
+    mainWindow.webContents.openDevTools({ mode: "detach" });
   }
 
   let authWindow;
@@ -110,7 +113,7 @@ function createWindow() {
     authWindow.show();
   });
 
-  win.webContents.on("will-navigate", (event, url) => {
+  mainWindow.webContents.on("will-navigate", (event, url) => {
     event.preventDefault();
     const parsedUrl = new URL(url);
     if (
@@ -127,7 +130,7 @@ function createWindow() {
     }
   });
 
-  win.webContents.on("new-window", (event, url) => {
+  mainWindow.webContents.on("new-window", (event, url) => {
     event.preventDefault();
     const parsedUrl = new URL(url);
     if (
@@ -340,10 +343,24 @@ function createWindow() {
     });
   };
 
-  mainWindowState.manage(win);
+  mainWindowState.manage(mainWindow);
 }
 
-app.whenReady().then(createWindow);
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (event, commandLine, workingDirectory) => {
+    if (mainWindow) {
+      log.info(mainWindow.isMinimized());
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(createWindow);
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
