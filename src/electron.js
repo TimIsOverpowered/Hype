@@ -94,7 +94,7 @@ function createWindow() {
         url.indexOf("?access_token=") + 14,
         url.length
       );
-      win.webContents.send("access_token", access_token);
+      mainWindow.webContents.send("access_token", access_token);
     }
   });
 
