@@ -93,7 +93,8 @@
           "config": {
             "loadingGif": "src/icons/png/256x256.png",
             "iconUrl": "https://hype.lol/icon.ico",
-            "setupIcon": "src/icons/win/icon.ico"
+            "setupIcon": "src/icons/win/icon.ico",
+            "name": "Hype"
           }
         },
         {

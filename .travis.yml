@@ -5,7 +5,6 @@ os:
 - osx
 dist: trusty
 osx_image: xcode12u
-sudo: false
 
 cache:
   directories:
