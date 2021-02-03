@@ -44,9 +44,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "package": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge package",
-    "make": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform win",
-    "make-mac": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform darwin",
-    "make-linux": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform linux --targets deb"
+    "make": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make",
+    "make-win": "rm -rf ./node_modules/ffmpeg-static/ffmpeg* && NPM_CONFIG_PLATFORM=win32 NPM_CONFIG_ARCH=x64 npm run install --prefix ./node_modules/ffmpeg-static && cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform win32",
+    "make-mac": "rm -rf ./node_modules/ffmpeg-static/ffmpeg* && NPM_CONFIG_PLATFORM=darwin NPM_CONFIG_ARCH=x64 npm run install --prefix ./node_modules/ffmpeg-static && cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform darwin"
   },
   "eslintConfig": {
     "extends": [
@@ -81,7 +81,7 @@
   "config": {
     "forge": {
       "packagerConfig": {
-        "icon": "src/icons",
+        "icon": "src/icons/icon",
         "name": "Hype",
         "asar": {
           "unpackDir": "node_modules/ffmpeg-static"
@@ -93,7 +93,7 @@
           "config": {
             "loadingGif": "src/icons/png/256x256.png",
             "iconUrl": "https://hype.lol/icon.ico",
-            "setupIcon": "src/icons/win/icon.ico",
+            "setupIcon": "src/icons/icon.ico",
             "name": "Hype"
           }
         },
@@ -101,7 +101,6 @@
           "name": "@electron-forge/maker-zip",
           "platforms": [
             "darwin",
-            "linux",
             "win32"
           ]
         }
