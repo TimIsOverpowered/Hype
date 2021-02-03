@@ -25,6 +25,7 @@ export default function App() {
     });
 
     client.service("users").on("patched", (paramUser) => {
+      if (!user || !paramUser) return;
       if (paramUser.id === user.id) {
         client
           .service("users")
