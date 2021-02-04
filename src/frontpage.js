@@ -88,9 +88,9 @@ export default function Frontpage(props) {
       </div>
     );
 
-  const status = props.user.patreon
+  const status = (props.user.patreon
     ? props.user.patreon.tier >= 1 && props.user.patreon.isPatron
-    : false || props.user.whitelist;
+    : false) || props.user.whitelist;
 
   //add patreon logo if not active and link to settings connections.
   return (
