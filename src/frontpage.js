@@ -92,7 +92,6 @@ export default function Frontpage(props) {
     ? props.user.patreon.tier >= 1 && props.user.patreon.isPatron
     : false) || props.user.whitelist;
 
-  //add patreon logo if not active and link to settings connections.
   return (
     <div className={classes.parent}>
       <div style={{ textAlign: "center" }}>
