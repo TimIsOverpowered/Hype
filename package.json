@@ -45,8 +45,8 @@
     "eject": "react-scripts eject",
     "package": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge package",
     "make": "cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make",
-    "make-win": "rm -rf ./node_modules/ffmpeg-static/ffmpeg* && NPM_CONFIG_PLATFORM=win32 NPM_CONFIG_ARCH=x64 npm run install --prefix ./node_modules/ffmpeg-static && cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform win32",
-    "make-mac": "rm -rf ./node_modules/ffmpeg-static/ffmpeg* && NPM_CONFIG_PLATFORM=darwin NPM_CONFIG_ARCH=x64 npm run install --prefix ./node_modules/ffmpeg-static && cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform darwin"
+    "make-win": "rm -rf ./node_modules/ffmpeg-static/ffmpeg* && cross-env NPM_CONFIG_PLATFORM=win32 NPM_CONFIG_ARCH=x64 npm run install --prefix ./node_modules/ffmpeg-static && cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform win32",
+    "make-mac": "rm -rf ./node_modules/ffmpeg-static/ffmpeg* && cross-env NPM_CONFIG_PLATFORM=darwin NPM_CONFIG_ARCH=x64 npm run install --prefix ./node_modules/ffmpeg-static && cross-env INLINE_RUNTIME_CHUNK=false react-scripts build && electron-forge make --platform darwin"
   },
   "eslintConfig": {
     "extends": [
