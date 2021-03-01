@@ -15,7 +15,7 @@
     "@testing-library/react": "^11.2.5",
     "@testing-library/user-event": "^12.6.3",
     "axios": "^0.21.1",
-    "electron-is-dev": "^1.2.0",
+    "electron-is-dev": "^2.0.0",
     "electron-log": "^4.3.1",
     "electron-progressbar": "^2.0.0",
     "electron-squirrel-startup": "^1.0.0",
