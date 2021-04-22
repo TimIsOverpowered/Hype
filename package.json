@@ -22,7 +22,7 @@
     "electron-window-state": "^5.0.3",
     "ffmpeg-static": "^4.2.7",
     "fluent-ffmpeg": "git+https://github.com/fluent-ffmpeg/node-fluent-ffmpeg.git",
-    "hls-parser": "^0.7.0",
+    "hls-parser": "^0.10.4",
     "moment": "^2.29.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
