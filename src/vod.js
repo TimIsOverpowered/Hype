@@ -21,8 +21,8 @@ class Vod extends Component {
 
     this.BADGES_TWITCH_URL =
       "https://badges.twitch.tv/v1/badges/global/display?language=en";
+    this.HYPE_API_URL = "https://api.hype.lol";
     this.BASE_TWITCH_CDN = "https://static-cdn.jtvnw.net/";
-    this.BASE_TWITCH_EMOTES_API = "https://api.twitchemotes.com/api/v4/";
     this.BASE_FFZ_EMOTE_API = "https://api.frankerfacez.com/v1/";
     this.BASE_BTTV_EMOTE_API = "https://api.betterttv.net/3/";
     this.BASE_BTTV_CDN = "https://cdn.betterttv.net/";
@@ -36,7 +36,7 @@ class Vod extends Component {
     this.state = {
       chatInterval: null,
       chatLoading: true,
-      replayMessages: null,
+      replayMessages: [],
       comments: [],
       stoppedAtIndex: 0,
       volumeData: null,
@@ -74,7 +74,7 @@ class Vod extends Component {
   fetchClips = async () => {
     const { accessToken } = await client.get("authentication");
 
-    await fetch(`https://api.hype.lol/v1/vods/${this.vodId}/clips`, {
+    await fetch(`${this.HYPE_API_URL}/v1/vods/${this.vodId}/clips`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -150,7 +150,7 @@ class Vod extends Component {
   fetchChapters = async () => {
     const { accessToken } = await client.get("authentication");
 
-    await fetch(`https://api.hype.lol/v1/vods/${this.vodId}/chapters`, {
+    await fetch(`${this.HYPE_API_URL}/v1/vods/${this.vodId}/chapters`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -171,7 +171,7 @@ class Vod extends Component {
   fetchVolume = async () => {
     const { accessToken } = await client.get("authentication");
 
-    await fetch(`https://api.hype.lol/v1/vods/${this.vodId}/volume`, {
+    await fetch(`${this.HYPE_API_URL}/v1/vods/${this.vodId}/volume`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -191,7 +191,7 @@ class Vod extends Component {
 
   fetchLogs = async () => {
     const { accessToken } = await client.get("authentication");
-    await fetch(`https://api.hype.lol/v1/vods/${this.vodId}/logs`, {
+    await fetch(`${this.HYPE_API_URL}/v1/vods/${this.vodId}/logs`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -222,7 +222,7 @@ class Vod extends Component {
   getTwitchId = async () => {
     let twitchId;
     const { accessToken } = await client.get("authentication");
-    await fetch(`https://api.hype.lol/v1/twitch/${this.channel}`, {
+    await fetch(`${this.HYPE_API_URL}/v1/twitch/${this.channel}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -299,13 +299,18 @@ class Vod extends Component {
   };
 
   loadChannelBadges = (twitchId) => {
-    fetch(`${this.BASE_TWITCH_EMOTES_API}channels/${twitchId}`)
+    fetch(`${this.HYPE_API_URL}/v1/badges`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        twitchId: twitchId,
+      }),
+    })
       .then((response) => response.json())
       .then((data) => {
-        this.channelBadges = {
-          subscriber: data.subscriber_badges,
-          bits: data.bits_badges,
-        };
+        this.channelBadges = data;
       })
       .catch((e) => {
         console.error(e);
@@ -337,19 +342,51 @@ class Vod extends Component {
   handlePlayerPlay = () => {
     if (this.timeout) clearTimeout(this.timeout);
     this.timeout = setTimeout(() => {
+      let offset = Math.round(this.player.getCurrentTime());
+      //SEEK
+      if (this.state.comments.length > 0) {
+        const lastComment = this.state.comments[this.state.comments.length - 1];
+        const firstComment = this.state.comments[0];
+        if (
+          offset - lastComment.content_offset_seconds <= 30 &&
+          offset > firstComment.content_offset_seconds
+        ) {
+          //IF: rewinded?
+          if (
+            this.state.comments[this.state.stoppedAtIndex]
+              .content_offset_seconds -
+              offset >=
+            4
+          ) {
+            this.setState(
+              {
+                stoppedAtIndex: 0,
+                messages: [],
+              },
+              () => {
+                this.loop();
+              }
+            );
+            return;
+          }
+          this.loop();
+          return;
+        }
+      }
       this.setState(
         {
-          chatLoading: true,
+          messages: [],
           comments: [],
-          replayMessages: [],
           stoppedAtIndex: 0,
+          chatLoading: true,
+          cursor: null,
         },
-        async () => {
-          await this.fetchComments(this.player.getCurrentTime());
+        () => {
+          this.fetchComments(offset);
           this.loop();
         }
       );
-    }, 1000);
+    }, 300);
   };
 
   loop = () => {
@@ -399,7 +436,11 @@ class Vod extends Component {
             user_color: comment.message.user_color,
           });
         }
-        this.setState({ comments: comments, cursor: data._next });
+        this.setState({
+          comments: comments,
+          cursor: data._next,
+          chatLoading: false,
+        });
       })
       .catch((e) => {
         console.error(e);
@@ -448,25 +489,26 @@ class Vod extends Component {
     if (!badges) return null;
     let badgeWrapper = [];
     for (const badge of badges) {
-      if (this.channelBadges) {
-        const channelBadge = this.channelBadges[badge._id];
-        if (channelBadge) {
-          if (channelBadge[badge.version]) {
+      let foundBadge = false;
+      if (this.channelBadges && this.channelBadges.length > 0) {
+        for (let channelBadge of this.channelBadges) {
+          if (badge._id !== channelBadge.set_id) continue;
+          for (let badgeVersion of channelBadge.versions) {
+            if (badgeVersion.id !== badge.version) continue;
             badgeWrapper.push(
               <img
                 key={this.badgesCount++}
                 crossOrigin="anonymous"
-                className={this.classes.badges}
-                src={channelBadge[badge.version].image_url_1x}
-                srcSet={`${channelBadge[badge.version].image_url_1x} 1x, ${
-                  channelBadge[badge.version].image_url_2x
-                } 2x, ${channelBadge[badge.version].image_url_4x} 4x`}
+                className={this.props.classes.badges}
+                src={badgeVersion.image_url_1x}
+                srcSet={`${badgeVersion.image_url_1x} 1x, ${badgeVersion.image_url_2x} 2x, ${badgeVersion.image_url_4x} 4x`}
                 alt=""
               />
             );
+            foundBadge = true;
           }
-          continue;
         }
+        if (foundBadge) continue;
       }
 
       const twitchBadge = this.badgeSets[badge._id];
@@ -475,16 +517,24 @@ class Vod extends Component {
           <img
             key={this.badgesCount++}
             crossOrigin="anonymous"
-            className={this.classes.badges}
+            className={this.props.classes.badges}
             src={`${this.BASE_TWITCH_CDN}badges/v1/${
-              twitchBadge.versions[badge.version].image_url_1x
+              twitchBadge.versions[badge.version]
+                ? twitchBadge.versions[badge.version].image_url_1x
+                : twitchBadge.versions[0].image_url_1x
             }`}
             srcSet={`${this.BASE_TWITCH_CDN}badges/v1/${
-              twitchBadge.versions[badge.version].image_url_1x
+              twitchBadge.versions[badge.version]
+                ? twitchBadge.versions[badge.version].image_url_1x
+                : twitchBadge.versions[0].image_url_1x
             } 1x, ${this.BASE_TWITCH_CDN}badges/v1/${
-              twitchBadge.versions[badge.version].image_url_2x
+              twitchBadge.versions[badge.version]
+                ? twitchBadge.versions[badge.version].image_url_2x
+                : twitchBadge.versions[0].image_url_2x
             } 2x, ${this.BASE_TWITCH_CDN}badges/v1/${
-              twitchBadge.versions[badge.version].image_url_4x
+              twitchBadge.versions[badge.version]
+                ? twitchBadge.versions[badge.version].image_url_4x
+                : twitchBadge.versions[0].image_url_4x
             } 4x`}
             alt=""
           />
@@ -496,6 +546,7 @@ class Vod extends Component {
   };
 
   transformMessage = (messageFragments) => {
+    if (messageFragments === null) return;
     const textFragments = [];
     for (let messageFragment of messageFragments) {
       if (!messageFragment.emoticon) {
@@ -510,7 +561,7 @@ class Vod extends Component {
                   <div key={this.messageCount++} style={{ display: "inline" }}>
                     <img
                       crossOrigin="anonymous"
-                      className={this.classes.chatEmote}
+                      className={this.props.classes.chatEmote}
                       src={`https:${ffz_emote.urls["1"]}`}
                       srcSet={`https:${ffz_emote.urls["1"]} 1x, https:${ffz_emote.urls["2"]} 2x, https:${ffz_emote.urls["4"]} 4x`}
                       alt=""
@@ -531,7 +582,7 @@ class Vod extends Component {
                 textFragments.push(
                   <div key={this.messageCount++} style={{ display: "inline" }}>
                     <img
-                      className={this.classes.chatEmote}
+                      className={this.props.classes.chatEmote}
                       src={`${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/1x`}
                       srcSet={`${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/1x 1x, ${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/2x 2x, ${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/3x 4x`}
                       alt=""
@@ -552,7 +603,7 @@ class Vod extends Component {
                 textFragments.push(
                   <div key={this.messageCount++} style={{ display: "inline" }}>
                     <img
-                      className={this.classes.chatEmote}
+                      className={this.props.classes.chatEmote}
                       src={`${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/1x`}
                       srcSet={`${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/1x 1x, ${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/2x 2x, ${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/3x 4x`}
                       alt=""
@@ -575,11 +626,11 @@ class Vod extends Component {
           <div key={this.messageCount++} style={{ display: "inline" }}>
             <img
               crossOrigin="anonymous"
-              className={this.classes.chatEmote}
-              src={`${this.BASE_TWITCH_CDN}emoticons/v1/${messageFragment.emoticon.emoticon_id}/1.0`}
+              className={this.props.classes.chatEmote}
+              src={`${this.BASE_TWITCH_CDN}emoticons/v2/${messageFragment.emoticon.emoticon_id}/default/dark/1.0`}
               srcSet={
                 messageFragment.emoticon.emoticon_set_id
-                  ? `${this.BASE_TWITCH_CDN}emoticons/v1/${messageFragment.emoticon.emoticon_set_id}/1.0 1x, ${this.BASE_TWITCH_CDN}emoticons/v1/${messageFragment.emoticon.emoticon_set_id}/2.0 2x`
+                  ? `${this.BASE_TWITCH_CDN}emoticons/v2/${messageFragment.emoticon.emoticon_set_id}/default/dark/1.0 1x, ${this.BASE_TWITCH_CDN}emoticons/v2/${messageFragment.emoticon.emoticon_set_id}/default/dark/2.0 2x`
                   : ""
               }
               alt=""
@@ -607,6 +658,9 @@ class Vod extends Component {
       }
     }
 
+    if (this.state.comments.length - 1 === pastIndex) {
+      await this.fetchNextComments();
+    }
     if (
       this.state.stoppedAtIndex === pastIndex &&
       this.state.stoppedAtIndex !== 0
@@ -616,10 +670,8 @@ class Vod extends Component {
     let messages = this.state.replayMessages.slice(0);
 
     for (let i = this.state.stoppedAtIndex.valueOf(); i < pastIndex; i++) {
-      if (messages.length > 30) {
-        messages.splice(0, 1);
-      }
       const comment = this.state.comments[i];
+      if (!comment.message) continue;
       messages.push(
         <li key={comment.id} style={{ width: "100%" }}>
           <Box
@@ -663,17 +715,13 @@ class Vod extends Component {
           </Box>
         </li>
       );
-    }
-
-    if (this.state.comments.length - 1 === pastIndex) {
-      await this.fetchNextComments();
+      if (messages.length > 75) messages.splice(0, 1);
     }
 
     this.setState(
       {
         replayMessages: messages,
         stoppedAtIndex: pastIndex,
-        chatLoading: false,
       },
       () => {
         this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight;
@@ -1294,9 +1342,7 @@ class Vod extends Component {
           !this.state.logs ? (
             <div className={classes.graphRoot}>
               <div className={classes.graphLoading}>
-                <Typography variant="h5">
-                  {this.state.error}
-                </Typography>
+                <Typography variant="h5">{this.state.error}</Typography>
               </div>
             </div>
           ) : (
