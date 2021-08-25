@@ -16,7 +16,7 @@ const ffmpegStatic = require("ffmpeg-static").replace(
 );
 const ffmpeg = require("fluent-ffmpeg");
 ffmpeg.setFfmpegPath(ffmpegStatic);
-const twitch = require("./twitch");
+const twitch = require("./twitch.cjs");
 const ProgressBar = require("electron-progressbar");
 const log = require("electron-log");
 
@@ -49,6 +49,7 @@ function createWindow() {
       enableRemoteModule: true,
       preload: path.join(__dirname, "preload.js"),
       devTools: isDev ? true : false,
+      webSecurity: isDev ? false : true
     },
   });
 

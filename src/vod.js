@@ -13,7 +13,10 @@ import SimpleBar from "simplebar-react";
 import Settings from "./settings";
 import Graph from "./graph";
 import moment from "moment";
-import Player from "./player";
+import Twitch from "./twitch.mjs";
+import ReactPlayer from "react-player";
+import Hls from "hls.js";
+window.Hls = Hls;
 
 class Vod extends Component {
   constructor(props) {
@@ -69,6 +72,7 @@ class Vod extends Component {
     this.fetchClips();
     this.fetchChapters();
     this.getTwitchId();
+    this.getM3u8();
   }
 
   fetchClips = async () => {
@@ -324,14 +328,15 @@ class Vod extends Component {
         error:
           "There are no logs for this vod. This streamer may not be whitelisted..",
       });
-    while (this.player.getDuration() === 0) {
+
+    while (isNaN(player.getDuration())) {
       await this.sleep(50);
     }
+
     this.setState(
       {
         messageThreshold:
-          Math.round(this.state.logs.length / this.player.getDuration()) * 25 ||
-          1,
+          Math.round(this.state.logs.length / player.getDuration()) * 25 || 1,
       },
       () => {
         this.buildMessageGraph();
@@ -339,11 +344,9 @@ class Vod extends Component {
     );
   };
 
-  handlePlayerPlay = () => {
+  handlePlayerSeek = (offset) => {
     if (this.timeout) clearTimeout(this.timeout);
     this.timeout = setTimeout(() => {
-      let offset = Math.round(this.player.getCurrentTime());
-      //SEEK
       if (this.state.comments.length > 0) {
         const lastComment = this.state.comments[this.state.comments.length - 1];
         const firstComment = this.state.comments[0];
@@ -351,7 +354,6 @@ class Vod extends Component {
           offset - lastComment.content_offset_seconds <= 30 &&
           offset > firstComment.content_offset_seconds
         ) {
-          //IF: rewinded?
           if (
             this.state.comments[this.state.stoppedAtIndex]
               .content_offset_seconds -
@@ -389,7 +391,31 @@ class Vod extends Component {
     }, 300);
   };
 
+  handlePlayerStart = () => {
+    let offset = Math.round(this.player.getCurrentTime());
+    this.setState(
+      {
+        messages: [],
+        comments: [],
+        stoppedAtIndex: 0,
+        chatLoading: true,
+        cursor: null,
+      },
+      () => {
+        this.fetchComments(offset);
+        this.loop();
+      }
+    );
+  };
+
+  handlePlayerPlay = () => {
+    this.setState({ paused: false }, () => {
+      this.loop();
+    });
+  };
+
   loop = () => {
+    if (this.loopTimeout) clearTimeout(this.loopTimeout);
     this.loopTimeout = setTimeout(async () => {
       await this.buildChat();
       this.loop();
@@ -397,6 +423,7 @@ class Vod extends Component {
   };
 
   handlePlayerPause = () => {
+    this.setState({ paused: true });
     clearTimeout(this.loopTimeout);
   };
 
@@ -643,7 +670,7 @@ class Vod extends Component {
   };
 
   buildChat = async () => {
-    if (this.state.comments.length === 0 || this.player.isPaused()) return;
+    if (this.state.comments.length === 0 || this.state.paused) return;
 
     let pastIndex = this.state.comments.length - 1;
     for (
@@ -724,6 +751,7 @@ class Vod extends Component {
         stoppedAtIndex: pastIndex,
       },
       () => {
+        if (!this.chatRef.current) return;
         this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight;
       }
     );
@@ -886,13 +914,13 @@ class Vod extends Component {
   };
 
   setTimestamp = (duration) => {
-    if (this.player.isPaused()) {
-      this.player.play();
+    if (this.state.paused) {
+      this.setState({ paused: false });
       setTimeout(() => {
-        this.player.seek(duration);
+        this.player.seekTo(duration, "seconds");
       }, 50);
     } else {
-      this.player.seek(duration);
+      this.player.seekTo(duration, "seconds");
     }
     if (this.loopTimeout) clearTimeout(this.loopTimeout);
     if (this.timeout) clearTimeout(this.timeout);
@@ -1153,7 +1181,6 @@ class Vod extends Component {
   };
 
   handleVolumeThreshold = (evt) => {
-    console.log(evt.target.value);
     const value = parseInt(evt.target.value);
     if (isNaN(value)) return;
     if (this.volumeTimeout) clearTimeout(this.volumeTimeout);
@@ -1243,6 +1270,14 @@ class Vod extends Component {
     }, 500);
   };
 
+  getM3u8 = async () => {
+    const vodTokenSig = await Twitch.gqlGetVodTokenSig(this.vodId);
+    const m3u8 = Twitch.getParsedM3u8(
+      await Twitch.getM3u8(this.vodId, vodTokenSig.value, vodTokenSig.signature)
+    );
+    this.setState({ source: m3u8 });
+  };
+
   render() {
     const { classes, user } = this.props;
     if (user === undefined || this.state.logs === undefined)
@@ -1268,12 +1303,19 @@ class Vod extends Component {
         }}
       >
         <Box display="flex" height="50%" width="100%">
-          <Player
+          <ReactPlayer
             className={classes.player}
-            vodId={this.vodId}
-            handlePlayerPause={this.handlePlayerPause}
-            handlePlayerPlay={this.handlePlayerPlay}
-            handlePlayerReady={this.handlePlayerReady}
+            playing={!this.state.paused}
+            url={this.state.source}
+            controls={true}
+            muted={false}
+            width="100%"
+            height="100%"
+            onReady={this.handlePlayerReady}
+            onStart={this.handlePlayerStart}
+            onPlay={this.handlePlayerPlay}
+            onPause={this.handlePlayerPause}
+            onSeek={this.handlePlayerSeek}
           />
           <div className={classes.horizChat}>
             {this.state.chatLoading ? (
