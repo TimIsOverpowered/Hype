@@ -53,21 +53,6 @@ function createWindow() {
     },
   });
 
-  //To fix Twitch player in prod mode.
-  session.defaultSession.webRequest.onHeadersReceived(
-    {
-      urls: ["https://player.twitch.tv/*", "https://embed.twitch.tv/*"],
-    },
-    (details, cb) => {
-      var responseHeaders = details.responseHeaders;
-      delete responseHeaders["Content-Security-Policy"];
-      cb({
-        cancel: false,
-        responseHeaders,
-      });
-    }
-  );
-
   mainWindow.setTitle("Hype");
   mainWindow.setMenu(null);
 
