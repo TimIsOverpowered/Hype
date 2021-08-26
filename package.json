@@ -1,7 +1,7 @@
 {
   "name": "hype",
   "ProductName": "Hype",
-  "version": "1.0.0-beta.6",
+  "version": "1.0.0-beta.7",
   "private": true,
   "main": "./src/electron.js",
   "author": "Overpowered",
