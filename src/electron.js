@@ -45,6 +45,7 @@ function createWindow() {
     height: mainWindowState.height,
     webPreferences: {
       nodeIntegration: false,
+      nodeIntegrationInWorker: true,
       contextIsolation: true,
       enableRemoteModule: true,
       preload: path.join(__dirname, "preload.js"),

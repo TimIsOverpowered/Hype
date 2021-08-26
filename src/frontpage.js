@@ -88,9 +88,10 @@ export default function Frontpage(props) {
       </div>
     );
 
-  const status = (props.user.patreon
-    ? props.user.patreon.tier >= 1 && props.user.patreon.isPatron
-    : false) || props.user.whitelist;
+  const status =
+    (props.user.patreon
+      ? props.user.patreon.tier >= 1 && props.user.patreon.isPatron
+      : false);
 
   return (
     <div className={classes.parent}>
@@ -106,8 +107,9 @@ export default function Frontpage(props) {
             variant="h5"
             className={`${classes.bold} ${classes.status}`}
           >
-            {`Status: ${status ? "Active" : "Not Active"}`}
+            {`Status: ${status ? "Supporter" : "Not a Supporter"}`}
           </Typography>
+
           {status ? (
             <></>
           ) : (
@@ -118,51 +120,33 @@ export default function Frontpage(props) {
               rel="noopenere noreferrer"
               color="primary"
             >
-              Join Patreon Today
+              Join Patreon Today to support me!
             </Button>
           )}
         </Box>
-        {status ? (
-          <TextField
-            autoFocus
-            inputProps={{
-              style: {
-                backgroundColor: "hsla(0,0%,100%,.15)",
-                color: "#fff",
-                textAlign: "center",
-              },
-            }}
-            InputLabelProps={{
-              style: { color: "#fff" },
-            }}
-            disabled={!status}
-            variant="outlined"
-            margin="normal"
-            fullWidth
-            label="Enter a Twitch Channel"
-            name="channel"
-            autoComplete="off"
-            autoCapitalize="off"
-            autoCorrect="off"
-            onChange={handleChannelChange}
-            onKeyPress={handleChannelSubmit}
-          />
-        ) : (
-          <Box marginTop="1rem">
-            <Typography variant="h6" className={`${classes.bold}`}>
-              {`If you are a patron, please verify your patreon in settings.`}
-            </Typography>
-            <Button
-              style={{ marginTop: "1rem" }}
-              href="https://hype.lol/settings/connections"
-              target="_blank"
-              rel="noopenere noreferrer"
-              color="primary"
-            >
-              Settings (Opens Browser)
-            </Button>
-          </Box>
-        )}
+        <TextField
+          autoFocus
+          inputProps={{
+            style: {
+              backgroundColor: "hsla(0,0%,100%,.15)",
+              color: "#fff",
+              textAlign: "center",
+            },
+          }}
+          InputLabelProps={{
+            style: { color: "#fff" },
+          }}
+          variant="outlined"
+          margin="normal"
+          fullWidth
+          label="Enter a Twitch Channel"
+          name="channel"
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          onChange={handleChannelChange}
+          onKeyPress={handleChannelSubmit}
+        />
       </div>
     </div>
   );
