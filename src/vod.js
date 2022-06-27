@@ -29,6 +29,8 @@ class Vod extends Component {
     this.BASE_FFZ_EMOTE_API = "https://api.frankerfacez.com/v1/";
     this.BASE_BTTV_EMOTE_API = "https://api.betterttv.net/3/";
     this.BASE_BTTV_CDN = "https://cdn.betterttv.net/";
+    this.BASE_7TV_EMOTE_API = "https://api.7tv.app/v2/";
+    this.BASE_7TV_CDN = "https://cdn.7tv.app/";
     this.channel = this.props.match.params.channel;
     this.vodId = this.props.match.params.vodId;
     this.player = null;
@@ -243,6 +245,8 @@ class Vod extends Component {
     this.loadBadges();
     this.loadChannelBadges(twitchId);
     this.loadFFZEmotes(twitchId);
+    this.load7TVGlobalEmotes(twitchId);
+    this.load7TVEmotes(twitchId);
     this.loadBTTVGlobalEmotes(twitchId);
     this.loadBTTVChannelEmotes(twitchId);
   };
@@ -280,6 +284,32 @@ class Vod extends Component {
       .then((response) => response.json())
       .then((data) => {
         this.FFZEmotes = data.sets[data.room.set].emoticons;
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  };
+
+  load7TVGlobalEmotes = () => {
+    fetch(`${this.BASE_7TV_EMOTE_API}emotes/global`, {
+      method: "GET",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        this.SevenTVGlobalEmotes = data;
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  };
+
+  load7TVEmotes = (twitchId) => {
+    fetch(`${this.BASE_7TV_EMOTE_API}users/${twitchId}/emotes`, {
+      method: "GET",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        this.SevenTVEmotes = data;
       })
       .catch((e) => {
         console.error(e);
@@ -633,6 +663,48 @@ class Vod extends Component {
                       className={this.props.classes.chatEmote}
                       src={`${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/1x`}
                       srcSet={`${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/1x 1x, ${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/2x 2x, ${this.BASE_BTTV_CDN}emote/${bttv_emote.id}/3x 4x`}
+                      alt=""
+                    />
+                    {` `}
+                  </div>
+                );
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.SevenTVGlobalEmotes) {
+            for (let stv_emote of this.SevenTVGlobalEmotes) {
+              if (message === stv_emote.name) {
+                found = true;
+                textFragments.push(
+                  <div key={this.messageCount++} style={{ display: "inline" }}>
+                    <img
+                      className={this.props.classes.chatEmote}
+                      src={`${this.BASE_7TV_CDN}emote/${stv_emote.id}/1x`}
+                      srcSet={`${this.BASE_7TV_CDN}emote/${stv_emote.id}/1x 1x, ${this.BASE_7TV_CDN}emote/${stv_emote.id}/2x 2x, ${this.BASE_7TV_CDN}emote/${stv_emote.id}/3x 3x, ${this.BASE_7TV_CDN}emote/${stv_emote.id}/4x 4x`}
+                      alt=""
+                    />
+                    {` `}
+                  </div>
+                );
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.SevenTVEmotes) {
+            for (let stv_emote of this.SevenTVEmotes) {
+              if (message === stv_emote.name) {
+                found = true;
+                textFragments.push(
+                  <div key={this.messageCount++} style={{ display: "inline" }}>
+                    <img
+                      className={this.props.classes.chatEmote}
+                      src={`${this.BASE_7TV_CDN}emote/${stv_emote.id}/1x`}
+                      srcSet={`${this.BASE_7TV_CDN}emote/${stv_emote.id}/1x 1x, ${this.BASE_7TV_CDN}emote/${stv_emote.id}/2x 2x, ${this.BASE_7TV_CDN}emote/${stv_emote.id}/3x 3x, ${this.BASE_7TV_CDN}emote/${stv_emote.id}/4x 4x`}
                       alt=""
                     />
                     {` `}
@@ -1119,6 +1191,28 @@ class Vod extends Component {
           if (this.BTTVEmotes) {
             for (let bttv_emote of this.BTTVEmotes) {
               if (message === bttv_emote.code) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.SevenTVGlobalEmotes) {
+            for (let stv_emote of this.SevenTVGlobalEmotes) {
+              if (message === stv_emote.code) {
+                found = true;
+                json.emotes[message] = json.emotes[message] + 1 || 1;
+                break;
+              }
+            }
+            if (found) continue;
+          }
+
+          if (this.SevenTVEmotes) {
+            for (let stv_emote of this.SevenTVEmotes) {
+              if (message === stv_emote.code) {
                 found = true;
                 json.emotes[message] = json.emotes[message] + 1 || 1;
                 break;
