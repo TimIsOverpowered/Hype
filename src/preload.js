@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld("api", {
   send: (channel, data) => {
-    let validChannels = ["clip", "vod", "login"];
+    let validChannels = ["clip", "vod"];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }
