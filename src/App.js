@@ -5,6 +5,7 @@ import NavBar from "./navbar";
 import NotFound from "./utils/NotFound";
 import Settings from "./settings";
 import { LogoLoading } from "./utils/Loading";
+import Whitelist from "./whitelist";
 
 export default function App() {
   const [user, setUser] = React.useState(undefined);
@@ -68,6 +69,7 @@ export default function App() {
           element={
             <>
               <NavBar user={user} />
+              <Whitelist />
             </>
           }
         />
