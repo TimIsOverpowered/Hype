@@ -25,6 +25,62 @@ const Twitch = {
     return data;
   },
 
+  getVods: async function (channel) {
+    const gqlQuery = `query { user(login: "${channel}") { id login displayName profileImageURL(width: 300) videos(first: 25) { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
+
+    const data = await axios({
+      url: "https://gql.twitch.tv/gql",
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      data: {
+        query: gqlQuery,
+      },
+    })
+      .then((response) => response.data.data)
+      .then((data) => data.user)
+      .catch((e) => {
+        console.error(e);
+        return null;
+      });
+    return {
+      user: {
+        id: data.id,
+        login: data.login,
+        displayName: data.displayName,
+        profileImageURL: data.profileImageURL,
+      },
+      videos: data.videos,
+    };
+  },
+
+  getNextVods: async function (channel, cursor) {
+    const gqlQuery = `query { user(login: "${channel}") { videos(first: 25, after: "${cursor}") { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
+
+    const data = await axios({
+      url: "https://gql.twitch.tv/gql",
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      data: {
+        query: gqlQuery,
+      },
+    })
+      .then((response) => response.data.data)
+      .then((data) => data.user.videos)
+      .catch((e) => {
+        console.error(e);
+        return null;
+      });
+    return data;
+  },
+
   gqlGetVodTokenSig: async function (vodID) {
     const data = await axios({
       url: "https://gql.twitch.tv/gql",

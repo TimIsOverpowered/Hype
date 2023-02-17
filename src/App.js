@@ -6,6 +6,7 @@ import NotFound from "./utils/NotFound";
 import Settings from "./settings";
 import { LogoLoading } from "./utils/Loading";
 import Whitelist from "./whitelist";
+import Channel from "./channel";
 
 export default function App() {
   const [user, setUser] = React.useState(undefined);
@@ -81,6 +82,16 @@ export default function App() {
             <>
               <NavBar user={user} />
               <Settings user={user} />
+            </>
+          }
+        />
+        <Route
+          exact
+          path="/:channel"
+          element={
+            <>
+              <NavBar user={user} />
+              <Channel user={user} />
             </>
           }
         />

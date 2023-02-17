@@ -1,17 +1,14 @@
 import { styled, Typography } from "@mui/material";
-import CustomLink from "./CustomLink";
 import Logo from "../assets/logo.svg";
 
-const NotFound = styled((props) => {
+const NotAuth = styled((props) => {
   return (
     <div {...props}>
       <img src={Logo} alt="" style={{ height: "auto", maxWidth: "200px" }} />
       <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
-        <CustomLink href="/">
-          <Typography variant="body2" color="textSecondary">
-            Nothing over here..
-          </Typography>
-        </CustomLink>
+        <Typography variant="body2" color="textSecondary">
+          Please login before accessing these features.
+        </Typography>
       </div>
     </div>
   );
@@ -25,4 +22,4 @@ const NotFound = styled((props) => {
   width: 100%;
 `;
 
-export default NotFound;
+export default NotAuth;
