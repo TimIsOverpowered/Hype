@@ -1,7 +1,10 @@
 import React, { useEffect } from "react";
-import { HashRouter, Route, Routes } from "react-router-dom";
+import { HashRouter, Route, Routes, Navigate } from "react-router-dom";
 import client from "./client";
 import NavBar from "./navbar";
+import NotFound from "./utils/NotFound";
+import Settings from "./settings";
+import { LogoLoading } from "./utils/Loading";
 
 export default function App() {
   const [user, setUser] = React.useState(undefined);
@@ -45,15 +48,37 @@ export default function App() {
     return;
   }, [user]);
 
+  if (user === undefined) return <LogoLoading />;
+
   return (
     <HashRouter>
       <Routes>
+        <Route
+          path="*"
+          element={
+            <>
+              <NavBar user={user} />
+              <NotFound />
+            </>
+          }
+        />
         <Route
           exact
           path="/"
           element={
             <>
               <NavBar user={user} />
+            </>
+          }
+        />
+        <Route exact path="/settings" element={<Navigate to="/settings/profile" replace />} />
+        <Route
+          exact
+          path="/settings/:subPath"
+          element={
+            <>
+              <NavBar user={user} />
+              <Settings user={user} />
             </>
           }
         />

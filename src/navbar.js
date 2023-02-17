@@ -1,14 +1,15 @@
-import React from "react";
-import { AppBar, Toolbar, Box, Button } from "@mui/material";
+import React, { useState } from "react";
+import { AppBar, Toolbar, Box, Button, TextField } from "@mui/material";
 import client from "./client";
 import Logo from "./assets/logo.svg";
 import CustomLink from "./utils/CustomLink";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import SvgIcon from "@mui/material/SvgIcon";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import LoginIcon from "@mui/icons-material/Login";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutIcon from "@mui/icons-material/Logout";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 const socials = [
   {
@@ -43,19 +44,33 @@ const socials = [
 
 export default function Navbar(props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = props;
+  const [channelInput, setChannelInput] = useState("");
 
-  if (user === undefined) return <></>;
+  const handleSubmit = (e) => {
+    if (e.which === 13 && channelInput.length > 0) {
+      navigate(`/${channelInput}`);
+    }
+  };
 
   return (
     <Box sx={{ flex: 1 }}>
       <AppBar position="static">
         <Toolbar>
           <Box sx={{ display: "flex", alignItems: "center", flex: 1 }}>
+            {location.pathname !== "/" && (
+              <Box sx={{ mr: 2 }}>
+                <Button onClick={() => navigate(-1)} variant="contained" startIcon={<ArrowBackIcon />}>
+                  Back
+                </Button>
+              </Box>
+            )}
+
             <Box sx={{ mr: 2 }}>
-              <a href="/">
+              <CustomLink href={"#"}>
                 <img alt="" style={{ maxWidth: "65px", height: "auto" }} src={Logo} />
-              </a>
+              </CustomLink>
             </Box>
 
             {socials.map(({ path, icon }) => (
@@ -67,10 +82,14 @@ export default function Navbar(props) {
             ))}
           </Box>
 
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, pt: 1, pb: 1 }}>
+            <TextField label="Enter a Twitch channel" variant="filled" size="small" type="text" onKeyDown={handleSubmit} onChange={(e) => setChannelInput(e.target.value)} />
+          </Box>
+
           {user && (
             <Box sx={{ display: "flex", justifyContent: "end", flex: 1 }}>
               <Box sx={{ mr: 2 }}>
-                <Button onClick={() => navigate("settings")} variant="contained" startIcon={<SettingsIcon />}>
+                <Button disabled={location.pathname.startsWith("/settings")} onClick={() => navigate("/settings")} variant="contained" startIcon={<SettingsIcon />}>
                   Settings
                 </Button>
               </Box>
