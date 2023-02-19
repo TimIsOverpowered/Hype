@@ -1,3 +1,8 @@
+//Sleep for x ms
+module.exports.sleep = (ms) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 //Parse seconds to HH:mm:ss format
 module.exports.toHMS = (seconds) => {
   return [3600, 60]

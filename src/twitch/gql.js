@@ -1,5 +1,35 @@
 import axios from "axios";
-import HLS from "hls-parser";
+
+const DOMAINS = [
+  "https://vod-secure.twitch.tv",
+  "https://vod-metro.twitch.tv",
+  "https://vod-pop-secure.twitch.tv",
+  "https://d2e2de1etea730.cloudfront.net",
+  "https://dqrpb9wgowsf5.cloudfront.net",
+  "https://ds0h3roq6wcgc.cloudfront.net",
+  "https://d2nvs31859zcd8.cloudfront.net",
+  "https://d2aba1wr3818hz.cloudfront.net",
+  "https://d3c27h4odz752x.cloudfront.net",
+  "https://dgeft87wbj63p.cloudfront.net",
+  "https://d1m7jfoe9zdc1j.cloudfront.net",
+  "https://d3vd9lfkzbru3h.cloudfront.net",
+  "https://d2vjef5jvl6bfs.cloudfront.net",
+  "https://d1ymi26ma8va5x.cloudfront.net",
+  "https://d1mhjrowxxagfy.cloudfront.net",
+  "https://ddacn6pr5v0tl.cloudfront.net",
+  "https://d3aqoihi2n8ty8.cloudfront.net",
+  "https://d1xhnb4ptk05mw.cloudfront.net",
+  "https://d6tizftlrpuof.cloudfront.net",
+  "https://d36nr0u3xmc4mm.cloudfront.net",
+  "https://d1oca24q5dwo6d.cloudfront.net",
+  "https://d2um2qdswy1tb0.cloudfront.net",
+  "https://d1w2poirtb3as9.cloudfront.net",
+  "https://d6d4ismr40iw.cloudfront.net",
+  "https://d1g1f25tn8m2e6.cloudfront.net",
+  "https://dykkng5hnh52u.cloudfront.net",
+  "https://d2dylwb3shzel1.cloudfront.net",
+  "https://d2xmjdvx03ij56.cloudfront.net",
+];
 
 const Twitch = {
   getUsers: async function (channels) {
@@ -81,6 +111,30 @@ const Twitch = {
     return data;
   },
 
+  getVod: async function (vodId) {
+    const gqlQuery = `query { video(id: "${vodId}") { id title lengthSeconds broadcastType previewThumbnailURL(width: 1920, height: 1080) creator { id login displayName createdAt profileImageURL(width: 50) } }}`;
+
+    const data = await axios({
+      url: "https://gql.twitch.tv/gql",
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      data: {
+        query: gqlQuery,
+      },
+    })
+      .then((response) => response.data.data)
+      .then((data) => data.video)
+      .catch((e) => {
+        console.error(e);
+        return null;
+      });
+    return data;
+  },
+
   gqlGetVodTokenSig: async function (vodID) {
     const data = await axios({
       url: "https://gql.twitch.tv/gql",
@@ -129,8 +183,24 @@ const Twitch = {
     return data;
   },
 
-  getParsedM3u8: (m3u8, variant = 0) => {
-    return HLS.parse(m3u8).variants[variant].uri;
+  checkM3u8: async (url) => {
+    const data = await axios
+      .head(url)
+      .then(() => true)
+      .catch(() => false);
+    return data;
+  },
+
+  findM3u8: async (hash) => {
+    let foundDomain;
+    for (let domain of DOMAINS) {
+      const exists = await Twitch.checkM3u8(`${domain}/${hash}/chunked/index-dvr.m3u8`);
+      if (exists) {
+        foundDomain = domain;
+        break;
+      }
+    }
+    return `${foundDomain}/${hash}/chunked/index-dvr.m3u8`;
   },
 };
 

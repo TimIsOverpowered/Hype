@@ -7,6 +7,7 @@ import Settings from "./settings";
 import { LogoLoading } from "./utils/Loading";
 import Whitelist from "./whitelist";
 import Channel from "./channel";
+import Vod from "./vods/Vod";
 
 export default function App() {
   const [user, setUser] = React.useState(undefined);
@@ -92,6 +93,16 @@ export default function App() {
             <>
               <NavBar user={user} />
               <Channel user={user} />
+            </>
+          }
+        />
+        <Route
+          exact
+          path="/vods/:vodId"
+          element={
+            <>
+              <NavBar user={user} />
+              <Vod user={user} />
             </>
           }
         />
