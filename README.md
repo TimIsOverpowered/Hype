@@ -13,19 +13,19 @@ Hype is a application where you can find the "Hype" or hot moments in [Twitch.tv
 
 1. Message graph. Find peak messages throughout the vod.
 
-    ![Message graph](https://user-images.githubusercontent.com/10867914/106548452-a17b7880-64d4-11eb-964e-74ab117e5a05.png)
+   ![Message graph](https://user-images.githubusercontent.com/10867914/106548452-a17b7880-64d4-11eb-964e-74ab117e5a05.png)
 
 2. Search graph. Search for a term
 
-    ![Search graph](https://user-images.githubusercontent.com/10867914/106548466-a93b1d00-64d4-11eb-94cc-4025dcba608b.png)
+   ![Search graph](https://user-images.githubusercontent.com/10867914/106548466-a93b1d00-64d4-11eb-94cc-4025dcba608b.png)
 
 3. Clip Views graph. See the hottest clip views during that vod
 
-    ![Clip Views graph](https://user-images.githubusercontent.com/10867914/106548405-8872c780-64d4-11eb-8ace-98c409d94401.png)
+   ![Clip Views graph](https://user-images.githubusercontent.com/10867914/106548405-8872c780-64d4-11eb-8ace-98c409d94401.png)
 
 4. Volume graph. See when the streamer goes mald.
 
-    ![Volume graph](https://user-images.githubusercontent.com/10867914/106548434-96c0e380-64d4-11eb-8689-48e6b21e7fc6.png)
+   ![Volume graph](https://user-images.githubusercontent.com/10867914/106548434-96c0e380-64d4-11eb-8689-48e6b21e7fc6.png)
 
 ## Download
 
@@ -45,3 +45,9 @@ npm run package
 ## Feature Request / Support / Feedback
 
 Join the [Discord](https://discord.gg/chUMEPR)!
+
+### Twemoji
+
+[Twemoji graphics made by Twitter and other contributors](https://twemoji.twitter.com)
+
+[Licensed under CC-BY 4.0](https://creativecommons.org/licenses/by/4.0)

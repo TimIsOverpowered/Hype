@@ -89,6 +89,10 @@
   text-shadow: 0 0 1em #fff, 0 0 1em #fff, 0 0 1em #fff;
 }
 
+.video-js .vjs-progress-holder .vjs-play-progress .vjs-time-tooltip {
+  display: none;
+}
+
 .video-js .vjs-spacer,
 .video-js .vjs-time-control {
   display: -webkit-box;

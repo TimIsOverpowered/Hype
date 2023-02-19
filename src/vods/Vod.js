@@ -14,7 +14,7 @@ export default function Vod(props) {
   const { vodId } = useParams();
   const [vod, setVod] = useState(undefined);
   const [currentTime, setCurrentTime] = useState(undefined);
-  const [playing, setPlaying] = useState({ playing: false });
+  const [playing, setPlaying] = useState(false);
   const [userChatDelay, setUserChatDelay] = useState(0);
   const playerRef = useRef(null);
 
@@ -37,8 +37,8 @@ export default function Vod(props) {
   if (vod === null) return <NotFound />;
 
   return (
-    <Box sx={{ height: "100%", width: "100%" }}>
-      <Box sx={{ display: "flex", flexDirection: "row", height: "100%", width: "100%" }}>
+    <Box sx={{ height: "100%", width: "100%", minHeight: 0 }}>
+      <Box sx={{ display: "flex", height: "100%", width: "100%" }}>
         <Box sx={{ display: "flex", height: "100%", width: "100%", flexDirection: "column", alignItems: "flex-start", minWidth: 0, overflow: "hidden", position: "relative" }}>
           <Player playerRef={playerRef} setCurrentTime={setCurrentTime} setPlaying={setPlaying} vod={vod} />
           <Box sx={{ minHeight: "auto !important", width: "100%" }}>
@@ -55,7 +55,7 @@ export default function Vod(props) {
             </Box>
           </Box>
         </Box>
-        <Chat vodId={vodId} playerRef={playerRef} playing={playing} currentTime={currentTime} userChatDelay={userChatDelay} />
+        <Chat vodId={vodId} playerRef={playerRef} playing={playing} currentTime={currentTime} userChatDelay={userChatDelay} twitchId={vod.creator.id} />
       </Box>
     </Box>
   );

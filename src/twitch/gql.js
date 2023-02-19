@@ -135,7 +135,7 @@ const Twitch = {
     return data;
   },
 
-  gqlGetVodTokenSig: async function (vodID) {
+  gqlGetVodTokenSig: async function (vodId) {
     const data = await axios({
       url: "https://gql.twitch.tv/gql",
       method: "POST",
@@ -150,7 +150,7 @@ const Twitch = {
           isLive: false,
           login: "",
           isVod: true,
-          vodID: vodID,
+          vodID: vodId,
           platform: "web",
           playerBackend: "mediaplayer",
           playerType: "site",
@@ -201,6 +201,111 @@ const Twitch = {
       }
     }
     return `${foundDomain}/${hash}/chunked/index-dvr.m3u8`;
+  },
+
+  getBadges: async (vodId) => {
+    const data = await axios({
+      url: "https://gql.twitch.tv/gql",
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      data: {
+        operationName: "VideoComments",
+        variables: {
+          videoID: vodId,
+          hasVideoID: true,
+        },
+        extensions: {
+          persistedQuery: {
+            version: 1,
+            sha256Hash: "f3b546321ec4632bcb83ee6a6dba91dad754fca3fd147ae26d9a7a0a096cfc60",
+          },
+        },
+      },
+    })
+      .then((response) => response.data.data)
+      .catch((e) => {
+        console.error(e);
+        return null;
+      });
+    return {
+      globalBadges: data.badges,
+      channelBadges: data.video.owner.broadcastBadges,
+      channelCheerBadges: data.video.owner.cheer,
+    };
+  },
+
+  getComments: async (vodId, offset = 0) => {
+    const data = await axios({
+      url: "https://gql.twitch.tv/gql",
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      data: {
+        operationName: "VideoCommentsByOffsetOrCursor",
+        variables: {
+          videoID: vodId,
+          contentOffsetSeconds: offset,
+        },
+        extensions: {
+          persistedQuery: {
+            version: 1,
+            sha256Hash: "b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a",
+          },
+        },
+      },
+    })
+      .then((response) => response.data.data.video)
+      .then((video) => {
+        if (!video) return null;
+        return video.comments.edges;
+      })
+      .catch((e) => {
+        console.error(e);
+        return null;
+      });
+    return data;
+  },
+
+  getNextComments: async (vodId, cursor) => {
+    const data = await axios({
+      url: "https://gql.twitch.tv/gql",
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko", //twitch's
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      data: {
+        operationName: "VideoCommentsByOffsetOrCursor",
+        variables: {
+          videoID: vodId,
+          cursor: cursor,
+        },
+        extensions: {
+          persistedQuery: {
+            version: 1,
+            sha256Hash: "b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a",
+          },
+        },
+      },
+    })
+      .then((response) => response.data.data.video)
+      .then((video) => {
+        if (!video) return null;
+        return video.comments.edges;
+      })
+      .catch((e) => {
+        console.error(e);
+        return null;
+      });
+    return data;
   },
 };
 

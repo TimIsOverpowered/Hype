@@ -44,17 +44,17 @@ export default function Player(props) {
     player.on("play", () => {
       timeUpdate();
       loopTimeUpdate();
-      setPlaying({ playing: true });
+      setPlaying(true);
     });
 
     player.on("pause", () => {
       clearTimeUpdate();
-      setPlaying({ playing: false });
+      setPlaying(false);
     });
 
     player.on("end", () => {
       clearTimeUpdate();
-      setPlaying({ playing: false });
+      setPlaying(false);
     });
 
     getM3u8();
