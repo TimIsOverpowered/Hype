@@ -1,8 +1,11 @@
 const path = require("path");
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, dialog } = require("electron");
 const isDev = require("electron-is-dev");
 const windowStateKeeper = require("electron-window-state");
 const { sendToken } = require("./auth/oauth");
+const FFmpeg = require("./ffmpeg");
+const ProgressBar = require("electron-progressbar");
+const { toHMS } = require("./utils/helpers");
 
 if (require("electron-squirrel-startup")) return;
 require("update-electron-app")();
@@ -109,4 +112,39 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
+});
+
+ipcMain.on("clip", async (event, args) => {
+  const { startSeconds, endSeconds, vodId, m3u8, startHMS, endHMS } = args;
+  const fileName = `/${vodId}-${toHMS(startSeconds)}-${toHMS(startSeconds + endSeconds)}-clip.mp4`;
+  const saveDialog = await dialog.showSaveDialog({
+    filters: [{ name: "Videos", extensions: ["mp4"] }],
+    defaultPath: __dirname + fileName,
+    properties: ["showOverwriteConfirmation", "createDirectory"],
+    nameFieldLabel: fileName,
+  });
+
+  if (saveDialog.canceled) return;
+  const clipPath = saveDialog.filePath;
+
+  const progressBar = new ProgressBar({
+    indeterminate: false,
+    text: `Clipping ${vodId} VOD from ${startHMS} to ${endHMS}`,
+    title: "Hype by Overpowered",
+  });
+
+  progressBar
+    .on("completed", function () {
+      progressBar.detail = "Done!";
+    })
+    .on("aborted", function (error) {
+      console.error(error);
+    });
+
+  FFmpeg.clip(startHMS, endSeconds, m3u8, progressBar, clipPath)
+    .then(() => progressBar.setCompleted())
+    .catch((e) => {
+      progressBar.close(e);
+      dialog.showErrorBox("Hype", "Something went wrong! Either try again or report it in Discord. \n" + e);
+    });
 });

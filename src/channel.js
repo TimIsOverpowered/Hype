@@ -6,7 +6,7 @@ import Twitch from "./twitch/gql";
 import CustomLink from "./utils/CustomLink";
 import { useParams } from "react-router-dom";
 import NotAuth from "./utils/NotAuth";
-import { toHMS } from "./utils/helpers";
+import { toHHMMSS } from "./utils/helpers";
 import CustomWidthTooltip from "./utils/CustomWidthToolTip";
 
 export default function Channel(props) {
@@ -90,7 +90,7 @@ const StyledVods = (props) => {
         <Box sx={{ pointerEvents: "none", position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}>
           <Box sx={{ position: "absolute", bottom: 0, right: 0 }}>
             <Typography variant="caption" sx={{ p: 0.3, backgroundColor: "rgba(0,0,0,.6)" }}>
-              {`${toHMS(vod.node.lengthSeconds)}`}
+              {`${toHHMMSS(vod.node.lengthSeconds)}`}
             </Typography>
           </Box>
         </Box>

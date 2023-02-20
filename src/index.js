@@ -9,7 +9,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import { createTheme, ThemeProvider, responsiveFontSizes } from "@mui/material/styles";
 import { CssBaseline, styled } from "@mui/material";
-import { red } from "@mui/material/colors";
+import { grey, red } from "@mui/material/colors";
 
 let darkTheme = createTheme({
   palette: {
@@ -19,6 +19,10 @@ let darkTheme = createTheme({
     },
     primary: {
       main: red[200],
+    },
+    text: {
+      main: "#fff",
+      secondary: grey[600]
     },
   },
   components: {

@@ -61,7 +61,7 @@ export default function Navbar(props) {
           <Box sx={{ display: "flex", alignItems: "center", flex: 1 }}>
             {location.pathname !== "/" && (
               <Box sx={{ mr: 2 }}>
-                <Button onClick={() => navigate(-1)} variant="contained" startIcon={<ArrowBackIcon />}>
+                <Button size="small" onClick={() => navigate(-1)} variant="contained" startIcon={<ArrowBackIcon />}>
                   Back
                 </Button>
               </Box>
@@ -82,27 +82,27 @@ export default function Navbar(props) {
             ))}
           </Box>
 
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, pt: 1, pb: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1}}>
             <TextField label="Enter a Twitch channel" variant="filled" size="small" type="text" onKeyDown={handleSubmit} onChange={(e) => setChannelInput(e.target.value)} />
           </Box>
 
           {user && (
-            <Box sx={{ display: "flex", justifyContent: "end", flex: 1 }}>
+            <Box sx={{ display: "flex", justifyContent: "end", alignItems: "center", flex: 1 }}>
               <Box sx={{ mr: 2 }}>
-                <Button disabled={location.pathname.startsWith("/settings")} onClick={() => navigate("/settings")} variant="contained" startIcon={<SettingsIcon />}>
+                <Button size="small" disabled={location.pathname.startsWith("/settings")} onClick={() => navigate("/settings")} variant="contained" startIcon={<SettingsIcon />}>
                   Settings
                 </Button>
               </Box>
-              <Button onClick={() => client.logout()} variant="contained" startIcon={<LogoutIcon />}>
+              <Button size="small" onClick={() => client.logout()} variant="contained" startIcon={<LogoutIcon />}>
                 Log Out
               </Button>
             </Box>
           )}
 
           {!user && (
-            <Box sx={{ display: "flex", justifyContent: "end", flex: 1 }}>
+            <Box sx={{ display: "flex", justifyContent: "end", alignItems: "center", flex: 1 }}>
               <Box sx={{ mr: 2 }}>
-                <Button href="https://api.hype.lol/oauth/twitch?redirect=electron" rel="noopener noreferrer" target="_blank" variant="contained" startIcon={<LoginIcon />}>
+                <Button size="small" href="https://api.hype.lol/oauth/twitch?redirect=electron" rel="noopener noreferrer" target="_blank" variant="contained" startIcon={<LoginIcon />}>
                   Login
                 </Button>
               </Box>

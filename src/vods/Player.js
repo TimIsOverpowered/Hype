@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import canAutoPlay from "can-autoplay";
 import { Box } from "@mui/material";
 import VideoJS from "./player/VideoJS";
@@ -11,8 +11,7 @@ import { LogoLoading } from "../utils/Loading";
 window.Buffer = window.Buffer || Buffer;
 
 export default function Player(props) {
-  const { playerRef, setCurrentTime, setPlaying, vod } = props;
-  const timeUpdateRef = useRef(null);
+  const { vod, player, setPlayer, setPlaying } = props;
   const [source, setSource] = useState(undefined);
   const videoJsOptions = {
     autoplay: true,
@@ -26,7 +25,7 @@ export default function Player(props) {
   };
 
   const onReady = (player) => {
-    playerRef.current = player;
+    setPlayer(player);
 
     player.hotkeys({
       alwaysCaptureHotkeys: true,
@@ -38,22 +37,18 @@ export default function Player(props) {
     });
 
     canAutoPlay.video().then(({ result }) => {
-      if (!result) playerRef.current.muted(true);
+      if (!result) player.muted(true);
     });
 
     player.on("play", () => {
-      timeUpdate();
-      loopTimeUpdate();
       setPlaying(true);
     });
 
     player.on("pause", () => {
-      clearTimeUpdate();
       setPlaying(false);
     });
 
     player.on("end", () => {
-      clearTimeUpdate();
       setPlaying(false);
     });
 
@@ -79,28 +74,10 @@ export default function Player(props) {
     setSource(m3u8);
   };
 
-  const timeUpdate = () => {
-    if (!playerRef.current) return;
-    if (playerRef.current.paused()) return;
-    setCurrentTime(playerRef.current.currentTime());
-  };
-
-  const loopTimeUpdate = () => {
-    if (timeUpdateRef.current !== null) clearTimeout(timeUpdateRef.current);
-    timeUpdateRef.current = setTimeout(() => {
-      timeUpdate();
-      loopTimeUpdate();
-    }, 1000);
-  };
-
-  const clearTimeUpdate = () => {
-    if (timeUpdateRef.current !== null) clearTimeout(timeUpdateRef.current);
-  };
-
   useEffect(() => {
-    if (!source || !playerRef.current) return;
-    playerRef.current.src(source);
-  }, [source, playerRef]);
+    if (!source || !player) return;
+    player.src(source);
+  }, [source, player]);
 
   return (
     <Box sx={{ height: "100%", width: "100%" }}>

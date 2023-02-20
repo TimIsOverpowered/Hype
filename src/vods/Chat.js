@@ -20,7 +20,7 @@ let messageCount = 0;
 let badgesCount = 0;
 
 export default function Chat(props) {
-  const { vodId, playerRef, playing, userChatDelay, twitchId } = props;
+  const { vodId, player, playing, userChatDelay, twitchId } = props;
   const [showChat, setShowChat] = useState(true);
   const [shownMessages, setShownMessages] = useState([]);
   const comments = useRef([]);
@@ -128,16 +128,16 @@ export default function Chat(props) {
   }, [vodId, twitchId]);
 
   const getCurrentTime = useCallback(() => {
-    if (!playerRef.current) return 0;
+    if (!player) return 0;
     let time = 0;
-    time += playerRef.current.currentTime();
+    time += player.currentTime();
     time += userChatDelay;
     return time;
-  }, [playerRef, userChatDelay]);
+  }, [player, userChatDelay]);
 
   const buildComments = useCallback(async () => {
-    if (!playerRef.current || !comments.current || comments.current.length === 0 || !cursor.current || stoppedAtIndex.current === null) return;
-    if (playerRef.current.paused()) return;
+    if (!player || !comments.current || comments.current.length === 0 || !cursor.current || stoppedAtIndex.current === null) return;
+    if (player.paused()) return;
 
     const time = getCurrentTime();
     let lastIndex = comments.current.length - 1;
@@ -213,7 +213,7 @@ export default function Chat(props) {
                 style={{ verticalAlign: "middle", border: "none", maxWidth: "100%" }}
                 src={`${BASE_TWITCH_CDN}/emoticons/v2/${fragment.emote.emoteID}/default/dark/1.0`}
                 alt=""
-              />
+              />{" "}
             </Box>
           );
           continue;
@@ -238,7 +238,7 @@ export default function Chat(props) {
                       src={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x`}
                       srcSet={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x 1x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/2x 2x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/4x 4x`}
                       alt=""
-                    />
+                    />{" "}
                   </Box>
                 );
                 continue;
@@ -256,7 +256,7 @@ export default function Chat(props) {
                       src={`${BASE_FFZ_EMOTE_CDN}/${emote.id}/1`}
                       srcSet={`${BASE_FFZ_EMOTE_CDN}/${emote.id}/1 1x, ${BASE_FFZ_EMOTE_CDN}/${emote.id}/2 2x, ${BASE_FFZ_EMOTE_CDN}/${emote.id}/4 4x`}
                       alt=""
-                    />
+                    />{" "}
                   </Box>
                 );
                 continue;
@@ -274,7 +274,7 @@ export default function Chat(props) {
                       src={`${BASE_BTTV_EMOTE_CDN}/${emote.id}/1x`}
                       srcSet={`${BASE_BTTV_EMOTE_CDN}/${emote.id}/1x 1x, ${BASE_BTTV_EMOTE_CDN}/${emote.id}/2x 2x, ${BASE_BTTV_EMOTE_CDN}/${emote.id}/4x 4x`}
                       alt=""
-                    />
+                    />{" "}
                   </Box>
                 );
                 continue;
@@ -332,7 +332,7 @@ export default function Chat(props) {
       comments.current = nextRes;
       cursor.current = nextRes[nextRes.length - 1].cursor;
     }
-  }, [getCurrentTime, playerRef, vodId]);
+  }, [getCurrentTime, player, vodId]);
 
   const loop = useCallback(() => {
     if (loopRef.current !== null) clearInterval(loopRef.current);
