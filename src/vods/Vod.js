@@ -45,7 +45,7 @@ export default function Vod(props) {
         <Chat vodId={vodId} player={player} userChatDelay={userChatDelay} twitchId={vod.creator.id} playing={playing} />
       </Box>
       <Box sx={{ height: "100%", minHeight: 0 }}>
-        <Settings setUserChatDelay={setUserChatDelay} player={player} vodId={vodId} />
+        <Settings userChatDelay={userChatDelay} setUserChatDelay={setUserChatDelay} player={player} vodId={vodId} />
         <Graph />
       </Box>
     </Box>

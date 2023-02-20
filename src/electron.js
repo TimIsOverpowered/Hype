@@ -130,18 +130,53 @@ ipcMain.on("clip", async (event, args) => {
   const progressBar = new ProgressBar({
     indeterminate: false,
     text: `Clipping ${vodId} VOD from ${startHMS} to ${endHMS}`,
-    title: "Hype by Overpowered",
+    title: "Hype",
+    browserWindow: {
+      closable: true,
+      minimizable: true,
+    },
   });
 
-  progressBar
-    .on("completed", function () {
-      progressBar.detail = "Done!";
-    })
-    .on("aborted", function (error) {
-      console.error(error);
-    });
+  progressBar.on("completed", () => {
+    progressBar.detail = "Done!";
+  });
 
   FFmpeg.clip(startHMS, endSeconds, m3u8, progressBar, clipPath)
+    .then(() => progressBar.setCompleted())
+    .catch((e) => {
+      progressBar.close(e);
+      dialog.showErrorBox("Hype", "Something went wrong! Either try again or report it in Discord. \n" + e);
+    });
+});
+
+ipcMain.on("vod", async (event, args) => {
+  const { m3u8, duration, vodId } = args;
+  const fileName = `/${vodId}-vod.mp4`;
+  const saveDialog = await dialog.showSaveDialog({
+    filters: [{ name: "Videos", extensions: ["mp4"] }],
+    defaultPath: __dirname + fileName,
+    properties: ["showOverwriteConfirmation", "createDirectory"],
+    nameFieldLabel: fileName,
+  });
+
+  if (saveDialog.canceled) return;
+  const clipPath = saveDialog.filePath;
+
+  const progressBar = new ProgressBar({
+    indeterminate: false,
+    text: `Downloading ${vodId} VOD`,
+    title: "Hype",
+    browserWindow: {
+      closable: true,
+      minimizable: true,
+    },
+  });
+
+  progressBar.on("completed", () => {
+    progressBar.detail = "Done!";
+  });
+
+  FFmpeg.downloadVod(m3u8, duration, progressBar, clipPath)
     .then(() => progressBar.setCompleted())
     .catch((e) => {
       progressBar.close(e);

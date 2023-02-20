@@ -82,8 +82,8 @@ export default function Navbar(props) {
             ))}
           </Box>
 
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1}}>
-            <TextField label="Enter a Twitch channel" variant="filled" size="small" type="text" onKeyDown={handleSubmit} onChange={(e) => setChannelInput(e.target.value)} />
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
+            <TextField label="Enter a Twitch channel" size="small" type="text" onKeyDown={handleSubmit} onChange={(e) => setChannelInput(e.target.value)} />
           </Box>
 
           {user && (
