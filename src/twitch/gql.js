@@ -307,6 +307,40 @@ const Twitch = {
       });
     return data;
   },
+
+  getChapters: async (vodId) => {
+    const data = await axios({
+      url: "https://gql.twitch.tv/gql",
+      method: "POST",
+      headers: {
+        Accept: "*/*",
+        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+        "Content-Type": "text/plain;charset=UTF-8",
+      },
+      data: {
+        operationName: "VideoPreviewCard__VideoMoments",
+        variables: {
+          videoId: vodId,
+        },
+        extensions: {
+          persistedQuery: {
+            version: 1,
+            sha256Hash: "0094e99aab3438c7a220c0b1897d144be01954f8b4765b884d330d0c0893dbde",
+          },
+        },
+      },
+    })
+      .then((response) => response.data.data.video)
+      .then((video) => {
+        if (!video) return null;
+        return video.moments.edges;
+      })
+      .catch((e) => {
+        console.error(e);
+        return null;
+      });
+    return data;
+  },
 };
 
 export default Twitch;

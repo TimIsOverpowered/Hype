@@ -4,9 +4,23 @@ import { Box, Modal, Typography, TextField, InputAdornment, Select, InputLabel, 
 import Logo from "../../assets/logo.svg";
 import DownloadIcon from "@mui/icons-material/Download";
 
-export default function Settings(props) {
-  const { userChatDelay, setUserChatDelay, showModal, setShowModal, player, vodId, searchThreshold, messageThreshold, volumeThreshold, setSearchThreshold, setMessageThreshold, setVolumeThreshold } =
-    props;
+export default function SettingsModal(props) {
+  const {
+    userChatDelay,
+    setUserChatDelay,
+    showModal,
+    setShowModal,
+    player,
+    vodId,
+    searchThreshold,
+    messageThreshold,
+    volumeThreshold,
+    setSearchThreshold,
+    setMessageThreshold,
+    setVolumeThreshold,
+    interval,
+    setInterval,
+  } = props;
   const [quality, setQuality] = useState("chunked");
 
   const delayChange = useMemo(
@@ -16,8 +30,19 @@ export default function Settings(props) {
         const value = Number(evt.target.value);
         if (isNaN(value)) return;
         setUserChatDelay(value);
-      }),
+      }, 300),
     [setUserChatDelay]
+  );
+
+  const intervalChange = useMemo(
+    () =>
+      debounce((evt) => {
+        if (evt.target.value.length === 0) return;
+        const value = Number(evt.target.value);
+        if (isNaN(value)) return;
+        setInterval(value);
+      }, 300),
+    [setInterval]
   );
 
   const messageChange = useMemo(
@@ -27,7 +52,7 @@ export default function Settings(props) {
         const value = Number(evt.target.value);
         if (isNaN(value)) return;
         setMessageThreshold(value);
-      }),
+      }, 300),
     [setMessageThreshold]
   );
 
@@ -38,7 +63,7 @@ export default function Settings(props) {
         const value = Number(evt.target.value);
         if (isNaN(value)) return;
         setSearchThreshold(value);
-      }),
+      }, 300),
     [setSearchThreshold]
   );
 
@@ -49,7 +74,7 @@ export default function Settings(props) {
         const value = Number(evt.target.value);
         if (isNaN(value)) return;
         setVolumeThreshold(value);
-      }),
+      }, 300),
     [setVolumeThreshold]
   );
 
@@ -76,7 +101,7 @@ export default function Settings(props) {
           </Box>
           <Box sx={{ mt: 2 }}>
             <TextField
-              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
               InputProps={{
                 endAdornment: <InputAdornment position="start">secs</InputAdornment>,
               }}
@@ -118,9 +143,25 @@ export default function Settings(props) {
           </Box>
           <Box sx={{ mt: 2 }}>
             <TextField
-              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
               InputProps={{
-                endAdornment: <InputAdornment position="start">messages</InputAdornment>,
+                startAdornment: <InputAdornment position="start">every</InputAdornment>,
+                endAdornment: <InputAdornment position="start">secs</InputAdornment>,
+              }}
+              fullWidth
+              label="Interval"
+              size="small"
+              type="text"
+              onChange={intervalChange}
+              defaultValue={interval}
+            />
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">every</InputAdornment>,
+                endAdornment: <InputAdornment position="start">msgs</InputAdornment>,
               }}
               fullWidth
               label="Message Threshold"
@@ -132,9 +173,10 @@ export default function Settings(props) {
           </Box>
           <Box sx={{ mt: 2 }}>
             <TextField
-              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
               InputProps={{
-                endAdornment: <InputAdornment position="start">messages</InputAdornment>,
+                startAdornment: <InputAdornment position="start">every</InputAdornment>,
+                endAdornment: <InputAdornment position="start">msgs</InputAdornment>,
               }}
               fullWidth
               label="Search Threshold"
@@ -146,8 +188,9 @@ export default function Settings(props) {
           </Box>
           <Box sx={{ mt: 2 }}>
             <TextField
-              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", style: { textAlign: "center" } }}
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
               InputProps={{
+                startAdornment: <InputAdornment position="start">every</InputAdornment>,
                 endAdornment: <InputAdornment position="start">dB</InputAdornment>,
               }}
               fullWidth

@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Box, Typography, IconButton } from "@mui/material";
+import { useRef, useState, useMemo } from "react";
+import { Box, Typography, IconButton, TextField } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
 import EqualizerIcon from "@mui/icons-material/Equalizer";
 import TheatersIcon from "@mui/icons-material/Theaters";
@@ -9,12 +9,12 @@ import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import TimeInput from "./settings/TimeInput";
 import { hmsValid, toSeconds, toHHMMSS } from "../utils/helpers";
 import SettingsModal from "./settings/Modal";
+import CloseIcon from "@mui/icons-material/Close";
+import debounce from "lodash.debounce";
 
 export default function Settings(props) {
-  const { userChatDelay, setUserChatDelay, player, vodId, messageThreshold, setMessageThreshold, searchThreshold, setSearchThreshold, volumeThreshold, setVolumeThreshold } = props;
+  const { userChatDelay, setUserChatDelay, player, vodId, hypeVod, setGraph, clips, clipStart, setClipStart, clipEnd, setClipEnd, graph, searchTerm, setSearchTerm } = props;
   const [showModal, setShowModal] = useState(false);
-  const [clipStart, setClipStart] = useState("00:00:00");
-  const [clipEnd, setClipEnd] = useState("00:00:00");
   const startRef = useRef();
   const endRef = useRef();
 
@@ -38,6 +38,15 @@ export default function Settings(props) {
       endHMS: clipEnd,
     });
   };
+
+  const searchChange = useMemo(
+    () =>
+      debounce((evt) => {
+        if (evt.target.value.length === 0) return;
+        setSearchTerm(evt.target.value);
+      }, 300),
+    [setSearchTerm]
+  );
 
   return (
     <>
@@ -91,19 +100,40 @@ export default function Settings(props) {
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
           <Box sx={{ display: "flex", borderRight: "1px solid hsla(0,0%,100%,.1)" }}>
             <Box sx={{ borderLeft: "1px solid hsla(0,0%,100%,.1)", display: "flex", alignItems: "center" }}>
-              <IconButton title="Clip Views" onClick={() => setShowModal(true)} color="primary">
-                <TheatersIcon />
-              </IconButton>
+              {graph !== "clips" ? (
+                <IconButton disabled={!hypeVod || !clips} title="Clip Views" onClick={() => setGraph("clips")} color="primary">
+                  <TheatersIcon />
+                </IconButton>
+              ) : (
+                <IconButton title="Close" onClick={() => setGraph("messages")} color="primary">
+                  <CloseIcon />
+                </IconButton>
+              )}
             </Box>
             <Box sx={{ borderLeft: "1px solid hsla(0,0%,100%,.1)", display: "flex", alignItems: "center" }}>
-              <IconButton title="Volume" onClick={() => setShowModal(true)} color="primary">
-                <EqualizerIcon />
-              </IconButton>
+              {graph !== "volume" ? (
+                <IconButton disabled={!hypeVod || !hypeVod?.volume_data} title="Volume" onClick={() => setGraph("volume")} color="primary">
+                  <EqualizerIcon />
+                </IconButton>
+              ) : (
+                <IconButton title="Close" onClick={() => setGraph("messages")} color="primary">
+                  <CloseIcon />
+                </IconButton>
+              )}
             </Box>
             <Box sx={{ borderLeft: "1px solid hsla(0,0%,100%,.1)", display: "flex", alignItems: "center" }}>
-              <IconButton title="Search" onClick={() => setShowModal(true)} color="primary">
-                <SearchIcon />
-              </IconButton>
+              {graph !== "search" ? (
+                <IconButton disabled={!hypeVod} title="Search" onClick={() => setGraph("search")} color="primary">
+                  <SearchIcon />
+                </IconButton>
+              ) : (
+                <>
+                  <IconButton title="Close" onClick={() => setGraph("messages")} color="primary">
+                    <CloseIcon />
+                  </IconButton>
+                  <TextField sx={{ width: "125px" }} placeholder="Search" size="small" type="text" onChange={searchChange} defaultValue={searchTerm} />
+                </>
+              )}
             </Box>
           </Box>
         </Box>
@@ -125,12 +155,14 @@ export default function Settings(props) {
         setShowModal={setShowModal}
         player={player}
         vodId={vodId}
-        messageThreshold={messageThreshold}
-        setMessageThreshold={setMessageThreshold}
-        searchThreshold={searchThreshold}
-        setSearchThreshold={setSearchThreshold}
-        volumeThreshold={volumeThreshold}
-        setVolumeThreshold={setVolumeThreshold}
+        interval={props.interval}
+        setInterval={props.setInterval}
+        messageThreshold={props.messageThreshold}
+        setMessageThreshold={props.setMessageThreshold}
+        searchThreshold={props.searchThreshold}
+        setSearchThreshold={props.setSearchThreshold}
+        volumeThreshold={props.volumeThreshold}
+        setVolumeThreshold={props.setVolumeThreshold}
       />
     </>
   );

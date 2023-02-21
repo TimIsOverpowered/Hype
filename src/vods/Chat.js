@@ -20,16 +20,11 @@ let messageCount = 0;
 let badgesCount = 0;
 
 export default function Chat(props) {
-  const { vodId, player, playing, userChatDelay, twitchId } = props;
+  const { vodId, player, playing, userChatDelay, twitchId, emotes } = props;
   const [showChat, setShowChat] = useState(true);
   const [shownMessages, setShownMessages] = useState([]);
   const comments = useRef([]);
   const badges = useRef();
-  const emotes = useRef({
-    BTTV: [],
-    FFZ: [],
-    "7TV": [],
-  });
   const cursor = useRef();
   const loopRef = useRef();
   const playRef = useRef();
@@ -125,7 +120,7 @@ export default function Chat(props) {
 
     loadEmotes();
     loadBadges();
-  }, [vodId, twitchId]);
+  }, [vodId, twitchId, emotes]);
 
   const getCurrentTime = useCallback(() => {
     if (!player) return 0;
@@ -295,7 +290,7 @@ export default function Chat(props) {
     const messages = [];
     for (let i = stoppedAtIndex.current.valueOf(); i < lastIndex; i++) {
       const comment = comments.current[i].node;
-      if (!comment.message) continue;
+      if (!comment.message || !comment.commenter) continue;
       messages.push(
         <Box key={comment.id} ref={createRef()} sx={{ width: "100%" }}>
           <Box sx={{ alignItems: "flex-start", display: "flex", flexWrap: "nowrap", width: "100%", pl: 0.5, pt: 0.5, pr: 0.5 }}>
@@ -332,7 +327,7 @@ export default function Chat(props) {
       comments.current = nextRes;
       cursor.current = nextRes[nextRes.length - 1].cursor;
     }
-  }, [getCurrentTime, player, vodId]);
+  }, [getCurrentTime, player, vodId, emotes]);
 
   const loop = useCallback(() => {
     if (loopRef.current !== null) clearInterval(loopRef.current);
@@ -348,8 +343,8 @@ export default function Chat(props) {
       const lastComment = comments.current[comments.current.length - 1].node;
       const firstComment = comments.current[0].node;
 
-      if (time - lastComment.contentOffsetSeconds <= 30 && time > firstComment.contentOffsetSeconds) {
-        if (comments.current[stoppedAtIndex.current].contentOffsetSeconds - time >= 4) {
+      if (time - lastComment.contentOffsetSeconds <= 30 && time - firstComment.contentOffsetSeconds <= 10) {
+        if (comments.current[stoppedAtIndex.current].node.contentOffsetSeconds - time >= 4) {
           stoppedAtIndex.current = 0;
           setShownMessages([]);
         }
@@ -413,7 +408,7 @@ export default function Chat(props) {
           </Box>
           <Divider />
           <CustomCollapse in={showChat} timeout="auto" unmountOnExit sx={{ minWidth: "340px" }}>
-            {shownMessages.length === 0 ? (
+            {comments.length === 0 ? (
               <BasicLoading />
             ) : (
               <>
