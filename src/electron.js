@@ -40,7 +40,7 @@ function createWindow() {
       enableRemoteModule: true,
       preload: path.join(__dirname, "preload.js"),
       devTools: isDev ? true : false,
-      webSecurity: isDev ? false : true,
+      webSecurity: true,
     },
     title: `${app.getName()} v${app.getVersion()}`,
   });
@@ -56,6 +56,23 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  mainWindow.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
+    const { requestHeaders, url } = details;
+    if (!url.includes("hype.lol")) UpsertKeyValue(requestHeaders, "Access-Control-Allow-Origin", ["*"]);
+    callback({ requestHeaders });
+  });
+
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    const { responseHeaders, url } = details;
+    if (!url.includes("hype.lol")) {
+      UpsertKeyValue(responseHeaders, "Access-Control-Allow-Origin", ["*"]);
+      UpsertKeyValue(responseHeaders, "Access-Control-Allow-Headers", ["*"]);
+    }
+    callback({
+      responseHeaders,
+    });
   });
 
   mainWindowState.manage(mainWindow);
@@ -183,3 +200,17 @@ ipcMain.on("vod", async (event, args) => {
       dialog.showErrorBox("Hype", "Something went wrong! Either try again or report it in Discord. \n" + e);
     });
 });
+
+function UpsertKeyValue(obj, keyToChange, value) {
+  const keyToChangeLower = keyToChange.toLowerCase();
+  for (const key of Object.keys(obj)) {
+    if (key.toLowerCase() === keyToChangeLower) {
+      // Reassign old key
+      obj[key] = value;
+      // Done
+      return;
+    }
+  }
+  // Insert at end instead
+  obj[keyToChange] = value;
+}
