@@ -15,8 +15,11 @@ export default function Vod(props) {
   const { vodId } = useParams();
   const [vod, setVod] = useState(undefined);
   const [userChatDelay, setUserChatDelay] = useState(0);
-  const [player, setPlayer] = useState(null);
+  const [player, setPlayer] = useState(undefined);
   const [playing, setPlaying] = useState(false);
+  const [messageThreshold, setMessageThreshold] = useState(undefined);
+  const [searchThreshold, setSearchThreshold] = useState(1);
+  const [volumeThreshold, setVolumeThreshold] = useState(-40);
 
   useEffect(() => {
     if (!user || !vodId) return;
@@ -45,7 +48,18 @@ export default function Vod(props) {
         <Chat vodId={vodId} player={player} userChatDelay={userChatDelay} twitchId={vod.creator.id} playing={playing} />
       </Box>
       <Box sx={{ height: "100%", minHeight: 0 }}>
-        <Settings userChatDelay={userChatDelay} setUserChatDelay={setUserChatDelay} player={player} vodId={vodId} />
+        <Settings
+          userChatDelay={userChatDelay}
+          setUserChatDelay={setUserChatDelay}
+          player={player}
+          vodId={vodId}
+          messageThreshold={messageThreshold}
+          setMessageThreshold={setMessageThreshold}
+          searchThreshold={searchThreshold}
+          setSearchThreshold={setSearchThreshold}
+          volumeThreshold={volumeThreshold}
+          setVolumeThreshold={setVolumeThreshold}
+        />
         <Graph />
       </Box>
     </Box>

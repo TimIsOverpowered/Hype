@@ -11,7 +11,7 @@ import { hmsValid, toSeconds, toHHMMSS } from "../utils/helpers";
 import SettingsModal from "./settings/Modal";
 
 export default function Settings(props) {
-  const { userChatDelay, setUserChatDelay, player, vodId } = props;
+  const { userChatDelay, setUserChatDelay, player, vodId, messageThreshold, setMessageThreshold, searchThreshold, setSearchThreshold, volumeThreshold, setVolumeThreshold } = props;
   const [showModal, setShowModal] = useState(false);
   const [clipStart, setClipStart] = useState("00:00:00");
   const [clipEnd, setClipEnd] = useState("00:00:00");
@@ -118,7 +118,20 @@ export default function Settings(props) {
           </Box>
         </Box>
       </Box>
-      <SettingsModal userChatDelay={userChatDelay} setUserChatDelay={setUserChatDelay} showModal={showModal} setShowModal={setShowModal} player={player} vodId={vodId} />
+      <SettingsModal
+        userChatDelay={userChatDelay}
+        setUserChatDelay={setUserChatDelay}
+        showModal={showModal}
+        setShowModal={setShowModal}
+        player={player}
+        vodId={vodId}
+        messageThreshold={messageThreshold}
+        setMessageThreshold={setMessageThreshold}
+        searchThreshold={searchThreshold}
+        setSearchThreshold={setSearchThreshold}
+        volumeThreshold={volumeThreshold}
+        setVolumeThreshold={setVolumeThreshold}
+      />
     </>
   );
 }
