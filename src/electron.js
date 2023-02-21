@@ -75,6 +75,10 @@ function createWindow() {
     });
   });
 
+  mainWindow.on("page-title-updated", (e) => {
+    e.preventDefault();
+  });
+
   mainWindowState.manage(mainWindow);
 }
 
