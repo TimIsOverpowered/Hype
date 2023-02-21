@@ -7,7 +7,7 @@ const FFmpeg = require("./ffmpeg");
 const ProgressBar = require("electron-progressbar");
 const { toHMS } = require("./utils/helpers");
 
-if (require("electron-squirrel-startup")) return;
+if (require("electron-squirrel-startup")) return app.quit();
 require("update-electron-app")();
 
 let mainWindow;
