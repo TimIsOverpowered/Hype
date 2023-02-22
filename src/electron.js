@@ -58,18 +58,10 @@ function createWindow() {
     return { action: "deny" };
   });
 
-  mainWindow.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
-    const { requestHeaders, url } = details;
-    if (!url.includes("hype.lol")) UpsertKeyValue(requestHeaders, "Access-Control-Allow-Origin", ["*"]);
-    callback({ requestHeaders });
-  });
-
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     const { responseHeaders, url } = details;
-    if (!url.includes("hype.lol")) {
-      UpsertKeyValue(responseHeaders, "Access-Control-Allow-Origin", ["*"]);
-      UpsertKeyValue(responseHeaders, "Access-Control-Allow-Headers", ["*"]);
-    }
+    if (!url.includes("hype.lol")) UpsertKeyValue(responseHeaders, "Access-Control-Allow-Origin", ["*"]);
+
     callback({
       responseHeaders,
     });
@@ -205,16 +197,13 @@ ipcMain.on("vod", async (event, args) => {
     });
 });
 
-function UpsertKeyValue(obj, keyToChange, value) {
+const UpsertKeyValue = (obj, keyToChange, value) => {
   const keyToChangeLower = keyToChange.toLowerCase();
   for (const key of Object.keys(obj)) {
     if (key.toLowerCase() === keyToChangeLower) {
-      // Reassign old key
       obj[key] = value;
-      // Done
       return;
     }
   }
-  // Insert at end instead
   obj[keyToChange] = value;
-}
+};

@@ -20,7 +20,7 @@ let messageCount = 0;
 let badgesCount = 0;
 
 export default function Chat(props) {
-  const { vodId, player, playing, userChatDelay, twitchId, emotes } = props;
+  const { vodId, player, playerApi, userChatDelay, twitchId, emotes } = props;
   const [showChat, setShowChat] = useState(true);
   const [shownMessages, setShownMessages] = useState([]);
   const comments = useRef([]);
@@ -125,14 +125,14 @@ export default function Chat(props) {
   const getCurrentTime = useCallback(() => {
     if (!player) return 0;
     let time = 0;
-    time += player.currentTime();
+    time += player.currentTime;
     time += userChatDelay;
     return time;
   }, [player, userChatDelay]);
 
   const buildComments = useCallback(async () => {
     if (!player || !comments.current || comments.current.length === 0 || !cursor.current || stoppedAtIndex.current === null) return;
-    if (player.paused()) return;
+    if (player.paused) return;
 
     const time = getCurrentTime();
     let lastIndex = comments.current.length - 1;
@@ -336,15 +336,17 @@ export default function Chat(props) {
   }, [buildComments]);
 
   useEffect(() => {
-    if (!playing || stoppedAtIndex.current === undefined) return;
+    if (!player || player?.paused || stoppedAtIndex.current === undefined) return;
     const time = Math.floor(getCurrentTime());
 
     if (comments.current && comments.current.length > 0) {
-      const lastComment = comments.current[comments.current.length - 1].node;
       const firstComment = comments.current[0].node;
+      const lastComment = comments.current[comments.current.length - 1].node;
+      const currentComment = comments.current[stoppedAtIndex.current].node;
 
-      if (time - lastComment.contentOffsetSeconds <= 30 && time - firstComment.contentOffsetSeconds <= 10) {
-        if (comments.current[stoppedAtIndex.current].node.contentOffsetSeconds - time >= 4) {
+      //Don't fetch new comments if last comment is eventually reached unless it is too far.
+      if (time - lastComment.contentOffsetSeconds <= 30 && time > firstComment.contentOffsetSeconds) {
+        if (currentComment.contentOffsetSeconds - time >= 4) {
           stoppedAtIndex.current = 0;
           setShownMessages([]);
         }
@@ -367,7 +369,7 @@ export default function Chat(props) {
     }, 300);
 
     return () => stopLoop();
-  }, [playing, vodId, getCurrentTime, loop]);
+  }, [playerApi, vodId, getCurrentTime, loop, player]);
 
   const stopLoop = () => {
     if (loopRef.current !== null) clearInterval(loopRef.current);

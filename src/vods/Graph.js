@@ -104,10 +104,11 @@ export default function Graph(props) {
   useEffect(() => {
     if (!logs || !player) return;
     const getThreshold = async () => {
-      while (!player.duration()) {
+      while (isNaN(player.duration)) {
         await sleep(50);
       }
-      setMessageThreshold(Math.round(logs.length / player.duration()) * 25);
+      const duration = player.duration;
+      setMessageThreshold(Math.round(logs.length / duration) * 25);
     };
     getThreshold();
   }, [logs, player, setMessageThreshold]);
@@ -118,10 +119,10 @@ export default function Graph(props) {
 
     const getMessageGraphData = async () => {
       const data = [];
-      while (!player.duration()) {
+      while (isNaN(player.duration)) {
         await sleep(50);
       }
-      const duration = player.duration();
+      const duration = player.duration;
       const logsCopy = logs.slice(0);
       for (let seconds = interval.valueOf(); seconds < duration; seconds += interval) {
         let json = { emotes: {} };
@@ -400,7 +401,7 @@ export default function Graph(props) {
     const duration = graph === "clips" ? labelAsSeconds - 5 : labelAsSeconds - interval;
     props.setClipStart(toHHMMSS(duration));
     props.setClipEnd(graph === "clips" ? toHHMMSS(labelAsSeconds + Math.round(activePayload.clipDuration)) : e.activeLabel);
-    player.currentTime(duration);
+    player.currentTime = duration;
   };
 
   if (hypeVod === undefined || logs === undefined || chapters === undefined || clips === undefined) return <BasicLoading />;

@@ -13,7 +13,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import debounce from "lodash.debounce";
 
 export default function Settings(props) {
-  const { userChatDelay, setUserChatDelay, player, vodId, hypeVod, setGraph, clips, clipStart, setClipStart, clipEnd, setClipEnd, graph, searchTerm, setSearchTerm } = props;
+  const { userChatDelay, setUserChatDelay, player, vodId, hypeVod, setGraph, clips, clipStart, setClipStart, clipEnd, setClipEnd, graph, searchTerm, setSearchTerm, playerApi } = props;
   const [showModal, setShowModal] = useState(false);
   const startRef = useRef();
   const endRef = useRef();
@@ -31,7 +31,7 @@ export default function Settings(props) {
 
     window.api.send("clip", {
       vodId: vodId,
-      m3u8: player.currentSrc(),
+      m3u8: playerApi.source,
       startSeconds: startSeconds,
       endSeconds: endSeconds - startSeconds,
       startHMS: clipStart,
@@ -68,7 +68,7 @@ export default function Settings(props) {
               <TimeInput ref={startRef} onFocus={(e) => e.target.select()} value={clipStart} onChange={(e) => setClipStart(e.target.value)} />
             </Box>
             <Box sx={{ display: "flex", alignItems: "center" }}>
-              <IconButton title="Get Current Timestamp" onClick={() => setClipStart(toHHMMSS(Math.floor(player.currentTime())))} color="primary">
+              <IconButton title="Get Current Timestamp" onClick={() => setClipStart(toHHMMSS(Math.floor(player.currentTime)))} color="primary">
                 <ContentPasteIcon />
               </IconButton>
             </Box>
@@ -84,7 +84,7 @@ export default function Settings(props) {
               <TimeInput ref={endRef} onFocus={(e) => e.target.select()} value={clipEnd} onChange={(e) => setClipEnd(e.target.value)} />
             </Box>
             <Box sx={{ display: "flex", alignItems: "center" }}>
-              <IconButton title="Get Current Timestamp" onClick={() => setClipEnd(toHHMMSS(Math.floor(player.currentTime())))} color="primary">
+              <IconButton title="Get Current Timestamp" onClick={() => setClipEnd(toHHMMSS(Math.floor(player.currentTime)))} color="primary">
                 <ContentPasteIcon />
               </IconButton>
             </Box>
@@ -163,6 +163,7 @@ export default function Settings(props) {
         setSearchThreshold={props.setSearchThreshold}
         volumeThreshold={props.volumeThreshold}
         setVolumeThreshold={props.setVolumeThreshold}
+        playerApi={playerApi}
       />
     </>
   );

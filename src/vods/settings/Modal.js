@@ -20,6 +20,7 @@ export default function SettingsModal(props) {
     setVolumeThreshold,
     interval,
     setInterval,
+    playerApi,
   } = props;
   const [quality, setQuality] = useState("chunked");
 
@@ -79,12 +80,12 @@ export default function SettingsModal(props) {
   );
 
   const handleDownload = () => {
-    const m3u8 = player.currentSrc().replace("chunked", quality);
+    const m3u8 = playerApi.source.replace("chunked", quality);
 
     window.api.send("vod", {
       vodId: vodId,
       m3u8: m3u8,
-      duration: player.duration(),
+      duration: player.duration,
     });
   };
 

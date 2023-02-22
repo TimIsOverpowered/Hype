@@ -19,7 +19,10 @@ export default function Vod(props) {
   const [clips, setClips] = useState(undefined);
   const [userChatDelay, setUserChatDelay] = useState(0);
   const [player, setPlayer] = useState(undefined);
-  const [playing, setPlaying] = useState(false);
+  const [playerApi, setPlayerApi] = useState({
+    fullscreen: false,
+    paused: true,
+  });
   const [clipStart, setClipStart] = useState("00:00:00");
   const [clipEnd, setClipEnd] = useState("00:00:00");
   const [interval, setInterval] = useState(30);
@@ -55,9 +58,9 @@ export default function Vod(props) {
     <Box sx={{ height: "100%", width: "100%", minHeight: 0, display: "flex", flexDirection: "column" }}>
       <Box sx={{ display: "flex", height: "50%", width: "100%" }}>
         <Box sx={{ display: "flex", height: "100%", width: "100%", flexDirection: "column", alignItems: "flex-start", minWidth: 0, overflow: "hidden", position: "relative" }}>
-          <Player player={player} vod={vod} setPlayer={setPlayer} setPlaying={setPlaying} />
+          <Player vod={vod} player={player} setPlayer={setPlayer} playerApi={playerApi} setPlayerApi={setPlayerApi} />
         </Box>
-        <Chat emotes={emotes} vodId={vodId} player={player} userChatDelay={userChatDelay} twitchId={vod.creator.id} playing={playing} />
+        <Chat emotes={emotes} vodId={vodId} player={player} userChatDelay={userChatDelay} twitchId={vod.creator.id} playerApi={playerApi} />
       </Box>
       <Box sx={{ minHeight: 0 }}>
         <Settings
@@ -83,6 +86,7 @@ export default function Vod(props) {
           setClipEnd={setClipEnd}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
+          playerApi={playerApi}
         />
         <Graph
           emotes={emotes}

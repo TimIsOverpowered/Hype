@@ -68,7 +68,7 @@ export default function Navbar(props) {
             )}
 
             <Box sx={{ mr: 2 }}>
-              <CustomLink href={"#"}>
+              <CustomLink href={"/#"}>
                 <img alt="" style={{ maxWidth: "65px", height: "auto" }} src={Logo} />
               </CustomLink>
             </Box>
