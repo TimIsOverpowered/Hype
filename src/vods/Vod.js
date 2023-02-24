@@ -30,6 +30,8 @@ export default function Vod(props) {
   const [searchThreshold, setSearchThreshold] = useState(1);
   const [volumeThreshold, setVolumeThreshold] = useState(0);
   const [searchTerm, setSearchTerm] = useState(undefined);
+  const [isWhitelisted, setIsWhitelisted] = useState(undefined);
+  const [logs, setLogs] = useState(undefined);
   const emotes = useRef({
     BTTV: [],
     FFZ: [],
@@ -43,15 +45,36 @@ export default function Vod(props) {
       setVod(await Twitch.getVod(vodId));
     };
     fetchVod();
+
     return;
   }, [vodId, user]);
+
+  useEffect(() => {
+    if (!vod) return;
+    const fetchWhitelist = async () => {
+      const data = await fetch(`https://api.hype.lol/whitelist?twitchId=${vod.creator.id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((response) => response.json())
+        .then((response) => response.data)
+        .catch((e) => {
+          console.error(e);
+          return null;
+        });
+      setIsWhitelisted(data.length > 0);
+    };
+    fetchWhitelist();
+  }, [vod]);
 
   useEffect(() => {
     console.info(`Chat Delay: ${userChatDelay} seconds`);
   }, [userChatDelay]);
 
   if (!user) return <NotAuth />;
-  if (vod === undefined) return <LogoLoading />;
+  if (vod === undefined || isWhitelisted === undefined) return <LogoLoading />;
   if (vod === null) return <NotFound />;
 
   return (
@@ -87,6 +110,7 @@ export default function Vod(props) {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           playerApi={playerApi}
+          logs={logs}
         />
         <Graph
           emotes={emotes}
@@ -105,6 +129,9 @@ export default function Vod(props) {
           setClipStart={setClipStart}
           setClipEnd={setClipEnd}
           searchTerm={searchTerm}
+          isWhitelisted={isWhitelisted}
+          logs={logs}
+          setLogs={setLogs}
         />
       </Box>
     </Box>

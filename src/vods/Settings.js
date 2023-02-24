@@ -13,7 +13,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import debounce from "lodash.debounce";
 
 export default function Settings(props) {
-  const { userChatDelay, setUserChatDelay, player, vodId, hypeVod, setGraph, clips, clipStart, setClipStart, clipEnd, setClipEnd, graph, searchTerm, setSearchTerm, playerApi } = props;
+  const { userChatDelay, setUserChatDelay, player, vodId, hypeVod, setGraph, clips, clipStart, setClipStart, clipEnd, setClipEnd, graph, searchTerm, setSearchTerm, playerApi, logs } = props;
   const [showModal, setShowModal] = useState(false);
   const startRef = useRef();
   const endRef = useRef();
@@ -101,7 +101,7 @@ export default function Settings(props) {
           <Box sx={{ display: "flex", borderRight: "1px solid hsla(0,0%,100%,.1)" }}>
             <Box sx={{ borderLeft: "1px solid hsla(0,0%,100%,.1)", display: "flex", alignItems: "center" }}>
               {graph !== "clips" ? (
-                <IconButton disabled={!hypeVod || !clips} title="Clip Views" onClick={() => setGraph("clips")} color="primary">
+                <IconButton disabled={!clips} title="Clip Views" onClick={() => setGraph("clips")} color="primary">
                   <TheatersIcon />
                 </IconButton>
               ) : (
@@ -123,7 +123,7 @@ export default function Settings(props) {
             </Box>
             <Box sx={{ borderLeft: "1px solid hsla(0,0%,100%,.1)", display: "flex", alignItems: "center" }}>
               {graph !== "search" ? (
-                <IconButton disabled={!hypeVod} title="Search" onClick={() => setGraph("search")} color="primary">
+                <IconButton disabled={!logs} title="Search" onClick={() => setGraph("search")} color="primary">
                   <SearchIcon />
                 </IconButton>
               ) : (

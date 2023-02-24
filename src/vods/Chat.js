@@ -38,7 +38,7 @@ export default function Chat(props) {
       const ref = chatRef.current;
       const handleScroll = (e) => {
         e.stopPropagation();
-        const atBottom = ref.scrollHeight - ref.clientHeight - ref.scrollTop < 64;
+        const atBottom = ref.scrollHeight - ref.clientHeight - ref.scrollTop < 256;
         setScrolling(!atBottom);
       };
 
@@ -383,7 +383,7 @@ export default function Chat(props) {
       if (!message.ref.current) continue;
       messageHeight += message.ref.current.scrollHeight;
     }
-    const atBottom = chatRef.current.scrollHeight - chatRef.current.clientHeight - chatRef.current.scrollTop - messageHeight < 64;
+    const atBottom = chatRef.current.scrollHeight - chatRef.current.clientHeight - chatRef.current.scrollTop - messageHeight < 256;
     if (atBottom) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [shownMessages]);
 

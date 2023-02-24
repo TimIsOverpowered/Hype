@@ -10,8 +10,25 @@ import CustomTooltip from "./graph/Tooltip";
 import simplify from "simplify-js";
 
 export default function Graph(props) {
-  const { vodId, hypeVod, setHypeVod, graph, player, interval, messageThreshold, searchThreshold, volumeThreshold, setMessageThreshold, clips, setClips, emotes, searchTerm } = props;
-  const [logs, setLogs] = useState(undefined);
+  const {
+    vodId,
+    hypeVod,
+    setHypeVod,
+    graph,
+    player,
+    interval,
+    messageThreshold,
+    searchThreshold,
+    volumeThreshold,
+    setMessageThreshold,
+    clips,
+    setClips,
+    emotes,
+    searchTerm,
+    isWhitelisted,
+    logs,
+    setLogs,
+  } = props;
   const [chapters, setChapters] = useState(undefined);
   const [messageGraphData, setMessageGraphData] = useState(undefined);
   const [searchGraphData, setSearchGraphData] = useState(undefined);
@@ -19,7 +36,8 @@ export default function Graph(props) {
   const [clipsGraphData, setClipsGraphData] = useState(undefined);
 
   useEffect(() => {
-    if (!vodId) return;
+    if (!vodId || !isWhitelisted) return;
+
     const fetchVod = async () => {
       const { accessToken } = await client.get("authentication");
       const data = await fetch(`https://api.hype.lol/vods/${vodId}`, {
@@ -99,7 +117,7 @@ export default function Graph(props) {
       setClips(data);
     };
     fetchClips();
-  }, [vodId, setHypeVod, setClips]);
+  }, [vodId, setHypeVod, setClips, setLogs, isWhitelisted]);
 
   useEffect(() => {
     if (!logs || !player) return;
@@ -404,21 +422,21 @@ export default function Graph(props) {
     player.currentTime = duration;
   };
 
-  if (hypeVod === undefined || logs === undefined || chapters === undefined || clips === undefined) return <BasicLoading />;
+  if (logs === undefined || chapters === undefined || clips === undefined) return <BasicLoading />;
 
   const graphData = graph === "messages" ? messageGraphData : graph === "search" ? searchGraphData : graph === "clips" ? clipsGraphData : graph === "volume" ? volumeGraphData : null;
   const graphKey = graph === "messages" ? "messages" : graph === "search" ? searchTerm : graph === "clips" ? "views" : graph === "volume" ? "volume" : null;
 
   return (
     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-      {!hypeVod && (
+      {!isWhitelisted && (
         <Alert severity="warning">
           <AlertTitle>User is not whitelisted</AlertTitle>
           Graphs are unavailable..
         </Alert>
       )}
 
-      {hypeVod && (
+      {isWhitelisted && (
         <Box sx={{ ml: -6, mt: -1, height: "100%", width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
           {!graphData && <BasicLoading />}
 
