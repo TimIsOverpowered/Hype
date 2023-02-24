@@ -284,10 +284,10 @@ export default function Graph(props) {
 
     const getSearchGraphData = async () => {
       const data = [];
-      while (!player.duration()) {
+      while (!player.duration) {
         await sleep(50);
       }
-      const duration = player.duration();
+      const duration = player.duration;
       const logsCopy = logs.slice(0);
       for (let seconds = interval.valueOf(); seconds < duration; seconds += interval) {
         let json = { emotes: {} };
