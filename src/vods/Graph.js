@@ -437,12 +437,12 @@ export default function Graph(props) {
       )}
 
       {isWhitelisted && (
-        <Box sx={{ ml: -6, mt: -1, height: "100%", width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <Box sx={{ ml: -6, mt: -5, height: "100%", width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
           {!graphData && <BasicLoading />}
 
           {graphData && (
-            <ResponsiveContainer width="100%" height="89%">
-              <LineChart data={graphData} onClick={handleChartClick}>
+            <ResponsiveContainer width="100%" height="80%">
+              <LineChart data={graphData} onClick={handleChartClick} margin={{ top: 0, right: 0, left: 5, bottom: 0 }}>
                 <XAxis dataKey="duration" />
                 <YAxis />
                 <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />

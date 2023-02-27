@@ -85,7 +85,7 @@ export default function Vod(props) {
         </Box>
         <Chat emotes={emotes} vodId={vodId} player={player} userChatDelay={userChatDelay} twitchId={vod.creator.id} playerApi={playerApi} />
       </Box>
-      <Box sx={{ minHeight: 0 }}>
+      <Box sx={{ minHeight: 0, flexGrow: 1 }}>
         <Settings
           userChatDelay={userChatDelay}
           setUserChatDelay={setUserChatDelay}
