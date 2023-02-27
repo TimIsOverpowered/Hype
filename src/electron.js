@@ -10,6 +10,8 @@ const { toHMS } = require("./utils/helpers");
 if (require("electron-squirrel-startup")) return app.quit();
 require("update-electron-app")();
 
+app.disableHardwareAcceleration();
+
 let mainWindow;
 
 if (process.defaultApp) {
