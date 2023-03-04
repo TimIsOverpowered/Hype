@@ -422,13 +422,11 @@ export default function Graph(props) {
     player.currentTime = duration;
   };
 
-  if (logs === undefined || chapters === undefined || clips === undefined) return <BasicLoading />;
-
   const graphData = graph === "messages" ? messageGraphData : graph === "search" ? searchGraphData : graph === "clips" ? clipsGraphData : graph === "volume" ? volumeGraphData : null;
   const graphKey = graph === "messages" ? "messages" : graph === "search" ? searchTerm : graph === "clips" ? "views" : graph === "volume" ? "volume" : null;
 
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
+    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", minHeight: 0, minWidth: 0 }}>
       {!isWhitelisted && (
         <Alert severity="warning">
           <AlertTitle>User is not whitelisted</AlertTitle>
@@ -437,11 +435,11 @@ export default function Graph(props) {
       )}
 
       {isWhitelisted && (
-        <Box sx={{ ml: -6, mt: -5, height: "100%", width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <Box sx={{ ml: -6, height: "100%", width: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
           {!graphData && <BasicLoading />}
 
           {graphData && (
-            <ResponsiveContainer width="100%" height="80%">
+            <ResponsiveContainer width="100%" height="95%">
               <LineChart data={graphData} onClick={handleChartClick} margin={{ top: 0, right: 0, left: 5, bottom: 0 }}>
                 <XAxis dataKey="duration" />
                 <YAxis />
