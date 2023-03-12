@@ -14,7 +14,7 @@ const BASE_BTTV_EMOTE_CDN = "https://cdn.betterttv.net/emote";
 const BASE_7TV_EMOTE_CDN = "https://cdn.7tv.app/emote";
 const BASE_FFZ_EMOTE_API = "https://api.frankerfacez.com/v1";
 const BASE_BTTV_EMOTE_API = "https://api.betterttv.net/3";
-const BASE_7TV_EMOTE_API = "https://api.7tv.app/v3";
+const BASE_7TV_EMOTE_API = "https://api.7tv.app/";
 
 let messageCount = 0;
 let badgesCount = 0;
@@ -98,8 +98,25 @@ export default function Chat(props) {
         });
     };
 
-    const load7TVEmotes = () => {
-      fetch(`${BASE_7TV_EMOTE_API}/users/twitch/${twitchId}`, {
+    const load7TVGlobalEmotes = () => {
+      fetch(`${BASE_7TV_EMOTE_API}/v2/emotes/global`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.status_code >= 400) return;
+          emotes.current["7TV"] = emotes.current["7TV"].concat(data);
+        })
+        .catch((e) => {
+          console.error(e);
+        });
+    };
+
+    const load7TVEmotes = async () => {
+      await fetch(`${BASE_7TV_EMOTE_API}/v3/users/twitch/${twitchId}`, {
         method: "GET",
       })
         .then((response) => response.json())
@@ -110,6 +127,7 @@ export default function Chat(props) {
         .catch((e) => {
           console.error(e);
         });
+      load7TVGlobalEmotes();
     };
 
     const loadEmotes = () => {
@@ -230,8 +248,8 @@ export default function Chat(props) {
                     <img
                       crossOrigin="anonymous"
                       style={{ verticalAlign: "middle", border: "none", maxWidth: "100%" }}
-                      src={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x`}
-                      srcSet={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x 1x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/2x 2x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/4x 4x`}
+                      src={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x.webp`}
+                      srcSet={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x.webp 1x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/2x.webp 2x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/4x.webp 4x`}
                       alt=""
                     />{" "}
                   </Box>
