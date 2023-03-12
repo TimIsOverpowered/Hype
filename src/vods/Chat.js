@@ -249,7 +249,7 @@ export default function Chat(props) {
                       crossOrigin="anonymous"
                       style={{ verticalAlign: "middle", border: "none", maxWidth: "100%" }}
                       src={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x.webp`}
-                      srcSet={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x.webp 1x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/2x.webp 2x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/4x.webp 4x`}
+                      srcSet={`${BASE_7TV_EMOTE_CDN}/${emote.id}/1x.webp 1x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/2x.webp 2x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/3x.webp 3x, ${BASE_7TV_EMOTE_CDN}/${emote.id}/4x.webp 4x`}
                       alt=""
                     />{" "}
                   </Box>
@@ -285,7 +285,7 @@ export default function Chat(props) {
                       crossOrigin="anonymous"
                       style={{ verticalAlign: "middle", border: "none", maxWidth: "100%" }}
                       src={`${BASE_BTTV_EMOTE_CDN}/${emote.id}/1x`}
-                      srcSet={`${BASE_BTTV_EMOTE_CDN}/${emote.id}/1x 1x, ${BASE_BTTV_EMOTE_CDN}/${emote.id}/2x 2x, ${BASE_BTTV_EMOTE_CDN}/${emote.id}/4x 4x`}
+                      srcSet={`${BASE_BTTV_EMOTE_CDN}/${emote.id}/1x 1x, ${BASE_BTTV_EMOTE_CDN}/${emote.id}/2x 2x, ${BASE_BTTV_EMOTE_CDN}/${emote.id}/3x 3x`}
                       alt=""
                     />{" "}
                   </Box>
