@@ -146,8 +146,8 @@ export default function Graph(props) {
         let json = { emotes: {} };
         let messages = 0,
           subs = 0;
-        const game = chapters.find((chapter) => chapter.node.positionMilliseconds <= seconds);
-        if (game) json.game = game.node.details.game.displayName;
+        const game = chapters.find((chapter) => seconds > chapter.node.positionMilliseconds / 1000 && seconds < (chapter.node.positionMilliseconds + chapter.node.durationMilliseconds) / 1000);
+        if (game) json.game = game.node.details.game ? game.node.details.game.displayName : null;
 
         for (let log of logsCopy) {
           const timestampAsSeconds = toSeconds(log.substring(1, 9));
