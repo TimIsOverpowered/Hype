@@ -56,7 +56,7 @@ const Twitch = {
   },
 
   getVods: async function (channel) {
-    const gqlQuery = `query { user(login: "${channel}") { id login displayName profileImageURL(width: 300) videos(first: 25) { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
+    const gqlQuery = `query { user(login: "${channel}") { id login displayName profileImageURL(width: 300) videos(first: 100) { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
 
     const data = await axios({
       url: "https://gql.twitch.tv/gql",
