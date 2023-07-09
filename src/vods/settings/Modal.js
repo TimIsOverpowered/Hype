@@ -81,7 +81,6 @@ export default function SettingsModal(props) {
 
   const handleDownload = () => {
     const m3u8 = playerApi.variants[0].uri.replace("chunked", quality);
-    console.log(m3u8);
 
     window.api.send("vod", {
       vodId: vodId,
