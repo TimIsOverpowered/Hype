@@ -49,7 +49,9 @@ export default function Player(props) {
         const hash = matches[1];
         if (!hash) return console.error("Did not find hash for m3u8");
 
-        m3u8 = await Twitch.findM3u8(hash);
+        const parsedM3u8 = await Twitch.findM3u8(hash);
+        m3u8Variants = parsedM3u8.variants;
+        m3u8 = m3u8Variants[0].uri;
       }
 
       setSource(m3u8);

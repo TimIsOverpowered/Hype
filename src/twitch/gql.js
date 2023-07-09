@@ -1,4 +1,5 @@
 import axios from "axios";
+import hlsParser from "hls-parser";
 
 const DOMAINS = [
   "https://vod-secure.twitch.tv",
@@ -200,7 +201,22 @@ const Twitch = {
         break;
       }
     }
-    return `${foundDomain}/${hash}/chunked/index-dvr.m3u8`;
+    const foundVariants = [],
+      knownVariants = ["chunked", "720p60", "480p30", "audio_only", "360p30", "160p30"];
+
+    for (let knownVariant of knownVariants) {
+      const exists = await Twitch.checkM3u8(`${foundDomain}/${hash}/${knownVariant}/index-dvr.m3u8`);
+      if (exists) foundVariants.push(knownVariant);
+    }
+
+    const { Variant, MasterPlaylist } = hlsParser.types;
+    const variants = [];
+    for (let foundVariant of foundVariants) {
+      variants.push(new Variant({ uri: `${foundDomain}/${hash}/${foundVariant}/index-dvr.m3u8`, video: [{ name: foundVariant === "chunked" ? "Source" : foundVariant, groupId: foundVariant }] }));
+    }
+    const masterPlaylist = new MasterPlaylist({ variants: variants });
+
+    return masterPlaylist;
   },
 
   getBadges: async (vodId) => {

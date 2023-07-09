@@ -124,9 +124,12 @@ export default function SettingsModal(props) {
             <FormControl variant="outlined" fullWidth size="small">
               <InputLabel id="select-label">Quality</InputLabel>
               <Select label="Quality" labelId="select-label" value={quality} onChange={(e) => setQuality(e.target.value)}>
-                {playerApi.variants.map((variant) => (
-                  <MenuItem value={variant.video[0].groupId}>{variant.video[0].name}</MenuItem>
-                ))}
+                {playerApi.variants &&
+                  playerApi.variants.map((variant, i) => (
+                    <MenuItem key={`variant ${i}`} value={variant.video[0].groupId}>
+                      {variant.video[0].name}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
             <IconButton size="large" title="Download" onClick={handleDownload} color="primary">

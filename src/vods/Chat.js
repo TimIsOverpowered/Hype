@@ -14,7 +14,7 @@ const BASE_BTTV_EMOTE_CDN = "https://cdn.betterttv.net/emote";
 const BASE_7TV_EMOTE_CDN = "https://cdn.7tv.app/emote";
 const BASE_FFZ_EMOTE_API = "https://api.frankerfacez.com/v1";
 const BASE_BTTV_EMOTE_API = "https://api.betterttv.net/3";
-const BASE_7TV_EMOTE_API = "https://api.7tv.app/";
+const BASE_7TV_EMOTE_API = "https://api.7tv.app";
 
 let messageCount = 0;
 let badgesCount = 0;
@@ -98,8 +98,22 @@ export default function Chat(props) {
         });
     };
 
-    const load7TVGlobalEmotes = () => {
-      fetch(`${BASE_7TV_EMOTE_API}/v2/emotes/global`, {
+    const load7TVEmotes = async () => {
+      await fetch(`${BASE_7TV_EMOTE_API}/v3/users/twitch/${twitchId}`, {
+        method: "GET",
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.status_code >= 400) return;
+          if (data.emote_set.emotes) emotes.current["7TV"] = emotes.current["7TV"].concat(data.emote_set.emotes);
+        })
+        .catch((e) => {
+          console.error(e);
+        });
+    };
+
+    const load7TVGlobalEmotes = async () => {
+      await fetch(`${BASE_7TV_EMOTE_API}/v2/emotes/global`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -108,31 +122,17 @@ export default function Chat(props) {
         .then((response) => response.json())
         .then((data) => {
           if (data.status_code >= 400) return;
-          emotes.current["7TV"] = emotes.current["7TV"].concat(data);
+          emotes.current["7TV"] = data;
         })
         .catch((e) => {
           console.error(e);
         });
-    };
-
-    const load7TVEmotes = async () => {
-      await fetch(`${BASE_7TV_EMOTE_API}/v3/users/twitch/${twitchId}`, {
-        method: "GET",
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.status_code >= 400) return;
-          emotes.current["7TV"] = data.emote_set.emotes;
-        })
-        .catch((e) => {
-          console.error(e);
-        });
-      load7TVGlobalEmotes();
+      load7TVEmotes();
     };
 
     const loadEmotes = () => {
       loadBTTVGlobalEmotes();
-      load7TVEmotes();
+      load7TVGlobalEmotes();
       loadFFZEmotes();
     };
 
