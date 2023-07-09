@@ -31,7 +31,7 @@ export default function Settings(props) {
 
     window.api.send("clip", {
       vodId: vodId,
-      m3u8: playerApi.source,
+      m3u8: playerApi.variants[0].uri,
       startSeconds: startSeconds,
       endSeconds: endSeconds - startSeconds,
       startHMS: clipStart,

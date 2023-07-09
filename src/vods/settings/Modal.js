@@ -80,7 +80,8 @@ export default function SettingsModal(props) {
   );
 
   const handleDownload = () => {
-    const m3u8 = playerApi.source.replace("chunked", quality);
+    const m3u8 = playerApi.variants[0].uri.replace("chunked", quality);
+    console.log(m3u8);
 
     window.api.send("vod", {
       vodId: vodId,
@@ -124,12 +125,9 @@ export default function SettingsModal(props) {
             <FormControl variant="outlined" fullWidth size="small">
               <InputLabel id="select-label">Quality</InputLabel>
               <Select label="Quality" labelId="select-label" value={quality} onChange={(e) => setQuality(e.target.value)}>
-                <MenuItem value={"chunked"}>Source</MenuItem>
-                <MenuItem value={"720p60"}>720p60</MenuItem>
-                <MenuItem value={"480p30"}>480p30</MenuItem>
-                <MenuItem value={"360p30"}>360p30</MenuItem>
-                <MenuItem value={"160p30"}>160p30</MenuItem>
-                <MenuItem value={"audio_only"}>Audio Only</MenuItem>
+                {playerApi.variants.map((variant) => (
+                  <MenuItem value={variant.video[0].groupId}>{variant.video[0].name}</MenuItem>
+                ))}
               </Select>
             </FormControl>
             <IconButton size="large" title="Download" onClick={handleDownload} color="primary">

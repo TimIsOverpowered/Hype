@@ -36,11 +36,12 @@ export default function Player(props) {
   useEffect(() => {
     if (!vod) return;
     const getM3u8 = async () => {
-      let m3u8;
+      let m3u8, m3u8Variants;
       const vodTokenSig = await Twitch.gqlGetVodTokenSig(vod.id);
       const masterM3u8 = await Twitch.getM3u8(vod.id, vodTokenSig.value, vodTokenSig.signature);
       if (masterM3u8) {
-        m3u8 = hlsParser.parse(masterM3u8).variants[0].uri;
+        m3u8Variants = hlsParser.parse(masterM3u8).variants;
+        m3u8 = m3u8Variants[0].uri;
       } else {
         const regex = /(?:https:\/\/)?static-cdn\.jtvnw\.net\/cf_vods\/(?:[a-z0-9]+)\/([a-z0-9_]+)\//;
         const matches = vod.previewThumbnailURL.match(regex);
@@ -52,7 +53,7 @@ export default function Player(props) {
       }
 
       setSource(m3u8);
-      setPlayerApi((playerApi) => ({ ...playerApi, source: m3u8 }));
+      setPlayerApi((playerApi) => ({ ...playerApi, source: m3u8, variants: m3u8Variants }));
     };
     getM3u8();
   }, [vod, setPlayerApi]);
@@ -237,7 +238,7 @@ export default function Player(props) {
               </Box>
             </PlayOverlay>
           )}
-          <Controls player={player} playerApi={playerApi} hls={hls} overlayVisible={overlayVisible} handleFullscreen={handleFullscreen} />
+          <Controls player={player} playerApi={playerApi} hls={hls} overlayVisible={overlayVisible} handleFullscreen={handleFullscreen} source={source} setSource={setSource} />
         </Box>
       </Box>
     </VideoContainer>
