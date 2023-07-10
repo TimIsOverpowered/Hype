@@ -104,17 +104,18 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     createWindow();
   });
-}
 
-// Handle the protocol. In this case, we choose to show an Error Box.
-app.on("open-url", (event, url) => {
-  if (url.startsWith("hype://")) {
-    const command = url.split("hype://")[1];
-    if (command.startsWith("oauth")) {
-      sendToken(command, mainWindow);
+  // Handle the protocol. In this case, we choose to show an Error Box.
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    if (url.startsWith("hype://")) {
+      const command = url.split("hype://")[1];
+      if (command.startsWith("oauth")) {
+        sendToken(command, mainWindow);
+      }
     }
-  }
-});
+  });
+}
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
