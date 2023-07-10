@@ -17,7 +17,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Hype on Mac
-          path: ./out/make/zip/*.zip
+          path: ./out/make/zip/darwin/x64/*.zip
 
   build_on_win:
     runs-on: windows-latest
@@ -34,4 +34,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Hype on Windows
-          path: ./out/make/zip/*.zip
+          path: ./out/make/zip/win32/x64/*.zip
