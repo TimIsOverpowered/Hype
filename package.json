@@ -94,7 +94,15 @@
         "name": "Hype",
         "asar": {
           "unpackDir": "node_modules/ffmpeg-static"
-        }
+        },
+        "protocols": [
+          {
+            "name": "hype",
+            "schemes": [
+              "hype"
+            ]
+          }
+        ]
       },
       "makers": [
         {
