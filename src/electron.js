@@ -109,7 +109,6 @@ if (!gotTheLock) {
   app.on("open-url", (event, url) => {
     event.preventDefault();
     if (url.startsWith("hype://")) {
-      dialog.showErrorBox('Debug', `${url}`)
       const command = url.split("hype://")[1];
       if (command.startsWith("oauth")) {
         sendToken(command, mainWindow);
