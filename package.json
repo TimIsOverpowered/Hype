@@ -11,7 +11,7 @@
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
-    "@feathersjs/client": "^5.0.6",
+    "@feathersjs/client": "^5.0.8",
     "@fontsource/roboto": "^5.0.4",
     "@mui/icons-material": "^5.13.7",
     "@mui/material": "^5.13.7",
