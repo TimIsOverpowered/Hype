@@ -14,7 +14,7 @@
     "@feathersjs/client": "^5.0.6",
     "@fontsource/roboto": "^5.0.4",
     "@mui/icons-material": "^5.13.7",
-    "@mui/material": "^5.13.7",
+    "@mui/material": "^5.14.3",
     "axios": "^1.4.0",
     "buffer": "^6.0.3",
     "can-autoplay": "^3.0.2",
