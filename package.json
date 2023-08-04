@@ -12,7 +12,7 @@
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
     "@feathersjs/client": "^5.0.6",
-    "@fontsource/roboto": "^5.0.4",
+    "@fontsource/roboto": "^5.0.7",
     "@mui/icons-material": "^5.13.7",
     "@mui/material": "^5.13.7",
     "axios": "^1.4.0",
