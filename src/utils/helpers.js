@@ -42,8 +42,8 @@ module.exports.toSeconds = (hms) => {
   return +time[0] * 60 * 60 + +time[1] * 60 + +time[2];
 };
 
-//Check if HH:mm:ss is valid
+//Check if HH:mm:ss is valid up to 48 hours
 module.exports.hmsValid = (str) => {
-  const regex = /^(?:(?:([01]?\d|2[0-3]):)?([0-5]?\d):)?([0-5]?\d)$/;
+  const regex = /^(?:(?:([01]?\d|2[0-9]|3[0-9]|4[0-8]):)?([0-5]?\d):)?([0-5]?\d)$/;
   return regex.test(str);
 };
