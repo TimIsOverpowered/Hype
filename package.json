@@ -39,7 +39,7 @@
     "update-electron-app": "^2.0.1",
     "video.js": "^8.3.0",
     "videojs-hotkeys": "^0.2.28",
-    "web-vitals": "^3.3.2",
+    "web-vitals": "^3.5.0",
     "zstddec": "0.0.2"
   },
   "scripts": {
