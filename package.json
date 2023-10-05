@@ -13,7 +13,7 @@
     "@emotion/styled": "^11.11.0",
     "@feathersjs/client": "^5.0.6",
     "@fontsource/roboto": "^5.0.4",
-    "@mui/icons-material": "^5.13.7",
+    "@mui/icons-material": "^5.14.12",
     "@mui/material": "^5.13.7",
     "axios": "^1.4.0",
     "buffer": "^6.0.3",
