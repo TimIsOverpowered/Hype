@@ -147,7 +147,7 @@ export default function Graph(props) {
         let messages = 0,
           subs = 0;
         const game = chapters.find((chapter) => seconds > chapter.node.positionMilliseconds / 1000 && seconds < (chapter.node.positionMilliseconds + chapter.node.durationMilliseconds) / 1000);
-        if (game) json.game = game.node.details.game ? game.node.details.game.displayName : null;
+        if (game) json.game = game.node.details.game?.displayName;
 
         for (let log of logsCopy) {
           const timestampAsSeconds = toSeconds(log.substring(1, 9));
@@ -281,7 +281,8 @@ export default function Graph(props) {
           clipDuration: clip.duration,
         };
         const game = chapters.find((chapter) => chapter.node.positionMilliseconds <= clip.vod_offset);
-        if (game) json.game = game.node.details.game.displayName;
+        if (game) json.game = game.node.details.game?.displayName;
+
         data.push(json);
       }
       const simplifiedData = simplify(data, 10).map((item) => {
@@ -313,7 +314,7 @@ export default function Graph(props) {
           messages = 0,
           subs = 0;
         const game = chapters.find((chapter) => chapter.node.positionMilliseconds <= seconds);
-        if (game) json.game = game.node.details.game.displayName;
+        if (game) json.game = game.node.details.game?.displayName;
 
         for (let log of logsCopy) {
           const timestampAsSeconds = toSeconds(log.substring(1, 9));
