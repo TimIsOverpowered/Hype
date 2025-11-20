@@ -5,16 +5,16 @@ jobs:
   build_on_mac:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@master
         with:
-          node-version: 18
+          node-version: 20
       - name: install dependencies
         run: npm install
       - name: build
         run: npm run make-mac
       - name: Upload App
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Hype on Mac
           path: ./out/make/zip/darwin/x64/*.zip
@@ -22,16 +22,16 @@ jobs:
   build_on_win:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@master
         with:
-          node-version: 18
+          node-version: 20
       - name: install dependencies
         run: npm install
       - name: build
         run: npm run make-win
       - name: Upload App
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Hype on Windows
           path: ./out/make/zip/win32/x64/*.zip
