@@ -1,14 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { Box } from "@mui/material";
-import { LogoLoading } from "../utils/Loading";
+import { LogoLoading } from "../utils/Loading.js";
 import { useParams } from "react-router-dom";
-import Player from "./Player";
-import Chat from "./Chat";
-import NotAuth from "../utils/NotAuth";
-import Twitch from "../twitch/gql";
-import NotFound from "../utils/NotFound";
-import Settings from "./Settings";
-import Graph from "./Graph";
+import Player from "./Player.js";
+import Chat from "./Chat.js";
+import NotAuth from "../utils/NotAuth.js";
+import Twitch from "../twitch/gql.js";
+import NotFound from "../utils/NotFound.js";
+import Settings from "./Settings.js";
+import Graph from "./Graph.js";
 
 export default function Vod(props) {
   const { user } = props;

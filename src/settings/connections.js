@@ -1,7 +1,6 @@
-import React from "react";
 import { Box, Button, Paper, Typography } from "@mui/material";
 import PatreonLogo from "../assets/patreon_square.png";
-import client from "../client";
+import client from "../client.js";
 
 export default function Connections(props) {
   const { user } = props;

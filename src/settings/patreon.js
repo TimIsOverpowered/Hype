@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Button, Divider, Paper, Typography, Alert } from "@mui/material";
-import client from "../client";
+import client from "../client.js";
 
 export default function Patreon(props) {
   const { user } = props;

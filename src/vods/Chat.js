@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, createRef, useCallback } from "react";
 import { Box, Typography, Tooltip, Divider, Button } from "@mui/material";
 import SimpleBar from "simplebar-react";
-import { BasicLoading } from "../utils/Loading";
+import { BasicLoading } from "../utils/Loading.js";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Twemoji from "react-twemoji";
-import Twitch from "../twitch/gql";
-import CustomCollapse from "./chat/CustomCollapse";
-import ExpandMore from "./chat/CustomExpandMore";
+import Twitch from "../twitch/gql.js";
+import CustomCollapse from "./chat/CustomCollapse.js";
+import ExpandMore from "./chat/CustomExpandMore.js";
 
 const BASE_TWITCH_CDN = "https://static-cdn.jtvnw.net";
 const BASE_FFZ_EMOTE_CDN = "https://cdn.frankerfacez.com/emote";

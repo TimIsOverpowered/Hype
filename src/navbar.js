@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { AppBar, Toolbar, Box, Button, TextField } from "@mui/material";
-import client from "./client";
+import client from "./client.js";
 import Logo from "./assets/logo.svg";
-import CustomLink from "./utils/CustomLink";
+import CustomLink from "./utils/CustomLink.js";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import SvgIcon from "@mui/material/SvgIcon";
 import { useNavigate, useLocation } from "react-router-dom";

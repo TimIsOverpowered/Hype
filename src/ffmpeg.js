@@ -1,9 +1,10 @@
-const ffmpegStatic = require("ffmpeg-static").replace("app.asar", "app.asar.unpacked");
-const ffmpeg = require("fluent-ffmpeg");
-const { toSeconds } = require("./utils/helpers");
+import ffmpegStatic from "ffmpeg-static";
+ffmpegStatic.replace("app.asar", "app.asar.unpacked");
+import ffmpeg from "fluent-ffmpeg";
 ffmpeg.setFfmpegPath(ffmpegStatic);
+import { toSeconds } from "./utils/helpers.js";
 
-module.exports.clip = (start, end, m3u8, progressBar, path) => {
+export const clip = (start, end, m3u8, progressBar, path) => {
   return new Promise((resolve, reject) => {
     const ffmpeg_process = ffmpeg(m3u8)
       .seekInput(start)
@@ -33,7 +34,7 @@ module.exports.clip = (start, end, m3u8, progressBar, path) => {
   });
 };
 
-module.exports.downloadVod = (m3u8, duration, progressBar, path) => {
+export const downloadVod = (m3u8, duration, progressBar, path) => {
   return new Promise((resolve, reject) => {
     const ffmpeg_process = ffmpeg(m3u8)
       .videoCodec("copy")

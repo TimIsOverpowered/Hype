@@ -1,6 +1,5 @@
-import React from "react";
 import { Box, Divider, Paper, Typography } from "@mui/material";
-import Whitelist from "./whitelist";
+import Whitelist from "./whitelist.js";
 
 export default function Profile(props) {
   const { user } = props;

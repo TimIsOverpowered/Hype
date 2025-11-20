@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback, forwardRef } from "react";
 import canAutoPlay from "can-autoplay";
 import { Box, CircularProgress, IconButton, styled } from "@mui/material";
-import Twitch from "../twitch/gql";
+import Twitch from "../twitch/gql.js";
 import { parse as hlsParse } from "hls-parser";
 import debounce from "lodash.debounce";
 import { Buffer } from "buffer";
-import { LogoLoading } from "../utils/Loading";
+import { LogoLoading } from "../utils/Loading.js";
 import Hls from "hls.js";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import Controls from "./player/Controls";
+import Controls from "./player/Controls.js";
 //fix for Hls-parser not having Buffer.
 window.Buffer = window.Buffer || Buffer;
 

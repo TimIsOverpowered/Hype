@@ -6,9 +6,9 @@ import TheatersIcon from "@mui/icons-material/Theaters";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
-import TimeInput from "./settings/TimeInput";
-import { hmsValid, toSeconds, toHHMMSS } from "../utils/helpers";
-import SettingsModal from "./settings/Modal";
+import TimeInput from "./settings/TimeInput.js";
+import { hmsValid, toSeconds, toHHMMSS } from "../utils/helpers.js";
+import SettingsModal from "./settings/Modal.js";
 import CloseIcon from "@mui/icons-material/Close";
 import debounce from "lodash.debounce";
 

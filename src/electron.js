@@ -1,14 +1,16 @@
-const path = require("path");
-const { app, BrowserWindow, shell, ipcMain, dialog } = require("electron");
-const isDev = require("electron-is-dev");
-const windowStateKeeper = require("electron-window-state");
-const { sendToken } = require("./auth/oauth");
-const FFmpeg = require("./ffmpeg");
-const ProgressBar = require("electron-progressbar");
-const { toHMS } = require("./utils/helpers");
+import path from "node:path";
+import { app, BrowserWindow, shell, ipcMain, dialog } from "electron";
+import isDev from "electron-is-dev";
+import windowStateKeeper from "electron-window-state";
+import { sendToken } from "./auth/oauth.js";
+import { clip, downloadVod } from "./ffmpeg.js";
+import ProgressBar from "electron-progressbar";
+import { toHMS } from "./utils/helpers.js";
+import started from "electron-squirrel-startup";
+const __dirname = import.meta.dirname
 
-if (require("electron-squirrel-startup")) return app.quit();
-const { updateElectronApp } = require("update-electron-app");
+if (started) app.quit();
+import { updateElectronApp } from "update-electron-app";
 updateElectronApp();
 
 app.disableHardwareAcceleration();
@@ -42,7 +44,7 @@ function createWindow() {
       nodeIntegrationInWorker: true,
       contextIsolation: true,
       enableRemoteModule: true,
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.mjs"),
       devTools: isDev ? true : false,
       webSecurity: true,
     },
@@ -159,7 +161,7 @@ ipcMain.on("clip", async (event, args) => {
     progressBar.detail = "Done!";
   });
 
-  FFmpeg.clip(startHMS, endSeconds, m3u8, progressBar, clipPath)
+  clip(startHMS, endSeconds, m3u8, progressBar, clipPath)
     .then(() => progressBar.setCompleted())
     .catch((e) => {
       progressBar.close(e);
@@ -194,7 +196,7 @@ ipcMain.on("vod", async (event, args) => {
     progressBar.detail = "Done!";
   });
 
-  FFmpeg.downloadVod(m3u8, duration, progressBar, clipPath)
+  downloadVod(m3u8, duration, progressBar, clipPath)
     .then(() => progressBar.setCompleted())
     .catch((e) => {
       progressBar.close(e);

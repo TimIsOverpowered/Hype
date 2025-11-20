@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Box, Typography, Grid, Button } from "@mui/material";
 import SimpleBar from "simplebar-react";
-import { LogoLoading } from "./utils/Loading";
-import Twitch from "./twitch/gql";
-import CustomLink from "./utils/CustomLink";
+import { LogoLoading } from "./utils/Loading.js";
+import Twitch from "./twitch/gql.js";
+import CustomLink from "./utils/CustomLink.js";
 import { useParams } from "react-router-dom";
-import NotAuth from "./utils/NotAuth";
-import { toHHMMSS } from "./utils/helpers";
-import CustomWidthTooltip from "./utils/CustomWidthToolTip";
+import NotAuth from "./utils/NotAuth.js";
+import { toHHMMSS } from "./utils/helpers.js";
+import CustomWidthTooltip from "./utils/CustomWidthToolTip.js";
 
 export default function Channel(props) {
   const { user } = props;

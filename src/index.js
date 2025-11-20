@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import "./css/index.css";
-import App from "./App";
+import App from "./App.js";
 import "simplebar-react/dist/simplebar.min.css";
 import "@fontsource/roboto";
 import { createTheme, ThemeProvider, responsiveFontSizes } from "@mui/material/styles";

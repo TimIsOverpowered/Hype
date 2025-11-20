@@ -1,7 +1,7 @@
-const { session } = require("electron");
-const querystring = require("node:querystring");
+import { session } from "electron";
+import querystring from "node:querystring";
 
-module.exports.sendToken = (command, window) => {
+export const sendToken = (command, window) => {
   session.defaultSession.clearStorageData({
     storages: ["cookies", "filesystem"],
   });

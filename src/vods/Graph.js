@@ -1,12 +1,12 @@
 import { Alert, AlertTitle, Box } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
-import client from "../client";
-import { BasicLoading } from "../utils/Loading";
+import client from "../client.js";
+import { BasicLoading } from "../utils/Loading.js";
 import { ZSTDDecoder } from "zstddec";
-import Twitch from "../twitch/gql";
-import { sleep, toHHMMSS, toSeconds } from "../utils/helpers";
+import Twitch from "../twitch/gql.js";
+import { sleep, toHHMMSS, toSeconds } from "../utils/helpers.js";
 import { LineChart, XAxis, YAxis, CartesianGrid, Line, Tooltip, ResponsiveContainer, Brush } from "recharts";
-import CustomTooltip from "./graph/Tooltip";
+import CustomTooltip from "./graph/Tooltip.js";
 import simplify from "simplify-js";
 
 export default function Graph(props) {
@@ -416,10 +416,9 @@ export default function Graph(props) {
   const handleChartClick = (e) => {
     if (!e) return;
     const labelAsSeconds = toSeconds(e.activeLabel);
-    const activePayload = e.activePayload[0].payload;
     const duration = graph === "clips" ? labelAsSeconds - 5 : labelAsSeconds - interval;
     props.setClipStart(toHHMMSS(duration));
-    props.setClipEnd(graph === "clips" ? toHHMMSS(labelAsSeconds + Math.round(activePayload.clipDuration)) : e.activeLabel);
+    props.setClipEnd(graph === "clips" ? toHHMMSS(labelAsSeconds + 30) : e.activeLabel);
     player.currentTime = duration;
   };
 

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Box, Typography, Grid } from "@mui/material";
 import SimpleBar from "simplebar-react";
-import { LogoLoading } from "./utils/Loading";
-import Twitch from "./twitch/gql";
-import CustomLink from "./utils/CustomLink";
+import { LogoLoading } from "./utils/Loading.js";
+import Twitch from "./twitch/gql.js";
+import CustomLink from "./utils/CustomLink.js";
 
 export default function Whitelist() {
   const [whitelist, setWhitelist] = useState(null);

@@ -1,13 +1,13 @@
 import React, { useEffect } from "react";
 import { HashRouter, Route, Routes, Navigate } from "react-router-dom";
-import client from "./client";
-import NavBar from "./navbar";
-import NotFound from "./utils/NotFound";
-import Settings from "./settings";
-import { LogoLoading } from "./utils/Loading";
-import Whitelist from "./whitelist";
-import Channel from "./channel";
-import Vod from "./vods/Vod";
+import client from "./client.js";
+import NavBar from "./navbar.js";
+import NotFound from "./utils/NotFound.js";
+import Settings from "./settings.js";
+import { LogoLoading } from "./utils/Loading.js";
+import Whitelist from "./whitelist.js";
+import Channel from "./channel.js";
+import Vod from "./vods/Vod.js";
 
 export default function App() {
   const [user, setUser] = React.useState(undefined);

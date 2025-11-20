@@ -1,5 +1,5 @@
 import { styled, Typography } from "@mui/material";
-import CustomLink from "./CustomLink";
+import CustomLink from "./CustomLink.js";
 import Logo from "../assets/logo.svg";
 
 const NotFound = styled((props) => {

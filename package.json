@@ -8,6 +8,9 @@
   "repository": "TimIsOverpowered/Hype",
   "description": "Hype Electron App",
   "homepage": "./",
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

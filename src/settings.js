@@ -1,9 +1,9 @@
 import React from "react";
 import { useParams, useNavigate, redirect } from "react-router-dom";
 import { Box, Tabs, Tab, Button, Typography } from "@mui/material";
-import Profile from "./settings/profile";
-import Connections from "./settings/connections";
-import Patreon from "./settings/patreon";
+import Profile from "./settings/profile.js";
+import Connections from "./settings/connections.js";
+import Patreon from "./settings/patreon.js";
 import SimpleBar from "simplebar-react";
 
 export default function Settings(props) {

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Divider, Paper, Typography, IconButton, TextField, Alert } from "@mui/material";
-import client from "../client";
+import client from "../client.js";
 import ClearIcon from "@mui/icons-material/Clear";
 import SendIcon from "@mui/icons-material/Send";
 
