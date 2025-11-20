@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, forwardRef } from "react";
 import canAutoPlay from "can-autoplay";
 import { Box, CircularProgress, IconButton, styled } from "@mui/material";
 import Twitch from "../twitch/gql";
-import hlsParser from "hls-parser";
+import { parse as hlsParse } from "hls-parser";
 import debounce from "lodash.debounce";
 import { Buffer } from "buffer";
 import { LogoLoading } from "../utils/Loading";
@@ -40,7 +40,7 @@ export default function Player(props) {
       const vodTokenSig = await Twitch.gqlGetVodTokenSig(vod.id);
       const masterM3u8 = await Twitch.getM3u8(vod.id, vodTokenSig.value, vodTokenSig.signature);
       if (masterM3u8) {
-        m3u8Variants = hlsParser.parse(masterM3u8).variants;
+        m3u8Variants = hlsParse(masterM3u8).variants;
         m3u8 = m3u8Variants[0].uri;
       } else {
         const regex = /(?:https:\/\/)?static-cdn\.jtvnw\.net\/cf_vods\/(?:[a-z0-9]+)\/([a-z0-9_]+)\//;
