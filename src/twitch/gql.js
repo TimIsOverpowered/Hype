@@ -324,35 +324,33 @@ const Twitch = {
     return data;
   },
 
-  getChapters: async (vodId) => {
+  getChapters: async (vodID) => {
     const data = await axios({
       url: "https://gql.twitch.tv/gql",
       method: "POST",
       headers: {
         Accept: "*/*",
-        "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+        "Client-Id": "kd1unb4b3q4t58fwlpcbzcbnm76a8fp",
         "Content-Type": "text/plain;charset=UTF-8",
       },
       data: {
         operationName: "VideoPreviewCard__VideoMoments",
         variables: {
-          videoId: vodId,
+          videoId: vodID,
         },
         extensions: {
           persistedQuery: {
             version: 1,
-            sha256Hash: "0094e99aab3438c7a220c0b1897d144be01954f8b4765b884d330d0c0893dbde",
+            sha256Hash: "7399051b2d46f528d5f0eedf8b0db8d485bb1bb4c0a2c6707be6f1290cdcb31a",
           },
         },
       },
     })
-      .then((response) => response.data.data.video)
-      .then((video) => {
-        if (!video) return null;
-        return video.moments.edges;
-      })
+      .then((response) => response.data?.data)
+      .then((data) => data?.video)
+      .then((video) => video?.moments?.edges)
       .catch((e) => {
-        console.error(e);
+        console.error(e.response ? e.response.data : e);
         return null;
       });
     return data;
