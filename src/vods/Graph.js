@@ -4,7 +4,7 @@ import client from "../client.js";
 import { BasicLoading } from "../utils/Loading.js";
 import { ZSTDDecoder } from "zstddec";
 import Twitch from "../twitch/gql.js";
-import { sleep, toHHMMSS, toSeconds } from "../utils/helpers.js";
+import { sleep, toHHMMSS, toSeconds } from "../utils/helpers.mjs";
 import { LineChart, XAxis, YAxis, CartesianGrid, Line, Tooltip, ResponsiveContainer, Brush } from "recharts";
 import CustomTooltip from "./graph/Tooltip.js";
 import simplify from "simplify-js";

@@ -7,7 +7,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import TimeInput from "./settings/TimeInput.js";
-import { hmsValid, toSeconds, toHHMMSS } from "../utils/helpers.js";
+import { hmsValid, toSeconds, toHHMMSS } from "../utils/helpers.mjs";
 import SettingsModal from "./settings/Modal.js";
 import CloseIcon from "@mui/icons-material/Close";
 import debounce from "lodash.debounce";

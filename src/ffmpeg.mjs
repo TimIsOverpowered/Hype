@@ -1,8 +1,10 @@
+import log from "./logger.mjs";
 import ffmpegStatic from "ffmpeg-static";
-ffmpegStatic.replace("app.asar", "app.asar.unpacked");
 import ffmpeg from "fluent-ffmpeg";
-ffmpeg.setFfmpegPath(ffmpegStatic);
-import { toSeconds } from "./utils/helpers.js";
+const newFFmpegPath = ffmpegStatic.replace("app.asar", "app.asar.unpacked");
+ffmpeg.setFfmpegPath(newFFmpegPath);
+log.info(`Changed ffmpeg path ${ffmpegStatic} to ${newFFmpegPath}`);
+import { toSeconds } from "./utils/helpers.mjs";
 
 export const clip = (start, end, m3u8, progressBar, path) => {
   return new Promise((resolve, reject) => {

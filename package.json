@@ -3,7 +3,7 @@
   "ProductName": "Hype",
   "version": "1.0.19",
   "private": true,
-  "main": "./src/electron.js",
+  "main": "./src/electron.mjs",
   "author": "Overpowered",
   "repository": "TimIsOverpowered/Hype",
   "description": "Hype Electron App",

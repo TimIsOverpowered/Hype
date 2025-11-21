@@ -2,12 +2,12 @@ import path from "node:path";
 import { app, BrowserWindow, shell, ipcMain, dialog } from "electron";
 import isDev from "electron-is-dev";
 import windowStateKeeper from "electron-window-state";
-import { sendToken } from "./auth/oauth.js";
-import { clip, downloadVod } from "./ffmpeg.js";
+import { sendToken } from "./auth/oauth.mjs";
+import { clip, downloadVod } from "./ffmpeg.mjs";
 import ProgressBar from "electron-progressbar";
-import { toHMS } from "./utils/helpers.js";
+import { toHMS } from "./utils/helpers.mjs";
 import started from "electron-squirrel-startup";
-const __dirname = import.meta.dirname
+const __dirname = import.meta.dirname;
 
 if (started) app.quit();
 import { updateElectronApp } from "update-electron-app";

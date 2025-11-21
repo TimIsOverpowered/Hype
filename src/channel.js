@@ -6,7 +6,7 @@ import Twitch from "./twitch/gql.js";
 import CustomLink from "./utils/CustomLink.js";
 import { useParams } from "react-router-dom";
 import NotAuth from "./utils/NotAuth.js";
-import { toHHMMSS } from "./utils/helpers.js";
+import { toHHMMSS } from "./utils/helpers.mjs";
 import CustomWidthTooltip from "./utils/CustomWidthToolTip.js";
 
 export default function Channel(props) {
