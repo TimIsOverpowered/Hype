@@ -87,7 +87,7 @@
     "@electron-forge/publisher-github": "^7.10.2",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "electron": "^39.2.3",
+    "electron": "^39.2.4",
     "wait-on": "^9.0.3"
   },
   "config": {
