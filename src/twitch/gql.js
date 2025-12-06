@@ -5,8 +5,6 @@ const DOMAINS = [
   "https://vod-secure.twitch.tv",
   "https://vod-metro.twitch.tv",
   "https://vod-pop-secure.twitch.tv",
-  "https://d2e2de1etea730.cloudfront.net",
-  "https://dqrpb9wgowsf5.cloudfront.net",
   "https://ds0h3roq6wcgc.cloudfront.net",
   "https://d2nvs31859zcd8.cloudfront.net",
   "https://d2aba1wr3818hz.cloudfront.net",
@@ -14,12 +12,8 @@ const DOMAINS = [
   "https://dgeft87wbj63p.cloudfront.net",
   "https://d1m7jfoe9zdc1j.cloudfront.net",
   "https://d3vd9lfkzbru3h.cloudfront.net",
-  "https://d2vjef5jvl6bfs.cloudfront.net",
-  "https://d1ymi26ma8va5x.cloudfront.net",
-  "https://d1mhjrowxxagfy.cloudfront.net",
   "https://ddacn6pr5v0tl.cloudfront.net",
   "https://d3aqoihi2n8ty8.cloudfront.net",
-  "https://d1xhnb4ptk05mw.cloudfront.net",
   "https://d6tizftlrpuof.cloudfront.net",
   "https://d36nr0u3xmc4mm.cloudfront.net",
   "https://d1oca24q5dwo6d.cloudfront.net",
@@ -237,20 +231,20 @@ const Twitch = {
         extensions: {
           persistedQuery: {
             version: 1,
-            sha256Hash: "f3b546321ec4632bcb83ee6a6dba91dad754fca3fd147ae26d9a7a0a096cfc60",
+            sha256Hash: "be06407e8d7cda72f2ee086ebb11abb6b062a7deb8985738e648090904d2f0eb",
           },
         },
       },
     })
-      .then((response) => response.data.data)
+      .then((response) => response.data?.data)
       .catch((e) => {
         console.error(e);
         return null;
       });
     return {
-      globalBadges: data.badges,
-      channelBadges: data.video.owner.broadcastBadges,
-      channelCheerBadges: data.video.owner.cheer,
+      globalBadges: data?.badges,
+      channelBadges: data?.video.owner.broadcastBadges,
+      channelCheerBadges: data?.video.owner.cheer,
     };
   },
 
