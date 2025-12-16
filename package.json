@@ -35,7 +35,7 @@
     "react-router-dom": "^7.10.1",
     "react-scripts": "5.0.1",
     "react-twemoji": "^0.6.0",
-    "recharts": "^3.5.1",
+    "recharts": "^3.6.0",
     "simplebar-react": "^3.3.2",
     "simplify-js": "^1.2.4",
     "socket.io-client": "^4.8.1",
