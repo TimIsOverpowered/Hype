@@ -38,7 +38,7 @@
     "recharts": "^3.5.1",
     "simplebar-react": "^3.3.2",
     "simplify-js": "^1.2.4",
-    "socket.io-client": "^4.8.1",
+    "socket.io-client": "^4.8.2",
     "update-electron-app": "^3.1.1",
     "video.js": "^8.23.4",
     "videojs-hotkeys": "^0.2.30",
