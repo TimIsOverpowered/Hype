@@ -1,5 +1,5 @@
 import axios from "axios";
-import hlsParser from "hls-parser";
+import { types } from "hls-parser";
 
 const DOMAINS = [
   "https://vod-secure.twitch.tv",
@@ -203,7 +203,7 @@ const Twitch = {
       if (exists) foundVariants.push(knownVariant);
     }
 
-    const { Variant, MasterPlaylist } = hlsParser.types;
+    const { Variant, MasterPlaylist } = types;
     const variants = [];
     for (let foundVariant of foundVariants) {
       variants.push(new Variant({ uri: `${foundDomain}/${hash}/${foundVariant}/index-dvr.m3u8`, video: [{ name: foundVariant === "chunked" ? "Source" : foundVariant, groupId: foundVariant }] }));
