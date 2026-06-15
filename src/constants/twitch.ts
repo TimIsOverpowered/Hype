@@ -1,0 +1,31 @@
+export const Twitch = {
+  GQL_URL: 'https://gql.twitch.tv/gql',
+  USHER_BASE_URL: 'https://usher.ttvnw.net/v',
+  GQL_CLIENT_ID: 'kimne78kx3ncx6brgo4mv6wki5h1ko',
+  BACKUP_GQL_CLIENT_ID: 'kd1unb4b3q4t58fwlpcbzcbnm76a8fp',
+} as const;
+
+export const M3U8_DOMAINS = [
+  'https://vod-secure.twitch.tv',
+  'https://vod-metro.twitch.tv',
+  'https://vod-pop-secure.twitch.tv',
+  'https://ds0h3roq6wcgc.cloudfront.net',
+  'https://d2nvs31859zcd8.cloudfront.net',
+  'https://d2aba1wr3818hz.cloudfront.net',
+  'https://d3c27h4odz752x.cloudfront.net',
+  'https://dgeft87wbj63p.cloudfront.net',
+  'https://d1m7jfoe9zdc1j.cloudfront.net',
+  'https://d3vd9lfkzbru3h.cloudfront.net',
+  'https://ddacn6pr5v0tl.cloudfront.net',
+  'https://d3aqoihi2n8ty8.cloudfront.net',
+  'https://d6tizftlrpuof.cloudfront.net',
+  'https://d36nr0u3xmc4mm.cloudfront.net',
+  'https://d1oca24q5dwo6d.cloudfront.net',
+  'https://d2um2qdswy1tb0.cloudfront.net',
+  'https://d1w2poirtb3as9.cloudfront.net',
+  'https://d6d4ismr40iw.cloudfront.net',
+  'https://d1g1f25tn8m2e6.cloudfront.net',
+  'https://dykkng5hnh52u.cloudfront.net',
+  'https://d2dylwb3shzel1.cloudfront.net',
+  'https://d2xmjdvx03ij56.cloudfront.net',
+] as const;

@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #f87171; /* red-400 to match old theme */
+  --color-background: #0e0e10;
+}
+
+body {
+  background-color: var(--color-background);
+  color: white;
+  overflow: hidden;
+}
