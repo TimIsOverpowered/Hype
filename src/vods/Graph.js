@@ -1,6 +1,6 @@
 import { Alert, AlertTitle, Box } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
-import client from "../client.js";
+import { getToken } from "../auth.js";
 import { BasicLoading } from "../utils/Loading.js";
 import { ZSTDDecoder } from "zstddec";
 import Twitch from "../twitch/gql.js";
@@ -39,8 +39,8 @@ export default function Graph(props) {
     if (!vodId || !isWhitelisted) return;
 
     const fetchVod = async () => {
-      const { accessToken } = await client.get("authentication");
-      const data = await fetch(`https://api.hype.lol/vods/${vodId}`, {
+      const accessToken = getToken();
+      const data = await fetch(`https://api.hype.lol/v1/vods/${vodId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -61,7 +61,7 @@ export default function Graph(props) {
     fetchVod();
 
     const fetchLogs = async () => {
-      const { accessToken } = await client.get("authentication");
+      const accessToken = getToken();
       const data = await fetch(`https://api.hype.lol/v1/vods/${vodId}/logs`, {
         method: "GET",
         headers: {
@@ -97,7 +97,7 @@ export default function Graph(props) {
     fetchChapters();
 
     const fetchClips = async () => {
-      const { accessToken } = await client.get("authentication");
+      const accessToken = getToken();
       const data = await fetch(`https://api.hype.lol/v1/vods/${vodId}/clips`, {
         method: "GET",
         headers: {

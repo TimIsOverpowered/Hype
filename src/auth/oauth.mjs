@@ -6,8 +6,8 @@ export const sendToken = (command, window) => {
     storages: ["cookies", "filesystem"],
   });
   const qs = querystring.parse(command, "?");
-  const { access_token } = qs;
-  if (!access_token) return;
-  if (access_token.length === 0) return;
-  window.webContents.send("access_token", access_token);
+  const { token } = qs;
+  if (!token) return;
+  if (token.length === 0) return;
+  window.webContents.send("access_token", token);
 };

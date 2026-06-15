@@ -1,16 +1,31 @@
 import React from "react";
 import { useParams, useNavigate, redirect } from "react-router-dom";
 import { Box, Tabs, Tab, Button, Typography } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import Profile from "./settings/profile.js";
 import Connections from "./settings/connections.js";
 import Patreon from "./settings/patreon.js";
 import SimpleBar from "simplebar-react";
+import { getToken } from "./auth.js";
 
-export default function Settings(props) {
+function useUser() {
+  return useQuery({ queryKey: ["user"], queryFn: async () => {
+    const token = getToken();
+    if (!token) return null;
+    const res = await fetch("https://api.hype.lol/v1/user/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  }});
+}
+
+export default function Settings() {
   const navigate = useNavigate();
-  const { user } = props;
   const { subPath } = useParams();
+  const { data: user, isLoading } = useUser();
 
+  if (isLoading) return <></>;
   if (user === null) return redirect("/");
 
   return (
@@ -26,9 +41,9 @@ export default function Settings(props) {
             {user.patreon && <Tab label="Patreon" value="patreon" component={Button} onClick={() => navigate("/settings/patreon", { replace: true })} />}
           </Tabs>
         </Box>
-        {subPath === "profile" && <Profile user={user} />}
-        {subPath === "connections" && <Connections user={user} />}
-        {subPath === "patreon" && user.patreon && <Patreon user={user} />}
+        {subPath === "profile" && <Profile />}
+        {subPath === "connections" && <Connections />}
+        {subPath === "patreon" && user.patreon && <Patreon />}
       </Box>
     </SimpleBar>
   );

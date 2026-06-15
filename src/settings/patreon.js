@@ -1,50 +1,62 @@
-import { useEffect, useState } from "react";
+import React from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, Button, Divider, Paper, Typography, Alert } from "@mui/material";
-import client from "../client.js";
+import { getToken } from "../auth.js";
 
-export default function Patreon(props) {
-  const { user } = props;
-  const [clicked, setClicked] = useState(false);
-  const [success, setSuccess] = useState(null);
-  const [errorMsg, setErrorMsg] = useState("");
+function useUser() {
+  return useQuery({ queryKey: ["user"], queryFn: async () => {
+    const token = getToken();
+    if (!token) return null;
+    const res = await fetch("https://api.hype.lol/v1/user/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  }});
+}
 
-  useEffect(() => {
-    if (user === undefined) return;
-    document.title = `Patreon - ${user.display_name}`;
-  }, [user]);
+export default function Patreon() {
+  const queryClient = useQueryClient();
+  const { data: user } = useUser();
+  const [clicked, setClicked] = React.useState(false);
+  const [success, setSuccess] = React.useState(null);
+  const [errorMsg, setErrorMsg] = React.useState("");
 
-  if (user === undefined) return <></>;
+  const verifyMutation = useMutation({
+    mutationFn: () => {
+      const accessToken = getToken();
+      return fetch("https://api.hype.lol/v1/user/verify/patreon", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+    },
+    onSuccess: (data) => {
+      return data.json().then((json) => {
+        if (json.error) {
+          console.error(json);
+          setSuccess(false);
+          setErrorMsg(json.message);
+        } else {
+          setSuccess(true);
+          setErrorMsg("");
+          queryClient.invalidateQueries({ queryKey: ["user"] });
+        }
+      });
+    },
+    onError: (e) => {
+      setSuccess(false);
+      setErrorMsg("Server encountered an Error!");
+      return console.error(e);
+    },
+  });
+
+  if (!user) return <></>;
 
   const { patreon } = user;
-
-  const verifyPatron = async (evt) => {
-    if (evt) evt.preventDefault();
-    setClicked(true);
-    const { accessToken } = await client.get("authentication");
-    await fetch("https://api.hype.lol/v1/user/verify/patreon", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-      .then((response) => {
-        return response.json();
-      })
-      .then((data) => {
-        if (data.error) console.error(data);
-        setSuccess(!data.error);
-        setErrorMsg(data.message);
-      })
-      .catch((e) => {
-        setSuccess(false);
-        setErrorMsg("Server encountered an Error!");
-        return console.error(e);
-      });
-    setTimeout(() => {
-      setClicked(false);
-    }, 3000);
-  };
 
   return (
     <Box sx={{ mt: 2, maxWidth: "48rem", pb: 1.5 }}>
@@ -70,7 +82,7 @@ export default function Patreon(props) {
                   {errorMsg}
                 </Alert>
               )}
-              <Button onClick={verifyPatron} disabled={clicked} variant="contained">
+              <Button onClick={() => { setClicked(true); verifyMutation.mutate(); }} disabled={clicked || verifyMutation.isPending} variant="contained">
                 Update
               </Button>
             </Box>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { AppBar, Toolbar, Box, Button, TextField } from "@mui/material";
-import client from "./client.js";
+import { logout } from "./auth.js";
+import { useQueryClient } from "@tanstack/react-query";
 import Logo from "./assets/logo.svg";
 import CustomLink from "./utils/CustomLink.js";
 import TwitterIcon from "@mui/icons-material/Twitter";
@@ -42,14 +43,15 @@ const socials = [
   },
 ];
 
-export default function Navbar(props) {
+export default function NavBar(props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const location = useLocation();
   const { user } = props;
   const [channelInput, setChannelInput] = useState("");
 
   const handleSubmit = (e) => {
-    if (e.which === 13 && channelInput.length > 0) {
+    if (e.key === 'Enter' && channelInput.length > 0) {
       navigate(`/${channelInput}`);
     }
   };
@@ -93,7 +95,7 @@ export default function Navbar(props) {
                   Settings
                 </Button>
               </Box>
-              <Button size="small" onClick={() => client.logout()} variant="contained" startIcon={<LogoutIcon />}>
+              <Button size="small" onClick={() => { logout(); queryClient.setQueryData(["user"], null); navigate("/"); }} variant="contained" startIcon={<LogoutIcon />}>
                 Log Out
               </Button>
             </Box>
@@ -102,7 +104,7 @@ export default function Navbar(props) {
           {!user && (
             <Box sx={{ display: "flex", justifyContent: "end", alignItems: "center", flex: 1 }}>
               <Box sx={{ mr: 2 }}>
-                <Button size="small" href="https://api.hype.lol/oauth/twitch?redirect=electron" rel="noopener noreferrer" target="_blank" variant="contained" startIcon={<LoginIcon />}>
+                <Button size="small" href="https://api.hype.lol/oauth/twitch?client=desktop" rel="noopener noreferrer" target="_blank" variant="contained" startIcon={<LoginIcon />}>
                   Login
                 </Button>
               </Box>

@@ -1,8 +1,24 @@
 import { Box, Divider, Paper, Typography } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import Whitelist from "./whitelist.js";
+import { getToken } from "../auth.js";
 
-export default function Profile(props) {
-  const { user } = props;
+function useUser() {
+  return useQuery({ queryKey: ["user"], queryFn: async () => {
+    const token = getToken();
+    if (!token) return null;
+    const res = await fetch("https://api.hype.lol/v1/user/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  }});
+}
+
+export default function Profile() {
+  const { data: user } = useUser();
+
+  if (!user) return <></>;
 
   const status = (user.patreon && user.patreon.tier >= 1 && user.patreon.isPatron) || user.whitelist || user.admin;
 
@@ -28,7 +44,7 @@ export default function Profile(props) {
         </Paper>
       </div>
 
-      <Whitelist user={user} status={status} />
+      <Whitelist />
     </Box>
   );
 }

@@ -1,34 +1,52 @@
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Box, Button, Paper, Typography } from "@mui/material";
 import PatreonLogo from "../assets/patreon_square.png";
-import client from "../client.js";
+import { getToken } from "../auth.js";
 
-export default function Connections(props) {
-  const { user } = props;
-  const { patreon } = user;
+function useUser() {
+  return useQuery({ queryKey: ["user"], queryFn: async () => {
+    const token = getToken();
+    if (!token) return null;
+    const res = await fetch("https://api.hype.lol/v1/user/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  }});
+}
 
-  const patreonConnect = async () => {
-    const { accessToken } = await client.get("authentication");
-    window.open(`https://api.hype.lol/oauth/patreon?feathers_token=${accessToken}`, "_blank");
+export default function Connections() {
+  const queryClient = useQueryClient();
+  const { data: user } = useUser();
+
+  const patreonConnect = () => {
+    const token = getToken();
+    window.open(`https://api.hype.lol/oauth/patreon?token=${token}&client=desktop`, "_blank");
   };
 
-  const patreonDisconnect = async () => {
-    const { accessToken } = await client.get("authentication");
-    await fetch("https://api.hype.lol/v1/user/patreon", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-      .then((data) => {
-        if (data.error || data.code > 400 || data.status > 400) {
-          console.error(data);
-        }
-      })
-      .catch((e) => {
-        console.error(e);
+  const disconnectMutation = useMutation({
+    mutationFn: () => {
+      const accessToken = getToken();
+      return fetch("https://api.hype.lol/v1/user/patreon", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({}),
       });
-  };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+    },
+    onError: (err) => {
+      console.error(err);
+    },
+  });
+
+  if (!user) return <></>;
+
+  const { patreon } = user;
 
   return (
     <Box sx={{ mt: 2, maxWidth: "48rem", pb: 1.5 }}>
@@ -47,7 +65,7 @@ export default function Connections(props) {
                 <Box sx={{ display: "flex", alignItems: "center", flexDirection: "row" }}>
                   <ConnectionTitle>Patreon</ConnectionTitle>
                   {patreon ? (
-                    <Button onClick={patreonDisconnect} variant="contained" size="small">
+                    <Button onClick={() => disconnectMutation.mutate()} variant="contained" size="small" disabled={disconnectMutation.isPending}>
                       Disconnect
                     </Button>
                   ) : (

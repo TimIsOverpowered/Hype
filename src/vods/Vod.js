@@ -52,14 +52,14 @@ export default function Vod(props) {
   useEffect(() => {
     if (!vod) return;
     const fetchWhitelist = async () => {
-      const data = await fetch(`https://api.hype.lol/whitelist?twitchId=${vod.creator.id}`, {
+      const data = await fetch(`https://api.hype.lol/v1/whitelist?twitchId=${vod.creator.id}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
       })
         .then((response) => response.json())
-        .then((response) => response.data)
+        .then((response) => response)
         .catch((e) => {
           console.error(e);
           return null;
