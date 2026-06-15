@@ -1,9 +1,9 @@
-const AUTH_KEY = 'feathers-authentication';
+const AUTH_KEY = 'hype-auth';
 const API_BASE = 'https://api.hype.lol';
 
 export async function login(token) {
   const accessToken = typeof token === 'string' ? token : (token?.accessToken || '');
-  localStorage.setItem(AUTH_KEY, JSON.stringify({ accessToken }));
+  localStorage.setItem(AUTH_KEY, accessToken);
   const user = await getUser();
   return { user };
 }
@@ -13,10 +13,7 @@ export async function logout() {
 }
 
 export function getToken() {
-  try {
-    const auth = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
-    return auth.accessToken || '';
-  } catch { return ''; }
+  return localStorage.getItem(AUTH_KEY) || '';
 }
 
 export async function getUser() {
