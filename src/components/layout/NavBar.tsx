@@ -69,13 +69,17 @@ const SOCIALS = [
   },
 ];
 
+import hypeLogo from '../../assets/vigor.png';
+
 function LogoIcon() {
   return (
-    <svg viewBox="0 0 32 32" width="28" height="28" className="text-primary" fill="currentColor">
-      <title>Hype</title>
-      <path d="M16 2L4 8v16l12 6 12-6V8L16 2zm0 4l8 4v12l-8 4-8-4V10l8-4z" />
-      <path d="M16 8l-4 2v8l4 2 4-2v-8l-4-2zm0 2l2 1v6l-2 1-2-1v-6l2-1z" />
-    </svg>
+    <img
+      src={hypeLogo}
+      alt="Hype"
+      width="28"
+      height="28"
+      className="rounded"
+    />
   );
 }
 
@@ -149,7 +153,7 @@ export default function NavBar() {
   const { data: user } = useUser();
   const [channelInput, setChannelInput] = useState('');
 
-  const isHomePage = location.pathname === '/';
+  const isHomePage = location.pathname === '/' || location.pathname === '/home';
 
   const handleChannelSubmit = (e: React.FormEvent) => {
     e.preventDefault();

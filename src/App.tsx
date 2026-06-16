@@ -18,7 +18,7 @@ function App() {
       <HashRouter>
         <Routes>
           <Route element={<AppLayout />}>
-            <Route index element={<Navigate to="/home" replace />} />
+            <Route index element={<HomePage />} />
             <Route path="home" element={<HomePage />} />
             <Route path="channel/:channel" element={<ChannelPage />} />
             <Route path="vod/:vodId" element={<VODPage />} />
