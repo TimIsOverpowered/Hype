@@ -52,18 +52,21 @@ export default function Vod(props) {
   useEffect(() => {
     if (!vod) return;
     const fetchWhitelist = async () => {
-      const data = await fetch(`https://api.hype.lol/v1/whitelist?twitchId=${vod.creator.id}`, {
+      const res = await fetch(`https://api.hype.lol/v1/whitelist?twitchId=${vod.creator.id}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-      })
-        .then((response) => response.json())
-        .then((response) => response)
-        .catch((e) => {
-          console.error(e);
-          return null;
-        });
+      });
+      if (!res.ok) {
+        setIsWhitelisted(false);
+        return;
+      }
+      const data = await res.json();
+      if (data.error) {
+        setIsWhitelisted(false);
+        return;
+      }
       setIsWhitelisted(data.data && data.data.length > 0);
     };
     fetchWhitelist();

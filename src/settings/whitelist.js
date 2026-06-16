@@ -41,46 +41,44 @@ export default function Whitelist() {
         body: JSON.stringify({ username }),
       });
     },
-    onSuccess: (response) => {
-      return response.json().then((data) => {
-        if (data.error) {
-          console.error(data.errorMSG);
-          setSuccess(false);
-          setErrorMsg(data.errorMSG);
-        } else {
-          setSuccess(true);
-          setErrorMsg('');
-          queryClient.setQueryData(['user'], (old) => {
-            if (!old) return old;
-            return { ...old, whitelists: [...old.whitelists, data.whitelist] };
-          });
-        }
-      });
+    onSuccess: async (response) => {
+      const data = await response.json();
+      if (data.error) {
+        console.error(data.message);
+        setSuccess(false);
+        setErrorMsg(data.message);
+      } else {
+        setSuccess(true);
+        setErrorMsg('');
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+      }
     },
     onError: (e) => {
-      console.error(e);
+      console.error(e.message || e);
       setSuccess(false);
-      setErrorMsg('Server encountered an error..');
+      setErrorMsg(e.message || 'Server encountered an error..');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (channel) => {
+    mutationFn: async (channel) => {
       const accessToken = getToken();
-      return fetch('https://api.hype.lol/v1/whitelist/channel', {
+      const res = await fetch('https://api.hype.lol/v1/whitelist/channel', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ channel }),
+        body: JSON.stringify({ username: channel }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to delete');
+      }
+      return res.json();
     },
-    onSuccess: (_, channel) => {
-      queryClient.setQueryData(['user'], (old) => {
-        if (!old) return old;
-        return { ...old, whitelists: old.whitelists.filter((w) => w.channel !== channel) };
-      });
+    onSuccess: (_data, channel) => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (err) => {
       console.error(err);

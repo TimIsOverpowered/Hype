@@ -40,22 +40,16 @@ export default function Graph(props) {
 
     const fetchVod = async () => {
       const accessToken = getToken();
-      const data = await fetch(`https://api.hype.lol/v1/vods/${vodId}`, {
+      const res = await fetch(`https://api.hype.lol/v1/vods/${vodId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      })
-        .then((response) => response.json())
-        .then((response) => {
-          if (response.code >= 400) return null;
-          return response;
-        })
-        .catch((e) => {
-          console.error(e);
-          return null;
-        });
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.error) return null;
       setHypeVod(data);
     };
     fetchVod();
@@ -98,22 +92,16 @@ export default function Graph(props) {
 
     const fetchClips = async () => {
       const accessToken = getToken();
-      const data = await fetch(`https://api.hype.lol/v1/vods/${vodId}/clips`, {
+      const res = await fetch(`https://api.hype.lol/v1/vods/${vodId}/clips`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      })
-        .then((response) => response.json())
-        .then((response) => {
-          if (response.error) return null;
-          return response;
-        })
-        .catch((e) => {
-          console.error(e);
-          return null;
-        });
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.error) return null;
       setClips(data);
     };
     fetchClips();

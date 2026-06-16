@@ -34,23 +34,22 @@ export default function Patreon() {
         body: JSON.stringify({}),
       });
     },
-    onSuccess: (data) => {
-      return data.json().then((json) => {
-        if (json.error) {
-          console.error(json);
-          setSuccess(false);
-          setErrorMsg(json.message);
-        } else {
-          setSuccess(true);
-          setErrorMsg("");
-          queryClient.invalidateQueries({ queryKey: ["user"] });
-        }
-      });
+    onSuccess: async (response) => {
+      const data = await response.json();
+      if (data.error) {
+        console.error(data.message);
+        setSuccess(false);
+        setErrorMsg(data.message);
+      } else {
+        setSuccess(true);
+        setErrorMsg("");
+        queryClient.invalidateQueries({ queryKey: ["user"] });
+      }
     },
     onError: (e) => {
+      console.error(e.message || e);
       setSuccess(false);
-      setErrorMsg("Server encountered an Error!");
-      return console.error(e);
+      setErrorMsg(e.message || "Server encountered an Error!");
     },
   });
 

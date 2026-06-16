@@ -25,9 +25,9 @@ export default function Connections() {
   };
 
   const disconnectMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const accessToken = getToken();
-      return fetch("https://api.hype.lol/v1/user/patreon", {
+      const res = await fetch("https://api.hype.lol/v1/user/patreon", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -35,6 +35,9 @@ export default function Connections() {
         },
         body: JSON.stringify({}),
       });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.message || "Failed to disconnect");
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user"] });

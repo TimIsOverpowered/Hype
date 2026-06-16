@@ -23,6 +23,11 @@ export default function Whitelist() {
         `https://api.hype.lol/v1/whitelist?page=${pageNum}&limit=${PAGE_LIMIT}&sort=channel`,
       );
       const data = await res.json();
+      if (data.error) {
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
       const newChannels = data.data || [];
 
       if (newChannels.length === 0) {
