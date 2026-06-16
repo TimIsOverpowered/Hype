@@ -1,7 +1,9 @@
-import { LogOut, Settings, User } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { LogOut, Search, Settings, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { logout, useUser } from '../../auth';
+import { logout, searchWhitelistedChannels, useUser } from '../../auth';
+import type { SearchResult } from '../../types/twitch';
 
 const SOCIALS = [
   {
@@ -169,15 +171,40 @@ export default function NavBar() {
   const location = useLocation();
   const { data: user } = useUser();
   const [channelInput, setChannelInput] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   const isHomePage = location.pathname === '/' || location.pathname === '/home';
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(channelInput), 200);
+    return () => clearTimeout(timer);
+  }, [channelInput]);
+
+  const { data: searchResults = [], isFetching } = useQuery({
+    queryKey: ['search', debouncedQuery],
+    queryFn: () => searchWhitelistedChannels(debouncedQuery),
+    enabled: debouncedQuery.length >= 2,
+    staleTime: 1000 * 30,
+  });
 
   const handleChannelSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (channelInput.trim()) {
       navigate(`/channel/${channelInput.trim()}`);
       setChannelInput('');
+      setSearchOpen(false);
     }
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => setSearchOpen(false), 150);
+  };
+
+  const handleFocus = () => {
+    if (debouncedQuery.length >= 2) setSearchOpen(true);
   };
 
   return (
@@ -231,13 +258,62 @@ export default function NavBar() {
 
       {/* Center: Channel input */}
       <form onSubmit={handleChannelSubmit} className="absolute left-1/2 -translate-x-1/2 max-w-[200px]">
-        <input
-          type="text"
-          placeholder="Enter a Twitch channel"
-          value={channelInput}
-          onChange={(e) => setChannelInput(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-text-primary placeholder-text-hint outline-none transition-colors focus:border-primary"
-        />
+        <div ref={searchWrapperRef} className="relative">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-hint" />
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Enter a Twitch channel"
+            value={channelInput}
+            onChange={(e) => {
+              setChannelInput(e.target.value);
+              setSearchOpen(e.target.value.length >= 2);
+            }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            className="w-full rounded-md border border-border bg-background px-3 py-1.5 pl-9 text-sm text-text-primary placeholder-text-hint outline-none transition-colors focus:border-primary"
+          />
+          {(searchOpen || (channelInput.length >= 2 && isFetching)) && (
+            <div className="absolute top-full left-0 z-50 mt-1 w-full whitespace-nowrap rounded-md border border-border bg-surface py-1 shadow-lg">
+              {isFetching ? (
+                <div className="flex h-8 items-center justify-center">
+                  <div className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <>
+                  {searchResults.map((result: SearchResult) => (
+                    <Link
+                      key={result.channel}
+                      to={`/channel/${result.channel}`}
+                      onClick={() => setSearchOpen(false)}
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
+                    >
+                      {result.profileImageURL ? (
+                        <img src={result.profileImageURL} alt="" className="h-6 w-6 shrink-0 rounded-full" />
+                      ) : (
+                        <User className="h-4 w-4 shrink-0 text-text-hint" />
+                      )}
+                      <span className="truncate">{result.displayName}</span>
+                    </Link>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (channelInput.trim()) {
+                        navigate(`/channel/${channelInput.trim()}`);
+                        setSearchOpen(false);
+                      }
+                    }}
+                    disabled={!channelInput.trim()}
+                    className="block w-full px-2 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary disabled:opacity-40"
+                  >
+                    Go to {channelInput}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </form>
 
       {/* Right: Auth buttons */}

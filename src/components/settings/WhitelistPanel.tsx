@@ -1,6 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { User } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getUsers } from '../../api/twitch';
 import { API_BASE, getToken, useUser } from '../../auth';
+import type { TwitchUser } from '../../types/twitch';
 
 interface WhitelistResponse {
   readonly error: boolean;
@@ -19,8 +22,25 @@ export default function WhitelistPanel() {
   const [input, setInput] = useState('');
   const [success, setSuccess] = useState<boolean | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [twitchUsers, setTwitchUsers] = useState<TwitchUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   const whitelists = user?.whitelists ?? [];
+
+  useEffect(() => {
+    if (!user?.whitelists || user.whitelists.length === 0) return;
+
+    setIsLoadingUsers(true);
+    const logins = user.whitelists.map((w) => w.channel);
+
+    getUsers(logins)
+      .then((users: TwitchUser[]) => setTwitchUsers(users))
+      .catch(() => {})
+      .finally(() => setIsLoadingUsers(false));
+  }, [user]);
+
+  const getUserForChannel = (channel: string) =>
+    twitchUsers.find((u) => u.login.toLowerCase() === channel.toLowerCase());
 
   const whitelistMutation = useMutation({
     mutationFn: async (username: string) => {
@@ -147,33 +167,45 @@ export default function WhitelistPanel() {
       <div className="py-2">
         <span className="mb-2 block text-sm font-semibold text-text-secondary">Whitelisted</span>
         <div className="flex flex-col gap-1">
-          {whitelists.map((w) => (
-            <div key={w.id} className="flex items-center justify-between rounded-md bg-surface-elevated px-3 py-1.5">
-              <span className="text-sm text-text-primary">{w.channel}</span>
-              <button
-                type="button"
-                onClick={() => handleDelete(w.channel)}
-                disabled={deleteMutation.isPending}
-                className="text-text-hint transition-colors hover:text-red-400 disabled:opacity-50"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+          {(isLoadingUsers ? whitelists : whitelists).map((w) => {
+            const twitchUser = getUserForChannel(w.channel);
+            return (
+              <div key={w.id} className="flex items-center justify-between rounded-md bg-surface-elevated px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  {isLoadingUsers ? (
+                    <div className="h-8 w-8 shrink-0 rounded-full bg-white/5 animate-pulse" />
+                  ) : twitchUser?.profileImageURL ? (
+                    <img src={twitchUser.profileImageURL} alt="" className="h-8 w-8 shrink-0 rounded-full" />
+                  ) : (
+                    <User className="h-4 w-4 shrink-0 text-text-hint" />
+                  )}
+                  <span className="text-sm text-text-primary">{w.channel}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(w.channel)}
+                  disabled={deleteMutation.isPending}
+                  className="text-text-hint transition-colors hover:text-red-400 disabled:opacity-50"
                 >
-                  <title>Remove</title>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          ))}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <title>Remove</title>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
           {whitelists.length === 0 && <p className="py-1 text-xs text-text-hint">No whitelisted channels</p>}
         </div>
       </div>

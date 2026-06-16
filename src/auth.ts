@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { getUsers } from './api/twitch';
+import type { SearchResult } from './types/twitch';
 import type { User } from './types/user';
 
 const AUTH_KEY = 'hype-auth';
@@ -39,4 +41,40 @@ export function useUser() {
     staleTime: 1000 * 60 * 5,
     retry: 1,
   });
+}
+
+export async function searchWhitelistedChannels(query: string): Promise<SearchResult[]> {
+  const token = getToken();
+  if (!token) return [];
+  try {
+    const res = await fetch(`${API_BASE}/v1/whitelist?search=${encodeURIComponent(query)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const entries = (data.data ?? []).map((entry: { channel: string }) => entry.channel);
+    const channels = entries.slice(0, 15);
+    if (channels.length === 0) return [];
+
+    try {
+      const twitchUsers = await getUsers(channels);
+      const map = new Map(twitchUsers.map((u) => [u.login.toLowerCase(), u]));
+      return channels.map((channel: string) => {
+        const twitch = map.get(channel.toLowerCase());
+        return {
+          channel,
+          profileImageURL: twitch?.profileImageURL ?? null,
+          displayName: twitch?.displayName ?? channel,
+        };
+      });
+    } catch {
+      return channels.map((channel: string) => ({
+        channel,
+        profileImageURL: null,
+        displayName: channel,
+      }));
+    }
+  } catch {
+    return [];
+  }
 }

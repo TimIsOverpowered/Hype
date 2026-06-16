@@ -5,6 +5,12 @@ export interface TwitchUser {
   readonly profileImageURL: string;
 }
 
+export interface SearchResult {
+  readonly channel: string;
+  readonly profileImageURL: string | null;
+  readonly displayName: string;
+}
+
 export interface VodNode {
   readonly id: string;
   readonly title: string;
