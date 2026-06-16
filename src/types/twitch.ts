@@ -11,6 +11,19 @@ export interface SearchResult {
   readonly displayName: string;
 }
 
+export interface WhitelistChannel {
+  readonly channel: string;
+  readonly profileImageURL: string | null;
+  readonly displayName: string;
+}
+
+export interface PaginatedWhitelistResponse {
+  readonly total: number;
+  readonly page: number;
+  readonly limit: number;
+  readonly channels: readonly WhitelistChannel[];
+}
+
 export interface VodNode {
   readonly id: string;
   readonly title: string;

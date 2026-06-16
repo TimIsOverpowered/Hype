@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getUsers } from './api/twitch';
-import type { SearchResult } from './types/twitch';
+import type { PaginatedWhitelistResponse, SearchResult, TwitchUser } from './types/twitch';
 import type { User } from './types/user';
 
 const AUTH_KEY = 'hype-auth';
@@ -76,5 +76,55 @@ export async function searchWhitelistedChannels(query: string): Promise<SearchRe
     }
   } catch {
     return [];
+  }
+}
+
+export async function fetchWhitelistedChannels(page: number, limit: number): Promise<PaginatedWhitelistResponse> {
+  const token = getToken();
+  if (!token) throw new Error('No auth token');
+
+  const res = await fetch(`${API_BASE}/v1/whitelist?page=${page}&limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch whitelisted channels');
+
+  const data = await res.json();
+  const entries = data.data ?? [];
+  const channelNames = entries.map((e: { channel: string }) => e.channel);
+
+  if (channelNames.length === 0) {
+    return { total: data.total ?? 0, page, limit, channels: [] };
+  }
+
+  try {
+    const twitchUsers = await getUsers(channelNames);
+    const map = new Map<string, TwitchUser>();
+    for (const u of twitchUsers) {
+      if (u) map.set(u.login.toLowerCase(), u);
+    }
+    return {
+      total: data.total ?? 0,
+      page,
+      limit,
+      channels: channelNames.map((channel: string) => {
+        const twitch = map.get(channel.toLowerCase());
+        return {
+          channel,
+          profileImageURL: twitch?.profileImageURL ?? null,
+          displayName: twitch?.displayName ?? channel,
+        };
+      }),
+    };
+  } catch {
+    return {
+      total: data.total ?? 0,
+      page,
+      limit,
+      channels: channelNames.map((channel: string) => ({
+        channel,
+        profileImageURL: null,
+        displayName: channel,
+      })),
+    };
   }
 }
