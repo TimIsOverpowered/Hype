@@ -47,7 +47,7 @@ export async function searchWhitelistedChannels(query: string): Promise<SearchRe
   const token = getToken();
   if (!token) return [];
   try {
-    const res = await fetch(`${API_BASE}/v1/whitelist?search=${encodeURIComponent(query)}`, {
+    const res = await fetch(`${API_BASE}/v1/whitelist?search=${encodeURIComponent(query)}&sort=channel`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return [];
@@ -83,7 +83,7 @@ export async function fetchWhitelistedChannels(page: number, limit: number): Pro
   const token = getToken();
   if (!token) throw new Error('No auth token');
 
-  const res = await fetch(`${API_BASE}/v1/whitelist?page=${page}&limit=${limit}`, {
+  const res = await fetch(`${API_BASE}/v1/whitelist?page=${page}&limit=${limit}&sort=channel`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to fetch whitelisted channels');
