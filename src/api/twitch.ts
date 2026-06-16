@@ -5,7 +5,6 @@ import type {
   ChapterEdge,
   CheerBadge,
   CommentsConnection,
-  GqlRequest,
   GqlResponse,
   M3u8Variant,
   TwitchUser,
@@ -14,6 +13,7 @@ import type {
 } from '../types/twitch';
 
 const PRIMARY_CLIENT_ID = Twitch.GQL_CLIENT_ID;
+const BACKUP_CLIENT_ID = Twitch.BACKUP_GQL_CLIENT_ID;
 const GQL_URL = Twitch.GQL_URL;
 
 function buildHeaders(clientId: string): Record<string, string> {
@@ -24,7 +24,7 @@ function buildHeaders(clientId: string): Record<string, string> {
   };
 }
 
-async function gqlPost<T>(clientId: string, body: GqlRequest): Promise<T> {
+async function gqlPost<T>(clientId: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(GQL_URL, {
     method: 'POST',
     headers: buildHeaders(clientId),
@@ -45,21 +45,6 @@ async function gqlPost<T>(clientId: string, body: GqlRequest): Promise<T> {
   return json.data as T;
 }
 
-function gql<T>(clientId: string, body: GqlRequest): Promise<T> {
-  return gqlPost<T>(clientId, body);
-}
-
-// ─── Persisted query hashes ────────────────────────────────────────────────
-
-const PERSISTED_QUERIES = {
-  userVideos: '2778cc72eb7c90124e1e8149fd07ae5e7c15f93b08df8f9d19bc4d092e481a94',
-  videoPage: 'd5b0545d288f50872d0e4c8a86fcb18b3c47c0bfb2f46d4d38b48b2c47fc037d',
-  videoComments: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a',
-  videoMoments: '7399051b2d46f528d5f0eedf8b0db8d485bb1bb4c0a2c6707be6f1290cdcb31a',
-  playbackAccessToken: 'ed230aa1e33e07eebb8928504583da78a5173989fadfb1ac94be06a04f3cdbe9',
-  videoCommentsBadges: 'be06407e8d7cda72f2ee086ebb11abb6b062a7deb8985738e648090904d2f0eb',
-} as const;
-
 // ─── Core API functions ────────────────────────────────────────────────────
 
 export async function getUsers(channels: string[]): Promise<TwitchUser[]> {
@@ -78,87 +63,47 @@ export async function getUsers(channels: string[]): Promise<TwitchUser[]> {
   return json.data?.users ?? [];
 }
 
-export async function getVods(channel: string): Promise<VodPage> {
-  const result = await gql<{
-    user: {
-      id: string;
-      login: string;
-      displayName: string;
-      profileImageURL: string | null;
-      videos: {
-        edges: Array<{
-          cursor: string;
-          node: {
-            id: string;
-            title: string;
-            lengthSeconds: number;
-            broadcastType: string;
-            previewThumbnailURL: string | null;
-            viewCount: number;
-            createdAt: string;
-            creator: {
-              id: string;
-              login: string;
-              displayName: string;
-              profileImageURL: string | null;
-            };
-          };
-        }> | null;
-        pageInfo: { hasNextPage: boolean };
-      };
-    };
-  }>(PRIMARY_CLIENT_ID, {
-    operationName: 'UserVideos',
-    variables: {
-      username: channel,
-      count: 25,
-      offset: 0,
-      includeReceivedRequestUser: false,
-      platform: 'web',
-      slugType: 'user',
-    },
-    extensions: {
-      persistedQueries: {
-        version: 1,
-        sha256Hash: PERSISTED_QUERIES.userVideos,
-      },
-    },
-  });
+type VodEdgeRaw = {
+  cursor: string;
+  node: {
+    id: string;
+    title: string;
+    viewCount: number;
+    createdAt: string;
+    lengthSeconds: number;
+    broadcastType: string;
+    previewThumbnailURL: string | null;
+    creator: { login: string };
+  } | null;
+};
 
-  const user = result.user;
-  if (!user) {
-    throw new Error(`User "${channel}" not found`);
-  }
-
-  type VodEdgeRaw = {
-    cursor: string;
-    node: {
-      id: string;
-      title: string;
-      lengthSeconds: number;
-      broadcastType: string;
-      previewThumbnailURL: string | null;
-      viewCount: number;
-      createdAt: string;
-      creator: {
-        id: string;
-        login: string;
-        displayName: string;
-        profileImageURL: string | null;
-      };
+type VodsResponse = {
+  user: {
+    id: string;
+    login: string;
+    displayName: string;
+    profileImageURL: string | null;
+    videos: {
+      edges: VodEdgeRaw[] | null;
+      pageInfo: { hasNextPage: boolean };
     };
   };
+};
 
-  const edges = user.videos.edges?.filter((e): e is VodEdgeRaw => e != null) ?? [];
+type VodsOnlyResponse = {
+  user: {
+    videos: {
+      edges: VodEdgeRaw[] | null;
+      pageInfo: { hasNextPage: boolean };
+    };
+  };
+};
 
-  return {
-    user: {
-      id: user.id,
-      login: user.login,
-      displayName: user.displayName,
-      profileImageURL: user.profileImageURL ?? '',
-    },
-    edges: edges.map((e) => ({
+function mapEdges(edges: VodEdgeRaw[]) {
+  return edges
+    .filter((e): e is NonNullable<VodEdgeRaw> => e != null)
+    .filter((e): e is { cursor: string; node: NonNullable<VodEdgeRaw['node']> } => e.node != null)
+    .map((e) => ({
       cursor: e.cursor,
       node: {
         id: e.node.id,
@@ -169,133 +114,115 @@ export async function getVods(channel: string): Promise<VodPage> {
         viewCount: e.node.viewCount,
         createdAt: e.node.createdAt,
         creator: {
-          id: e.node.creator.id,
           login: e.node.creator.login,
-          displayName: e.node.creator.displayName,
-          profileImageURL: e.node.creator.profileImageURL ?? '',
+          id: '',
+          displayName: '',
+          profileImageURL: '',
         },
       },
-    })),
+    }));
+}
+
+export async function getVods(channel: string): Promise<VodPage> {
+  const query = `query { user(login: "${channel}") { id login displayName profileImageURL(width: 300) videos(first: 100) { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
+
+  const response = await fetch(GQL_URL, {
+    method: 'POST',
+    headers: buildHeaders(BACKUP_CLIENT_ID),
+    body: JSON.stringify({ query }),
+  });
+
+  const json: GqlResponse<VodsResponse> = await response.json();
+
+  if (json.errors) {
+    const messages = json.errors.map((e) => e.message);
+    throw new Error(`GQL request failed: ${messages.join(', ')}`);
+  }
+
+  const user = json.data?.user;
+  if (!user) {
+    throw new Error(`User "${channel}" not found`);
+  }
+
+  return {
+    user: {
+      id: user.id,
+      login: user.login,
+      displayName: user.displayName,
+      profileImageURL: user.profileImageURL ?? '',
+    },
+    edges: mapEdges(user.videos.edges?.filter(Boolean) ?? []),
     pageInfo: user.videos.pageInfo,
   };
 }
 
 export async function getNextVods(channel: string, cursor: string): Promise<VodPage> {
-  type VodEdgeRaw = {
-    cursor: string;
-    node: {
-      id: string;
-      title: string;
-      lengthSeconds: number;
-      broadcastType: string;
-      previewThumbnailURL: string | null;
-      viewCount: number;
-      createdAt: string;
-      creator: {
-        id: string;
-        login: string;
-        displayName: string;
-        profileImageURL: string | null;
-      };
-    };
-  };
+  const query = `query { user(login: "${channel}") { videos(first: 25, after: "${cursor}") { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
 
-  const result = await gql<{
-    user: {
-      id: string;
-      login: string;
-      displayName: string;
-      profileImageURL: string | null;
-      videos: {
-        edges: Array<VodEdgeRaw> | null;
-        pageInfo: { hasNextPage: boolean };
-      };
-    };
-  }>(PRIMARY_CLIENT_ID, {
-    operationName: 'UserVideos',
-    variables: {
-      username: channel,
-      cursor,
-      count: 25,
-      includeReceivedRequestUser: false,
-      platform: 'web',
-      slugType: 'user',
-    },
-    extensions: {
-      persistedQueries: {
-        version: 1,
-        sha256Hash: PERSISTED_QUERIES.userVideos,
-      },
-    },
+  const response = await fetch(GQL_URL, {
+    method: 'POST',
+    headers: buildHeaders(BACKUP_CLIENT_ID),
+    body: JSON.stringify({ query }),
   });
 
-  const user = result.user;
+  const json: GqlResponse<VodsOnlyResponse> = await response.json();
+
+  if (json.errors) {
+    const messages = json.errors.map((e) => e.message);
+    throw new Error(`GQL request failed: ${messages.join(', ')}`);
+  }
+
+  const user = json.data?.user;
   if (!user) {
     throw new Error(`User "${channel}" not found`);
   }
 
-  const edges = user.videos.edges?.filter((e): e is VodEdgeRaw => e != null) ?? [];
-
   return {
     user: {
-      id: user.id,
-      login: user.login,
-      displayName: user.displayName,
-      profileImageURL: user.profileImageURL ?? '',
+      id: '',
+      login: channel,
+      displayName: '',
+      profileImageURL: '',
     },
-    edges: edges.map((e) => ({
-      cursor: e.cursor,
-      node: {
-        id: e.node.id,
-        title: e.node.title,
-        lengthSeconds: e.node.lengthSeconds,
-        broadcastType: e.node.broadcastType,
-        previewThumbnailURL: e.node.previewThumbnailURL ?? '',
-        viewCount: e.node.viewCount,
-        createdAt: e.node.createdAt,
-        creator: {
-          id: e.node.creator.id,
-          login: e.node.creator.login,
-          displayName: e.node.creator.displayName,
-          profileImageURL: e.node.creator.profileImageURL ?? '',
-        },
-      },
-    })),
+    edges: mapEdges(user.videos.edges?.filter(Boolean) ?? []),
     pageInfo: user.videos.pageInfo,
   };
 }
 
-export async function getVod(vodId: string): Promise<VodNode> {
-  const result = await gql<{
-    video: {
+type GetVodResponse = {
+  video: {
+    id: string;
+    title: string;
+    lengthSeconds: number;
+    broadcastType: string;
+    previewThumbnailURL: string | null;
+    creator: {
       id: string;
-      title: string;
-      lengthSeconds: number;
-      broadcastType: string;
-      previewThumbnailURL: string | null;
-      viewCount: number;
-      creator: {
-        id: string;
-        login: string;
-        displayName: string;
-        profileImageURL: string | null;
-      };
+      login: string;
+      displayName: string;
+      createdAt: string;
+      profileImageURL: string | null;
     };
-  }>(PRIMARY_CLIENT_ID, {
-    operationName: 'VideoPage',
-    variables: {
-      videoID: vodId,
-      platform: 'web',
-    },
-    extensions: {
-      persistedQueries: {
-        version: 1,
-        sha256Hash: PERSISTED_QUERIES.videoPage,
-      },
-    },
+  };
+};
+
+export async function getVod(vodId: string): Promise<VodNode> {
+  const query = `query { video(id: "${vodId}") { id title lengthSeconds broadcastType previewThumbnailURL(width: 1920, height: 1080) creator { id login displayName createdAt profileImageURL(width: 50) } }}`;
+
+  const response = await fetch(GQL_URL, {
+    method: 'POST',
+    headers: buildHeaders(PRIMARY_CLIENT_ID),
+    body: JSON.stringify({ query }),
   });
 
-  const video = result.video;
+  const json: GqlResponse<GetVodResponse> = await response.json();
+
+  if (json.errors) {
+    const messages = json.errors.map((e) => e.message);
+    throw new Error(`GQL request failed: ${messages.join(', ')}`);
+  }
+
+  const video = json.data?.video;
   if (!video) {
     throw new Error(`VOD "${vodId}" not found`);
   }
@@ -306,7 +233,6 @@ export async function getVod(vodId: string): Promise<VodNode> {
     lengthSeconds: video.lengthSeconds,
     broadcastType: video.broadcastType,
     previewThumbnailURL: video.previewThumbnailURL ?? '',
-    viewCount: video.viewCount,
     creator: {
       id: video.creator.id,
       login: video.creator.login,
@@ -334,28 +260,23 @@ export async function getComments(vodId: string, offset: number): Promise<Commen
     };
   };
 
-  const result = await gql<{
-    video: {
-      comments: {
-        edges: Array<CommentEdgeRaw> | null;
-        pageInfo: { hasNextPage: boolean };
-      };
-    };
-  }>(PRIMARY_CLIENT_ID, {
+  const data = await gqlPost<{
+    video: { comments: { edges: CommentEdgeRaw[] | null; pageInfo: { hasNextPage: boolean } } };
+  }>(BACKUP_CLIENT_ID, {
     operationName: 'VideoCommentsByOffsetOrCursor',
     variables: {
       videoID: vodId,
       contentOffsetSeconds: offset,
     },
     extensions: {
-      persistedQueries: {
+      persistedQuery: {
         version: 1,
-        sha256Hash: PERSISTED_QUERIES.videoComments,
+        sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a',
       },
     },
   });
 
-  const comments = result.video?.comments;
+  const comments = data.video?.comments;
   if (!comments) {
     return { edges: [], pageInfo: { hasNextPage: false } };
   }
@@ -388,9 +309,7 @@ export async function getComments(vodId: string, offset: number): Promise<Commen
 // ─── Helper functions ──────────────────────────────────────────────────────
 
 export async function getVodToken(vodId: string): Promise<{ value: string; signature: string }> {
-  const data = await gql<{
-    videoPlaybackAccessToken: { value: string; signature: string };
-  }>(PRIMARY_CLIENT_ID, {
+  const data = await gqlPost<{ videoPlaybackAccessToken: { value: string; signature: string } }>(PRIMARY_CLIENT_ID, {
     operationName: 'PlaybackAccessToken',
     variables: {
       isLive: false,
@@ -402,9 +321,9 @@ export async function getVodToken(vodId: string): Promise<{ value: string; signa
       playerType: 'site',
     },
     extensions: {
-      persistedQueries: {
+      persistedQuery: {
         version: 1,
-        sha256Hash: PERSISTED_QUERIES.playbackAccessToken,
+        sha256Hash: 'ed230aa1e33e07eebb8928504583da78a5173989fadfb1ac94be06a04f3cdbe9',
       },
     },
   });
@@ -418,7 +337,7 @@ export async function getVodToken(vodId: string): Promise<{ value: string; signa
 }
 
 export async function getBadges(vodId: string): Promise<BadgeSet> {
-  const data = await gql<{
+  const data = await gqlPost<{
     badges: BadgeItem[];
     video: { owner: { broadcastBadges: BadgeItem[]; cheer: CheerBadge[] } };
   }>(PRIMARY_CLIENT_ID, {
@@ -428,9 +347,9 @@ export async function getBadges(vodId: string): Promise<BadgeSet> {
       hasVideoID: true,
     },
     extensions: {
-      persistedQueries: {
+      persistedQuery: {
         version: 1,
-        sha256Hash: PERSISTED_QUERIES.videoCommentsBadges,
+        sha256Hash: 'be06407e8d7cda72f2ee086ebb11abb6b062a7deb8985738e648090904d2f0eb',
       },
     },
   });
@@ -443,17 +362,15 @@ export async function getBadges(vodId: string): Promise<BadgeSet> {
 }
 
 export async function getChapters(vodId: string): Promise<ReadonlyArray<ChapterEdge>> {
-  const data = await gql<{
-    video: { moments: { edges: ChapterEdge[] } };
-  }>(PRIMARY_CLIENT_ID, {
+  const data = await gqlPost<{ video: { moments: { edges: ChapterEdge[] } } }>(BACKUP_CLIENT_ID, {
     operationName: 'VideoPreviewCard__VideoMoments',
     variables: {
       videoId: vodId,
     },
     extensions: {
-      persistedQueries: {
+      persistedQuery: {
         version: 1,
-        sha256Hash: PERSISTED_QUERIES.videoMoments,
+        sha256Hash: '7399051b2d46f528d5f0eedf8b0db8d485bb1bb4c0a2c6707be6f1290cdcb31a',
       },
     },
   });

@@ -115,11 +115,11 @@ export default function HomePage() {
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto p-6">
       {/* Whitelisted channels */}
-      <div className="w-full max-w-7xl">
+      <div className="w-full">
         {isLoadingInitial ? (
           <>
             <div className="mb-4 h-7 w-64 rounded bg-white/5 animate-pulse" />
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
               <ChannelSkeleton />
               <ChannelSkeleton />
               <ChannelSkeleton />
@@ -151,7 +151,7 @@ export default function HomePage() {
               <span className="text-xl font-bold text-primary">{total}</span>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
               {channels.map((c) => (
                 <ChannelCard key={c.channel} channel={c} />
               ))}

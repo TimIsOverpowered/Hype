@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getNextVods, getVods } from '../api/twitch';
 import type { TwitchUser, VodEdge, VodPage } from '../types/twitch';
@@ -63,6 +63,7 @@ export default function ChannelPage() {
   const [vodPage, setVodPage] = useState<VodPage | null>(null);
   const [twitchUser, setTwitchUser] = useState<TwitchUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,10 +82,13 @@ export default function ChannelPage() {
   }, [channel]);
 
   const loadMore = useCallback(() => {
-    if (!channel || !vodPage?.pageInfo.hasNextPage) return;
+    if (!channel || !vodPage?.pageInfo.hasNextPage || isLoadingRef.current) return;
 
     const lastEdge = vodPage.edges[vodPage.edges.length - 1];
     if (!lastEdge?.cursor) return;
+
+    isLoadingRef.current = true;
+    setIsLoadingMore(true);
 
     getNextVods(channel, lastEdge.cursor)
       .then((result) => {
@@ -92,18 +96,47 @@ export default function ChannelPage() {
           prev ? { ...prev, edges: [...prev.edges, ...result.edges], pageInfo: result.pageInfo } : null,
         );
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        setIsLoadingMore(false);
+        isLoadingRef.current = false;
+      });
   }, [channel, vodPage]);
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const isLoadingRef = useRef(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && vodPage?.pageInfo.hasNextPage && !isLoadingRef.current) {
+          loadMore();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+
+    const el = sentinelRef.current;
+    if (el) observer.observe(el);
+    return () => observer.disconnect();
+  }, [vodPage, loadMore]);
 
   if (isLoading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
         <div className="h-20 w-20 rounded-full bg-white/5 animate-pulse" />
         <div className="h-4 w-32 rounded bg-white/5 animate-pulse" />
-        <div className="grid w-full max-w-3xl grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {Array.from({ length: 10 }, () => (
-            <VodCardSkeleton key={String(Math.random())} />
-          ))}
+        <div className="w-full grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
+          <VodCardSkeleton />
         </div>
       </div>
     );
@@ -132,20 +165,27 @@ export default function ChannelPage() {
         </div>
       )}
 
-      <div className="grid w-full max-w-4xl grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      <div className="w-full grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
         {vods.map((vod) => (
           <VodCard key={vod.cursor} vod={vod} twitchUser={twitchUser ?? undefined} />
         ))}
       </div>
 
       {vodPage.pageInfo.hasNextPage && (
-        <button
-          type="button"
-          onClick={loadMore}
-          className="mt-6 rounded-md bg-surface-elevated px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
-        >
-          Load More
-        </button>
+        <div ref={sentinelRef} className="flex justify-center py-8">
+          {isLoadingMore && (
+            <div className="flex items-center gap-2 text-sm text-text-hint">
+              <div className="h-4 w-4 animate-spin rounded-full border-[1.5px] border-primary border-t-transparent" />
+              Loading more...
+            </div>
+          )}
+        </div>
+      )}
+
+      {!vodPage.pageInfo.hasNextPage && vods.length > 0 && (
+        <div ref={sentinelRef} className="py-8 text-center text-sm text-text-hint">
+          All VODs loaded
+        </div>
       )}
 
       {vods.length === 0 && <p className="mt-4 text-sm text-text-hint">No archived VODs found</p>}
