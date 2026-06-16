@@ -27,8 +27,7 @@
       "suspicious": {
         "noExplicitAny": "error",
         "noArrayIndexKey": "error",
-        "noCatchAssign": "error",
-        "noConsole": "warn"
+        "noCatchAssign": "error"
       },
       "style": {
         "useConst": "error",
