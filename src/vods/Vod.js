@@ -64,7 +64,7 @@ export default function Vod(props) {
           console.error(e);
           return null;
         });
-      setIsWhitelisted(data.length > 0);
+      setIsWhitelisted(data.data && data.data.length > 0);
     };
     fetchWhitelist();
   }, [vod]);
