@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LogOut, Search, Settings, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { logout, searchWhitelistedChannels, useUser } from '../../auth';
+import { getToken, logout, searchWhitelistedChannels, useUser } from '../../auth';
 import type { SearchResult } from '../../types/twitch';
 
 const SOCIALS = [
@@ -169,7 +169,9 @@ function UserMenu() {
 export default function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: user } = useUser();
+  const { data: user, isLoading } = useUser();
+  const hasToken = Boolean(getToken());
+  const isAuthenticated = user !== null || (isLoading && hasToken);
   const [channelInput, setChannelInput] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -317,7 +319,7 @@ export default function NavBar() {
       </form>
 
       {/* Right: Auth buttons */}
-      <div className="flex items-center gap-2">{user ? <UserMenu /> : <LoginButton />}</div>
+      <div className="flex items-center gap-2">{isAuthenticated ? <UserMenu /> : <LoginButton />}</div>
     </nav>
   );
 }
