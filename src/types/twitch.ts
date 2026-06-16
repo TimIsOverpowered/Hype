@@ -124,3 +124,106 @@ export interface M3u8Variant {
   readonly uri: string;
   readonly name: string;
 }
+
+// ─── Third-party emote types ───────────────────────────────────────────────
+
+export type EmoteProvider = '7TV' | 'BTTV' | 'FFZ' | 'Twitch';
+
+export interface BttvEmote {
+  readonly id: string;
+  readonly code: string;
+}
+
+export interface FfzEmote {
+  readonly id: number | string;
+  readonly code?: string;
+  readonly name?: string;
+  readonly text: string;
+}
+
+export interface SevenTVEmote {
+  readonly id: string;
+  readonly code: string;
+  readonly name?: string;
+  readonly flags: number;
+}
+
+export interface EmoteEntry {
+  readonly id: string | number;
+  readonly code: string;
+  readonly name?: string;
+  readonly provider: EmoteProvider;
+  readonly flags?: number;
+}
+
+// ─── Worker → Main thread serializable types ──────────────────────────────
+
+export type FragmentType = 'text' | 'twitch' | 'custom' | 'emoji' | 'url';
+
+export interface TextFragment {
+  readonly type: 'text';
+  readonly text: string;
+}
+
+export interface TwitchEmoteFragment {
+  readonly type: 'twitch';
+  readonly emoteID: string;
+  readonly text: string;
+}
+
+export interface CustomEmoteFragment {
+  readonly type: 'custom';
+  readonly id: string;
+  readonly code: string;
+  readonly provider: EmoteProvider;
+  readonly isZeroWidth?: boolean;
+}
+
+export interface EmojiFragment {
+  readonly type: 'emoji';
+  readonly text: string;
+}
+
+export interface UrlFragment {
+  readonly type: 'url';
+  readonly text: string;
+}
+
+export type FormattedFragment = TextFragment | TwitchEmoteFragment | CustomEmoteFragment | EmojiFragment | UrlFragment;
+
+export interface FormattedMessage {
+  readonly id: string;
+  readonly displayName: string;
+  readonly userColor: string;
+  readonly contentOffsetSeconds: number;
+  readonly badges: readonly ChatBadge[] | null;
+  readonly fragments: readonly FormattedFragment[];
+}
+
+export interface WorkerEmoteData {
+  readonly bttv: readonly BttvEmote[];
+  readonly ffz: readonly FfzEmote[];
+  readonly seventv: readonly SevenTVEmote[];
+}
+
+export interface WorkerProcessPayload {
+  readonly timestamp: number;
+  readonly rawComments: readonly CommentNode[];
+  readonly filterWords: readonly string[];
+  readonly emotes: WorkerEmoteData;
+}
+
+export interface WorkerProcessMessage {
+  readonly type: 'process';
+  readonly payload: WorkerProcessPayload;
+}
+
+export interface WorkerResultMessage {
+  readonly type: 'result';
+  readonly payload: {
+    readonly messages: readonly FormattedMessage[];
+  };
+}
+
+export type IncomingWorkerMessage = WorkerProcessMessage;
+export type OutgoingWorkerMessage = WorkerResultMessage;
