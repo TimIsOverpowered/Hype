@@ -168,7 +168,7 @@ function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: 
       const f = fragment as UrlFragment;
       const href = f.text.startsWith('http') ? f.text : `https://${f.text}`;
       return (
-        <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-[#008080] hover:underline">
+        <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
           {f.text}
         </a>
       );
@@ -253,14 +253,14 @@ const MemoizedComment = memo(
       >
         {showTimestamp && (
           <div
-            className="mr-2 min-w-0 shrink-0 text-[#adadb8]"
+            className="mr-2 min-w-0 shrink-0 text-text-secondary"
             style={{ fontSize: `${Math.round(messageFontSize * 0.857)}px` }}
           >
             {toHHMMSS(message.contentOffsetSeconds)}
           </div>
         )}
         <div
-          className="min-w-0 flex-1 leading-6 break-words text-[#f0f0f5]"
+          className="min-w-0 flex-1 leading-6 break-words text-text-primary"
           style={{ fontFamily, fontSize: `${messageFontSize}px` }}
         >
           {renderBadges(message.badges, badgeData, keyPrefix)}
@@ -880,18 +880,18 @@ export default function ChatReplay({
 
   return (
     <div
-      className={`${isPortrait ? 'w-full flex-1' : 'shrink-0 self-stretch'} relative flex min-h-0 min-w-0 flex-col bg-[#16161e]`}
+      className={`${isPortrait ? 'w-full flex-1' : 'shrink-0 self-stretch'} relative flex min-h-0 min-w-0 flex-col bg-surface`}
     >
       {showChat && (
         <>
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-sm font-medium text-[#f0f0f5]">Chat Replay</span>
+            <span className="text-sm font-medium text-text-primary">Chat Replay</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setShowTimestamp(!showTimestamp)}
-                className={`rounded px-1.5 py-0.5 text-xs transition-colors ${showTimestamp ? 'bg-white/10 text-[#f0f0f5]' : 'text-[#adadb8] hover:bg-white/5'}`}
+                className={`rounded px-1.5 py-0.5 text-xs transition-colors ${showTimestamp ? 'bg-white/10 text-text-primary' : 'text-text-secondary hover:bg-white/5'}`}
                 title="Toggle timestamps"
               >
                 Timestamps
@@ -899,7 +899,7 @@ export default function ChatReplay({
               <button
                 type="button"
                 onClick={() => setShowSettings(!showSettings)}
-                className="rounded p-1 text-[#adadb8] transition-colors hover:bg-white/5 hover:text-[#f0f0f5]"
+                className="rounded p-1 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
                 title="Settings"
               >
                 <svg
@@ -921,7 +921,7 @@ export default function ChatReplay({
             </div>
           </div>
 
-          <hr className="border-t border-[#222230]" />
+          <hr className="border-t border-border" />
 
           {/* Messages */}
           <div
@@ -941,7 +941,7 @@ export default function ChatReplay({
                   <ChatSkeleton />
                 ) : messages.length === 0 ? (
                   <div className="flex h-full w-full flex-col items-center justify-center py-8">
-                    <p className="text-sm text-[#9ca3af]">No messages</p>
+                    <p className="text-sm text-text-muted">No messages</p>
                   </div>
                 ) : (
                   commentElements
@@ -956,7 +956,7 @@ export default function ChatReplay({
                 <button
                   type="button"
                   onClick={scrollToBottom}
-                  className="absolute bottom-1 z-10 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#18181b] px-4 py-2 text-xs text-[#9ca3af] shadow-md transition-all hover:bg-[#18181b] hover:text-[#f0f0f5]"
+                  className="absolute bottom-1 z-10 flex cursor-pointer items-center gap-1.5 rounded-full bg-surface-elevated px-4 py-2 text-xs text-text-muted shadow-md transition-all hover:bg-surface-elevated hover:text-text-primary"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -986,7 +986,7 @@ export default function ChatReplay({
           <button
             type="button"
             onClick={() => setShowChat(!showChat)}
-            className="flex cursor-pointer items-center justify-center rounded-l-lg border border-[#222230] bg-[#16161e] p-1.5 text-white shadow-xl transition-all hover:bg-[#18181b] hover:text-gray-300"
+            className="flex cursor-pointer items-center justify-center rounded-l-lg border border-border bg-surface p-1.5 text-text-primary shadow-xl transition-all hover:bg-surface-elevated hover:text-text-primary"
             title="Expand Chat"
           >
             <svg
@@ -1010,13 +1010,13 @@ export default function ChatReplay({
       {/* Settings panel */}
       {showSettings && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
-          <div className="w-72 rounded-lg border border-[#222230] bg-[#16161e] p-4 text-[#f0f0f5]">
+          <div className="w-72 rounded-lg border border-border bg-surface p-4 text-text-primary">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-medium">Chat Settings</h3>
               <button
                 type="button"
                 onClick={() => setShowSettings(false)}
-                className="text-[#adadb8] transition-colors hover:text-[#f0f0f5]"
+                className="text-text-secondary transition-colors hover:text-text-primary"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1042,7 +1042,7 @@ export default function ChatReplay({
                   type="checkbox"
                   checked={showTimestamp}
                   onChange={() => setShowTimestamp(!showTimestamp)}
-                  className="accent-[#008080]"
+                  className="accent-primary"
                 />
                 Show timestamps
               </label>
@@ -1051,7 +1051,7 @@ export default function ChatReplay({
                 <div>
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span>Width</span>
-                    <span className="text-[#adadb8]">{chatWidth}px</span>
+                    <span className="text-text-secondary">{chatWidth}px</span>
                   </div>
                   <input
                     type="range"
@@ -1059,7 +1059,7 @@ export default function ChatReplay({
                     max="800"
                     value={chatWidth}
                     onChange={(e) => setChatWidth(Number(e.target.value))}
-                    className="w-full accent-[#008080]"
+                    className="w-full accent-primary"
                   />
                 </div>
               )}

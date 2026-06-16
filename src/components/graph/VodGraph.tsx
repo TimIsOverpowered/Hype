@@ -349,7 +349,7 @@ const VodGraph = memo(function VodGraph({
   );
 
   return (
-    <div className="flex w-full flex-col gap-2 rounded-lg border border-[#222230] bg-[#16161e] p-3">
+    <div className="flex w-full flex-col gap-2 rounded-lg border border-border bg-surface p-3">
       {/* Tab bar */}
       <div className="flex items-center gap-1 overflow-x-auto">
         {TABS.map((tab) => (
@@ -359,8 +359,8 @@ const VodGraph = memo(function VodGraph({
             onClick={() => setActiveTab(tab.key)}
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
               activeTab === tab.key
-                ? 'bg-white/10 text-[#f0f0f5]'
-                : 'text-[#adadb8] hover:bg-white/5 hover:text-[#f0f0f5]'
+                ? 'bg-white/10 text-text-primary'
+                : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
             }`}
           >
             {tab.label}
@@ -374,11 +374,11 @@ const VodGraph = memo(function VodGraph({
           <SkeletonGraph />
         ) : error ? (
           <div className="flex h-full w-full flex-col items-center justify-center">
-            <p className="text-sm text-[#9ca3af]">{error}</p>
+            <p className="text-sm text-text-muted">{error}</p>
           </div>
         ) : graphData.length === 0 ? (
           <div className="flex h-full w-full flex-col items-center justify-center">
-            <p className="text-sm text-[#9ca3af]">No data to display</p>
+            <p className="text-sm text-text-muted">No data to display</p>
           </div>
         ) : (
           <ReactECharts
