@@ -15,11 +15,14 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@vidstack/react": "^1.15.6",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
     "hls.js": "^1.6.16",
     "mediabunny": "^1.46.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "tailwindcss": "^4.3.1"
+    "tailwindcss": "^4.3.1",
+    "zstddec": "^0.2.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
