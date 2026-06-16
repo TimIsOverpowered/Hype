@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getNextVods, getVods } from '../api/twitch';
-import type { TwitchUser, VodEdge, VodPage } from '../types/twitch';
+import type { VodEdge, VodPage } from '../types/twitch';
 import { toHHMMSS } from '../utils/time';
 
 function VodCardSkeleton() {
@@ -14,7 +16,7 @@ function VodCardSkeleton() {
   );
 }
 
-function VodCard({ vod, twitchUser }: { vod: VodEdge; twitchUser?: TwitchUser }) {
+function VodCard({ vod, displayName }: { vod: VodEdge; displayName?: string }) {
   const navigate = useNavigate();
 
   if (vod.node.broadcastType !== 'ARCHIVE') return null;
@@ -58,7 +60,7 @@ function VodCard({ vod, twitchUser }: { vod: VodEdge; twitchUser?: TwitchUser })
         <p className="truncate text-xs font-medium text-text-secondary group-hover:text-text-primary">
           {vod.node.title}
         </p>
-        {twitchUser && <p className="mt-0.5 truncate text-[10px] text-text-hint">{twitchUser.displayName}</p>}
+        {displayName && <p className="mt-0.5 truncate text-[10px] text-text-hint">{displayName}</p>}
       </div>
     </button>
   );
@@ -66,66 +68,44 @@ function VodCard({ vod, twitchUser }: { vod: VodEdge; twitchUser?: TwitchUser })
 
 export default function ChannelPage() {
   const { channel } = useParams() as { channel: string };
-  const [vodPage, setVodPage] = useState<VodPage | null>(null);
-  const [twitchUser, setTwitchUser] = useState<TwitchUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!channel) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    getVods(channel)
-      .then((result) => {
-        setVodPage(result);
-        if (result.user) setTwitchUser(result.user);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load channel'))
-      .finally(() => setIsLoading(false));
-  }, [channel]);
-
-  const loadMore = useCallback(() => {
-    if (!channel || !vodPage?.pageInfo.hasNextPage || isLoadingRef.current) return;
-
-    const lastEdge = vodPage.edges[vodPage.edges.length - 1];
-    if (!lastEdge?.cursor) return;
-
-    isLoadingRef.current = true;
-    setIsLoadingMore(true);
-
-    getNextVods(channel, lastEdge.cursor)
-      .then((result) => {
-        setVodPage((prev) =>
-          prev ? { ...prev, edges: [...prev.edges, ...result.edges], pageInfo: result.pageInfo } : null,
-        );
-      })
-      .catch(() => {})
-      .finally(() => {
-        setIsLoadingMore(false);
-        isLoadingRef.current = false;
-      });
-  }, [channel, vodPage]);
-
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const isLoadingRef = useRef(false);
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useInfiniteQuery<
+    VodPage,
+    Error,
+    InfiniteData<VodPage, string | null>,
+    [string, string],
+    string | null
+  >({
+    queryKey: ['channel-vods', channel],
+    queryFn: ({ pageParam }) => (pageParam === null ? getVods(channel) : getNextVods(channel, pageParam)),
+    initialPageParam: null,
+    getNextPageParam: (lastPage) =>
+      lastPage.pageInfo.hasNextPage ? (lastPage.edges[lastPage.edges.length - 1]?.cursor ?? null) : null,
+  });
 
   useEffect(() => {
+    const el = sentinelRef.current;
+    const root = scrollContainerRef.current;
+    if (!el) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && vodPage?.pageInfo.hasNextPage && !isLoadingRef.current) {
-          loadMore();
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
         }
       },
-      { rootMargin: '200px' },
+      { root, rootMargin: '200px' },
     );
 
-    const el = sentinelRef.current;
-    if (el) observer.observe(el);
+    observer.observe(el);
     return () => observer.disconnect();
-  }, [vodPage, loadMore]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const vods =
+    data?.pages.flatMap((p: VodPage) => p.edges.filter((v: VodEdge) => v.node.broadcastType === 'ARCHIVE')) ?? [];
+  const twitchUser = data?.pages[0]?.user;
 
   if (isLoading) {
     return (
@@ -152,18 +132,14 @@ export default function ChannelPage() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <p className="text-text-muted">{error}</p>
+          <p className="text-text-muted">{error.message}</p>
         </div>
       </div>
     );
   }
 
-  if (!vodPage) return null;
-
-  const vods = vodPage.edges.filter((v) => v.node.broadcastType === 'ARCHIVE');
-
   return (
-    <div className="flex flex-1 flex-col items-center overflow-y-auto p-6">
+    <div ref={scrollContainerRef} className="flex flex-1 flex-col items-center overflow-y-auto p-6">
       {twitchUser && (
         <div className="mb-6 flex flex-col items-center gap-2">
           <img src={twitchUser.profileImageURL} alt={twitchUser.displayName} className="h-20 w-20 rounded-full" />
@@ -173,13 +149,13 @@ export default function ChannelPage() {
 
       <div className="w-full grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
         {vods.map((vod) => (
-          <VodCard key={vod.cursor} vod={vod} twitchUser={twitchUser ?? undefined} />
+          <VodCard key={vod.cursor} vod={vod} displayName={twitchUser?.displayName} />
         ))}
       </div>
 
-      {vodPage.pageInfo.hasNextPage && (
+      {hasNextPage && (
         <div ref={sentinelRef} className="flex justify-center py-8">
-          {isLoadingMore && (
+          {isFetchingNextPage && (
             <div className="flex items-center gap-2 text-sm text-text-hint">
               <div className="h-4 w-4 animate-spin rounded-full border-[1.5px] border-primary border-t-transparent" />
               Loading more...
@@ -188,13 +164,11 @@ export default function ChannelPage() {
         </div>
       )}
 
-      {!vodPage.pageInfo.hasNextPage && vods.length > 0 && (
-        <div ref={sentinelRef} className="py-8 text-center text-sm text-text-hint">
-          All VODs loaded
-        </div>
+      {!hasNextPage && vods.length > 0 && (
+        <div className="py-8 text-center text-sm text-text-hint">All VODs loaded</div>
       )}
 
-      {vods.length === 0 && <p className="mt-4 text-sm text-text-hint">No archived VODs found</p>}
+      {vods.length === 0 && <p className="mt-4 text-sm text-text-hint">No VODs found</p>}
     </div>
   );
 }

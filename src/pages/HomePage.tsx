@@ -1,5 +1,6 @@
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { User } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchWhitelistedChannels } from '../auth';
 import type { WhitelistChannel } from '../types/twitch';
@@ -46,75 +47,46 @@ function ChannelSkeleton() {
 }
 
 export default function HomePage() {
-  const [total, setTotal] = useState(0);
-  const [channels, setChannels] = useState<WhitelistChannel[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const isLoadingRef = useRef(false);
+
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingInitial,
+    error,
+  } = useInfiniteQuery({
+    queryKey: ['whitelisted-channels'],
+    queryFn: ({ pageParam }) => fetchWhitelistedChannels(pageParam, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.channels.length >= PAGE_SIZE ? lastPage.page + 1 : undefined),
+  });
 
   useEffect(() => {
-    setIsLoadingInitial(true);
-    setChannels([]);
-    pageRef.current = 1;
-    setHasMore(true);
-    setError(null);
+    const el = sentinelRef.current;
+    const root = scrollContainerRef.current;
+    if (!el) return;
 
-    fetchWhitelistedChannels(1, PAGE_SIZE)
-      .then((data) => {
-        setTotal(data.total);
-        setChannels([...data.channels]);
-        setHasMore(data.channels.length >= PAGE_SIZE);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => {
-        setIsLoadingInitial(false);
-        setIsLoading(false);
-      });
-  }, []);
-
-  const pageRef = useRef(1);
-
-  const loadMore = useCallback(() => {
-    if (isLoading || !hasMore) return;
-    isLoadingRef.current = true;
-    setIsLoading(true);
-
-    pageRef.current += 1;
-    const nextPage = pageRef.current;
-    fetchWhitelistedChannels(nextPage, PAGE_SIZE)
-      .then((data) => {
-        setChannels((prev) => [...prev, ...data.channels]);
-        setHasMore(data.channels.length >= PAGE_SIZE);
-        pageRef.current = nextPage;
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => {
-        setIsLoading(false);
-        isLoadingRef.current = false;
-      });
-  }, [isLoading, hasMore]);
-
-  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingRef.current) {
-          loadMore();
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
         }
       },
-      { rootMargin: '200px' },
+      { root, rootMargin: '200px' },
     );
 
-    const el = sentinelRef.current;
-    if (el) observer.observe(el);
+    observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loadMore]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const channels = data?.pages.flatMap((p) => p.channels) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
 
   return (
-    <div className="flex flex-1 flex-col items-center overflow-y-auto p-6">
-      {/* Whitelisted channels */}
+    <div ref={scrollContainerRef} className="flex flex-1 flex-col items-center overflow-y-auto p-6">
       <div className="w-full">
         {isLoadingInitial ? (
           <>
@@ -137,7 +109,7 @@ export default function HomePage() {
         ) : error ? (
           <div className="flex flex-col items-center gap-3 py-16">
             <p className="text-text-secondary">Failed to load channels</p>
-            <p className="text-sm text-text-hint">{error}</p>
+            <p className="text-sm text-text-hint">{error.message}</p>
           </div>
         ) : total === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16">
@@ -157,9 +129,9 @@ export default function HomePage() {
               ))}
             </div>
 
-            {hasMore && (
+            {hasNextPage && (
               <div ref={sentinelRef} className="flex justify-center py-8">
-                {isLoading && (
+                {isFetchingNextPage && (
                   <div className="flex items-center gap-2 text-sm text-text-hint">
                     <div className="h-4 w-4 animate-spin rounded-full border-[1.5px] border-primary border-t-transparent" />
                     Loading more...
@@ -168,10 +140,8 @@ export default function HomePage() {
               </div>
             )}
 
-            {!hasMore && channels.length > 0 && (
-              <div ref={sentinelRef} className="py-8 text-center text-sm text-text-hint">
-                All channels loaded
-              </div>
+            {!hasNextPage && channels.length > 0 && (
+              <div className="py-8 text-center text-sm text-text-hint">All channels loaded</div>
             )}
           </>
         )}
