@@ -5,18 +5,25 @@ import { useNavigate } from 'react-router-dom';
 import { login, useUser } from '../auth';
 
 function parseDeepLink(url: string): { type: string; value: string } | null {
-  if (!url.startsWith('hype://')) return null;
+  console.log(`[DeepLink] Received URL: ${url}`);
+  if (!url.startsWith('hype://')) {
+    console.log(`[DeepLink] Not a hype:// URL, ignoring`);
+    return null;
+  }
 
-  const path = url.slice('hype://'.length).split('?')[0];
+  const path = url.slice('hype://'.length).split('?')[0].replace(/\/+$/, '');
   const query = url.startsWith('hype://') ? url.slice(url.indexOf('?') + 1) : '';
+  console.log(`[DeepLink] Parsed path="${path}" query="${query}"`);
 
   if (path === 'oauth' && query) {
     const params = new URLSearchParams(query);
     const token = params.get('token') || params.get('code');
+    console.log(`[DeepLink] OAuth path, token found: ${!!token}`);
     if (token) return { type: 'oauth', value: token };
   }
 
   const parts = path.split('/').filter(Boolean);
+  console.log(`[DeepLink] Non-oauth path parts: [${parts}]`);
 
   if (parts.length >= 1) {
     const type = parts[0];
@@ -38,12 +45,17 @@ function DeepLinkHandler() {
       if (!parsed) return;
 
       if (parsed.type === 'oauth') {
+        console.log(`[DeepLink] Attempting login with token (first 20 chars): ${parsed.value.slice(0, 20)}...`);
         try {
           await login(parsed.value);
+          console.log(
+            `[DeepLink] login() succeeded, localStorage now has:`,
+            localStorage.getItem('hype-auth')?.slice(0, 20),
+          );
           await refetch();
           navigate('/settings/profile', { replace: true });
-        } catch {
-          // Auth failed, ignore
+        } catch (e) {
+          console.error(`[DeepLink] Login failed:`, e);
         }
       } else if (parsed.type === 'channel') {
         navigate(`/channel/${parsed.value}`, { replace: true });
@@ -55,38 +67,41 @@ function DeepLinkHandler() {
     let cleanupListen: (() => void) | undefined;
 
     const init = async () => {
+      console.log(`[DeepLink] Initializing handlers...`);
       try {
         const startUrls = await getCurrent();
+        console.log(`[DeepLink] getCurrent() returned:`, startUrls);
         if (startUrls && startUrls.length > 0 && !handledRef.current) {
           handledRef.current = true;
           for (const url of startUrls) {
             await handleDeepLink(url);
           }
         }
-      } catch {
-        // deep-link plugin not available (e.g., web build)
+      } catch (e) {
+        console.log(`[DeepLink] getCurrent() failed:`, e);
       }
 
       try {
-        cleanupListen = await onOpenUrl((urls) => {
+        const cleanupOnOpenUrl = await onOpenUrl((urls) => {
+          console.log(`[DeepLink] onOpenUrl callback fired with:`, urls);
           for (const url of urls) {
             handleDeepLink(url);
           }
         });
-      } catch {
-        // onOpenUrl not available
-      }
+        console.log(`[DeepLink] onOpenUrl listener registered`);
 
-      try {
         const unlisten = await listen('protocol-uri', (event: { payload: string }) => {
+          console.log(`[DeepLink] protocol-uri event fired with payload:`, event.payload);
           handleDeepLink(event.payload);
         });
+        console.log(`[DeepLink] protocol-uri listener registered`);
+
         cleanupListen = () => {
+          cleanupOnOpenUrl();
           unlisten();
-          if (cleanupListen) cleanupListen();
         };
-      } catch {
-        // listen not available
+      } catch (e) {
+        console.log(`[DeepLink] listener registration failed:`, e);
       }
     };
 

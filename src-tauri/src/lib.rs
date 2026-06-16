@@ -25,13 +25,7 @@ fn set_window_title(window: &WebviewWindow) {
 }
 
 fn emit_protocol_event(app: &tauri::AppHandle, url: &tauri::Url) {
-    let parsed = if url.as_str().starts_with("hype://") {
-        url.as_str().strip_prefix("hype://").unwrap_or(url.as_str()).to_string()
-    } else {
-        url.as_str().to_string()
-    };
-
-    if let Err(e) = app.emit("protocol-uri", &parsed) {
+    if let Err(e) = app.emit("protocol-uri", url.as_str()) {
         eprintln!("Failed to emit protocol event: {}", e);
     }
 }

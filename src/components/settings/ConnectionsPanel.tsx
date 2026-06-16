@@ -82,7 +82,7 @@ export default function ConnectionsPanel() {
 
   if (!user) return null;
 
-  const { patreon } = user;
+  const patreon = user.patreon ?? null;
 
   return (
     <div className="max-w-2xl">
@@ -98,7 +98,7 @@ export default function ConnectionsPanel() {
         }
         title="Patreon"
         description="Connect your Patreon account to unlock perks based on your tier. Hype will not publicly display your Patreon account information."
-        connected={patreon.isPatron}
+        connected={patreon?.isPatron ?? false}
         onConnect={patreonConnect}
         onDisconnect={() => disconnectMutation.mutate()}
         isPending={disconnectMutation.isPending}
