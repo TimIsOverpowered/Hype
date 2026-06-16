@@ -1,3 +1,6 @@
+import { relaunch } from '@tauri-apps/plugin-process';
+import { check } from '@tauri-apps/plugin-updater';
+import { useCallback, useState } from 'react';
 import { useUser } from '../../auth';
 import WhitelistPanel from './WhitelistPanel';
 
@@ -7,6 +10,43 @@ function UserInfoRow({ label, value }: { label: string; value: string }) {
       <span className="w-32 shrink-0 text-sm font-semibold text-text-secondary">{label}</span>
       <span className="text-sm text-text-primary">{value}</span>
     </div>
+  );
+}
+
+function CheckUpdatesButton() {
+  const [checking, setChecking] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleCheck = useCallback(async () => {
+    setChecking(true);
+    setDone(false);
+    try {
+      const update = await check();
+      if (update?.available) {
+        await update.downloadAndInstall((_event) => {
+          // progress tracking
+        });
+        await relaunch();
+      } else {
+        setDone(true);
+        setTimeout(() => setDone(false), 3000);
+      }
+    } catch {
+      // update check failed
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  return (
+    <button
+      type="button"
+      onClick={handleCheck}
+      disabled={checking}
+      className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+    >
+      {checking ? 'Checking...' : done ? 'Up to date' : 'Check for Updates'}
+    </button>
   );
 }
 
@@ -27,6 +67,10 @@ export default function ProfilePanel() {
 
       <div className="mt-6">
         <WhitelistPanel />
+      </div>
+
+      <div className="mt-6">
+        <CheckUpdatesButton />
       </div>
     </div>
   );

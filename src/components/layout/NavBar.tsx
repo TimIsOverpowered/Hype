@@ -72,15 +72,7 @@ const SOCIALS = [
 import hypeLogo from '../../assets/vigor.png';
 
 function LogoIcon() {
-  return (
-    <img
-      src={hypeLogo}
-      alt="Hype"
-      width="28"
-      height="28"
-      className="rounded"
-    />
-  );
+  return <img src={hypeLogo} alt="Hype" width="28" height="28" className="rounded" />;
 }
 
 function LoginButton({ className }: { className?: string }) {

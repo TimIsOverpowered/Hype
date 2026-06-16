@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import DeepLinkHandler from './components/DeepLinkHandler';
 import AppLayout from './components/layout/AppLayout';
 import SettingsPage from './components/settings/SettingsPage';
 import ChannelPage from './pages/ChannelPage';
@@ -16,6 +17,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <HashRouter>
+        <DeepLinkHandler />
         <Routes>
           <Route element={<AppLayout />}>
             <Route index element={<HomePage />} />
