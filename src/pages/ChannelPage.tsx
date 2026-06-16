@@ -21,7 +21,13 @@ function VodCard({ vod, twitchUser }: { vod: VodEdge; twitchUser?: TwitchUser })
 
   const thumbnail = vod.node.previewThumbnailURL;
   const duration = toHHMMSS(vod.node.lengthSeconds);
-  const date = vod.node.createdAt ? new Date(vod.node.createdAt).toLocaleDateString() : '';
+  const date = vod.node.createdAt
+    ? new Date(vod.node.createdAt).toLocaleDateString('en-US', {
+        month: 'long',
+        day: '2-digit',
+        year: 'numeric',
+      })
+    : '';
 
   return (
     <button
@@ -39,11 +45,11 @@ function VodCard({ vod, twitchUser }: { vod: VodEdge; twitchUser?: TwitchUser })
         ) : (
           <div className="aspect-video w-full bg-white/5" />
         )}
-        <div className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">
+        <div className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white">
           {duration}
         </div>
         {date && (
-          <div className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">
+          <div className="absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-white">
             {date}
           </div>
         )}
