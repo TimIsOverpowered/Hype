@@ -4,6 +4,11 @@ import { fetchM3u8, getChapters, getVod, getVodToken } from '../api/twitch';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
 import VodPlayer, { type VodPlayerHandle } from '../components/player/VodPlayer';
+import ClipBar from '../components/ui/ClipBar';
+import DownloadVodModal from '../components/ui/DownloadVodModal';
+import JobProgress from '../components/ui/JobProgress';
+import { useClipJob } from '../hooks/useClipJob';
+import { useM3u8Variants } from '../hooks/useM3u8Variants';
 import type { WorkerEmoteData } from '../types/graph';
 import type { BttvEmote, FfzEmote, SevenTVEmote } from '../types/twitch';
 
@@ -28,6 +33,12 @@ export default function VODPage() {
   const playerRef = useRef<VodPlayerHandle>(null);
   const [_playerState] = useState<number>(-1);
   const [duration, setDuration] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+
+  const { variants, isLoading: variantsLoading } = useM3u8Variants(vodInfo?.id);
+  const { progress, isRunning, error: jobError, elapsed, startClip, startDownload, cancel } = useClipJob();
 
   const emoteData: WorkerEmoteData = {
     bttv: bttvEmotes,
@@ -155,12 +166,31 @@ export default function VODPage() {
     setDuration(dur);
   }, []);
 
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time);
+  }, []);
+
   useEffect(() => {
     if (paramVodId) {
       setVodId(paramVodId);
       loadVod();
     }
   }, [paramVodId, loadVod]);
+
+  const handleClip = useCallback(
+    (_m3u8Url: string, startSeconds: number, durationSeconds: number) => {
+      startClip(m3u8Url, startSeconds, durationSeconds);
+    },
+    [startClip, m3u8Url],
+  );
+
+  const handleDownload = useCallback(
+    (selectedM3u8Url: string) => {
+      setShowDownloadModal(false);
+      startDownload(selectedM3u8Url, duration);
+    },
+    [startDownload, duration],
+  );
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -182,7 +212,7 @@ export default function VODPage() {
                     vodId={vodInfo.id}
                     m3u8Url={m3u8Url}
                     ref={playerRef}
-                    onTimeUpdate={() => {}}
+                    onTimeUpdate={handleTimeUpdate}
                     onDuration={handleDuration}
                     streamType="on-demand"
                   />
@@ -205,6 +235,31 @@ export default function VODPage() {
             )}
           </div>
 
+          {/* Clip bar + Download modal */}
+          {m3u8Url && vodInfo && (
+            <>
+              <ClipBar
+                vodId={vodInfo.id}
+                m3u8Url={m3u8Url}
+                duration={duration}
+                currentTime={currentTime}
+                onClip={handleClip}
+                onDownload={() => setShowDownloadModal(true)}
+                isProcessing={isRunning}
+              />
+              <DownloadVodModal
+                open={showDownloadModal}
+                onClose={() => setShowDownloadModal(false)}
+                onDownload={handleDownload}
+                vodId={vodInfo.id}
+                vodTitle={vodInfo.title}
+                duration={duration}
+                variants={variants}
+                isLoading={variantsLoading}
+              />
+            </>
+          )}
+
           {/* Graph */}
           {m3u8Url && vodInfo && (
             <div className="border-t border-border p-3">
@@ -222,6 +277,25 @@ export default function VODPage() {
                 messageThreshold={25}
                 searchThreshold={10}
                 searchTerm=""
+              />
+            </div>
+          )}
+
+          {/* Job progress */}
+          {isRunning && m3u8Url && vodInfo && (
+            <div className="border-t border-border p-3">
+              <JobProgress
+                progress={progress}
+                isRunning={isRunning}
+                error={jobError}
+                elapsed={elapsed}
+                onCancel={cancel}
+                onRetry={() => {
+                  if (jobError) {
+                    if (m3u8Url) startDownload(m3u8Url, duration);
+                  }
+                }}
+                jobType="download"
               />
             </div>
           )}
