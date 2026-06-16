@@ -1,6 +1,6 @@
 export const Twitch = {
   GQL_URL: 'https://gql.twitch.tv/gql',
-  USHER_BASE_URL: 'https://usher.ttvnw.net/v',
+  USHER_BASE_URL: 'https://usher.ttvnw.net/vod',
   GQL_CLIENT_ID: 'kimne78kx3ncx6brgo4mv6wki5h1ko',
   BACKUP_GQL_CLIENT_ID: 'kd1unb4b3q4t58fwlpcbzcbnm76a8fp',
 } as const;

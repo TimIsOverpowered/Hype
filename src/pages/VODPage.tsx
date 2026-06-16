@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { fetchM3u8, getChapters, getVod, getVodToken } from '../api/twitch';
+import { getChapters, getVod, getVodToken, resolveM3u8 } from '../api/twitch';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
 import VodPlayer, { type VodPlayerHandle } from '../components/player/VodPlayer';
@@ -8,7 +8,7 @@ import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
 import JobProgress from '../components/ui/JobProgress';
 import { useClipJob } from '../hooks/useClipJob';
-import { useM3u8Variants } from '../hooks/useM3u8Variants';
+import type { M3u8Variant } from '../types/twitch';
 import type { WorkerEmoteData } from '../types/graph';
 import type { BttvEmote, FfzEmote, SevenTVEmote } from '../types/twitch';
 
@@ -36,8 +36,8 @@ export default function VODPage() {
   const [currentTime, setCurrentTime] = useState(0);
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [variants, setVariants] = useState<M3u8Variant[]>([]);
 
-  const { variants, isLoading: variantsLoading } = useM3u8Variants(vodInfo?.id);
   const { progress, isRunning, error: jobError, elapsed, startClip, startDownload, cancel } = useClipJob();
 
   const emoteData: WorkerEmoteData = {
@@ -145,13 +145,14 @@ export default function VODPage() {
     try {
       const vod = await getVod(id);
       const token = await getVodToken(id);
-      const m3u8 = await fetchM3u8(id, token.value, token.signature);
+      const { m3u8Url: m3u8, variants: m3u8Variants } = await resolveM3u8(id, token.value, token.signature, vod.previewThumbnailURL);
       const chapters = await getChapters(id);
       const firstChapter = chapters.find((c) => c.node.details.game);
       const gameId = firstChapter?.node.details.game?.id;
 
       setVodInfo({ id: vod.id, title: vod.title, lengthSeconds: vod.lengthSeconds });
       setM3u8Url(m3u8);
+      setVariants(m3u8Variants);
       if (gameId) {
         setTwitchId(Number(gameId));
       }
@@ -226,12 +227,7 @@ export default function VODPage() {
                 />
               </>
             ) : (
-              <div className="flex flex-1 items-center justify-center">
-                <div className="text-center">
-                  <p className="text-lg font-medium text-text-secondary">Enter a VOD ID to get started</p>
-                  <p className="mt-1 text-sm text-text-hint">Twitch VOD ID goes in the field above</p>
-                </div>
-              </div>
+              <div className="flex flex-1 items-center justify-center" />
             )}
           </div>
 
@@ -255,7 +251,7 @@ export default function VODPage() {
                 vodTitle={vodInfo.title}
                 duration={duration}
                 variants={variants}
-                isLoading={variantsLoading}
+                isLoading={false}
               />
             </>
           )}

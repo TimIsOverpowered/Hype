@@ -1,3 +1,4 @@
+import { parse as hlsParse } from 'hls-parser';
 import { M3U8_DOMAINS, Twitch } from '../constants/twitch';
 import type {
   BadgeItem,
@@ -380,7 +381,7 @@ export async function getChapters(vodId: string): Promise<ReadonlyArray<ChapterE
 
 export async function fetchM3u8(vodId: string, token: string, sig: string): Promise<string> {
   const codecs = encodeURIComponent('av1,h265,h264');
-  const url = `${Twitch.USHER_BASE_URL}/${vodId}.m3u8?allow_source=true&allow_audio_only=true&player=twitchweb&playlist_include_framerate=true&allow_spectre=true&supported_codecs=${codecs}&nauthsig=${sig}&nauth=${token}`;
+  const url = `${Twitch.USHER_BASE_URL}/${vodId}.m3u8?allow_source=true&player=mediaplayer&include_unavailable=true&supported_codecs=${codecs}&playlist_include_framerate=true&allow_spectre=true&nauthsig=${sig}&nauth=${token}`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -388,6 +389,44 @@ export async function fetchM3u8(vodId: string, token: string, sig: string): Prom
   }
 
   return response.text();
+}
+
+export async function resolveM3u8(
+  vodId: string,
+  token: string,
+  sig: string,
+  previewThumbnailUrl?: string,
+): Promise<{ m3u8Url: string; variants: M3u8Variant[] }> {
+  try {
+    const masterM3u8 = await fetchM3u8(vodId, token, sig);
+    const parsed = hlsParse(masterM3u8);
+    if ('variants' in parsed) {
+      const variants = parsed.variants.map((v: { uri: string; attributes?: { RESOLUTION?: { width: number; height: number }; label?: string } }) => ({
+        uri: v.uri,
+        name: v.attributes?.RESOLUTION
+          ? `${v.attributes.RESOLUTION.width}x${v.attributes.RESOLUTION.height}`
+          : v.attributes?.label || 'Unknown',
+      }));
+      return { m3u8Url: variants[0]?.uri ?? '', variants };
+    }
+    throw new Error('Received non-master playlist from usher');
+  } catch {
+    // Fallback: CloudFront scan
+  }
+
+  if (!previewThumbnailUrl) {
+    throw new Error('Usher failed and no preview thumbnail URL available for fallback');
+  }
+
+  const regex = /(?:https:\/\/)?static-cdn\.jtvnw\.net\/cf_vods\/(?:[a-z0-9]+)\/([a-z0-9_]+)\//;
+  const match = previewThumbnailUrl.match(regex);
+  const hash = match?.[1];
+  if (!hash) {
+    throw new Error('Could not extract VOD hash from preview thumbnail URL');
+  }
+
+  const result = await findM3u8(hash);
+  return { m3u8Url: result.variants[0]?.uri ?? '', variants: result.variants };
 }
 
 export async function checkM3u8(url: string): Promise<boolean> {

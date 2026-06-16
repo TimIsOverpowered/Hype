@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { M3u8Variant } from '../../hooks/useM3u8Variants';
+import type { M3u8Variant } from '../../types/twitch';
 import { toHHMMSS } from '../../utils/time';
 
 interface DownloadVodModalProps {
