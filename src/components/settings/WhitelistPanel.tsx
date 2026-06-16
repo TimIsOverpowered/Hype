@@ -7,7 +7,6 @@ import type { TwitchUser } from '../../types/twitch';
 
 interface WhitelistResponse {
   readonly error: boolean;
-  readonly errorMSG?: string;
   readonly message?: string;
   readonly whitelist?: { id: string; channel: string };
 }
@@ -58,7 +57,7 @@ export default function WhitelistPanel() {
     onSuccess: (data: WhitelistResponse) => {
       if (data.error) {
         setSuccess(false);
-        setErrorMsg(data.errorMSG ?? '');
+        setErrorMsg(data.message ?? '');
       } else {
         setSuccess(true);
         setErrorMsg('');
