@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LogOut, Search, Settings, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -110,6 +110,7 @@ function LoginButton({ className }: { className?: string }) {
 function UserMenu() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -124,6 +125,7 @@ function UserMenu() {
 
   const handleLogout = () => {
     logout();
+    queryClient.invalidateQueries({ queryKey: ['user'] });
     navigate('/');
     setOpen(false);
   };

@@ -149,7 +149,7 @@ export default function ChannelPage() {
 
       <div className="w-full grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
         {vods.map((vod) => (
-          <VodCard key={vod.cursor} vod={vod} displayName={twitchUser?.displayName} />
+          <VodCard key={vod.node.id} vod={vod} displayName={twitchUser?.displayName} />
         ))}
       </div>
 

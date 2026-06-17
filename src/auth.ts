@@ -11,9 +11,7 @@ export function getToken(): string {
 }
 
 export async function login(token: string): Promise<void> {
-  console.log(`[Auth] login() called with token (first 20 chars): ${token.slice(0, 20)}...`);
   localStorage.setItem(AUTH_KEY, token);
-  console.log(`[Auth] localStorage after set:`, localStorage.getItem(AUTH_KEY)?.slice(0, 20));
 }
 
 export async function logout(): Promise<void> {
