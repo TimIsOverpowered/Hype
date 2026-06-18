@@ -1,13 +1,13 @@
 import { parse as hlsParse } from 'hls-parser';
 import { M3U8_DOMAINS, Twitch } from '../constants/twitch';
 import type {
-  BadgeItem,
   BadgeSet,
   ChapterEdge,
   CheerBadge,
   CommentsConnection,
   GqlResponse,
   M3u8Variant,
+  TwitchBadge,
   TwitchUser,
   VodNode,
   VodPage,
@@ -339,8 +339,8 @@ export async function getVodToken(vodId: string): Promise<{ value: string; signa
 
 export async function getBadges(vodId: string): Promise<BadgeSet> {
   const data = await gqlPost<{
-    badges: BadgeItem[];
-    video: { owner: { broadcastBadges: BadgeItem[]; cheer: CheerBadge[] } };
+    badges: TwitchBadge[];
+    video: { owner: { broadcastBadges: TwitchBadge[]; cheer: CheerBadge[] } };
   }>(PRIMARY_CLIENT_ID, {
     operationName: 'VideoComments',
     variables: {

@@ -80,24 +80,23 @@ export interface CommentsConnection {
 }
 
 export interface BadgeSet {
-  readonly globalBadges: readonly BadgeItem[] | null;
-  readonly channelBadges: readonly BadgeItem[] | null;
+  readonly globalBadges: readonly TwitchBadge[] | null;
+  readonly channelBadges: readonly TwitchBadge[] | null;
   readonly channelCheerBadges: readonly CheerBadge[] | null;
 }
 
-export interface BadgeItem {
-  readonly id: string;
-  readonly versions: readonly BadgeVersion[];
+export interface TwitchBadge {
+  readonly setID: string;
+  readonly version: string;
+  readonly image1x: string;
+  readonly image2x: string;
+  readonly image4x: string;
 }
 
-export interface BadgeVersion {
-  readonly imageUrl1x: string;
-  readonly imageUrl2x: string;
-  readonly imageUrl4x: string;
-  readonly title: string | null;
-}
-
-export interface CheerBadge extends BadgeVersion {
+export interface CheerBadge {
+  readonly image1x: string;
+  readonly image2x: string;
+  readonly image4x: string;
   readonly canShowGlobally: boolean;
   readonly minimumCheerAmount: number;
 }

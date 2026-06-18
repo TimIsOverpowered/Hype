@@ -30,7 +30,6 @@ import {
   MIN_USERNAME_LUMINANCE,
 } from '../../constants/ui';
 import type {
-  BadgeItem,
   BttvEmote,
   ChatBadge,
   CommentNode,
@@ -43,6 +42,7 @@ import type {
   OutgoingWorkerMessage,
   SevenTVEmote,
   TextFragment,
+  TwitchBadge,
   TwitchEmoteFragment,
   UrlFragment,
   WorkerEmoteData,
@@ -65,8 +65,8 @@ interface ChatReplayProps {
 
 interface BadgeRef {
   readonly platform: 'twitch';
-  readonly channelBadges: readonly BadgeItem[] | null;
-  readonly globalBadges: readonly BadgeItem[] | null;
+  readonly channelBadges: readonly TwitchBadge[] | null;
+  readonly globalBadges: readonly TwitchBadge[] | null;
 }
 
 interface ChatEngineState {
@@ -214,37 +214,30 @@ function renderBadges(
     const version = textBadge.version;
 
     const allBadges = [...(channelBadges ?? []), ...(globalBadges ?? [])];
-    const badge = allBadges.find((b) => b.id === badgeId);
+    const badge = allBadges.find((b) => b.setID === badgeId && b.version === version);
     if (!badge) continue;
 
-    const badgeVersion = badge.versions.find((v) => v.imageUrl1x && version && v.imageUrl1x.includes(version));
-    if (!badgeVersion) continue;
-
-    const title = `${badgeId} ${version}`;
-
     wrapper.push(
-      <span
+      <img
         key={`${keyPrefix}-badge-${badgeId}-${version}-${badgeIdx}`}
-        style={{ display: 'inline-block', verticalAlign: 'middle', margin: '0 0.2rem 0.1rem 0' }}
-      >
-        <img
-          srcSet={`${badgeVersion.imageUrl1x} 1x, ${badgeVersion.imageUrl2x} 2x, ${badgeVersion.imageUrl4x} 4x`}
-          src={badgeVersion.imageUrl1x}
-          alt={title}
-          style={{
-            display: 'inline-block',
-            height: '1rem',
-            minWidth: '1rem',
-            backgroundPosition: '50%',
-            verticalAlign: 'middle',
-          }}
-        />
-      </span>,
+        srcSet={`${badge.image1x} 1x, ${badge.image2x} 2x, ${badge.image4x} 4x`}
+        src={badge.image1x}
+        alt={`${badgeId} ${version}`}
+        style={{
+          display: 'inline-block',
+          height: '1rem',
+          minWidth: '1rem',
+          margin: '0 0.2rem 0.1rem 0',
+          backgroundPosition: '50%',
+          verticalAlign: 'middle',
+        }}
+      />,
     );
 
     badgeIdx++;
   }
 
+  if (wrapper.length === 0) return null;
   return <span style={{ display: 'inline' }}>{wrapper}</span>;
 }
 
