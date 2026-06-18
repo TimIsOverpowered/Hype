@@ -13,7 +13,9 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { TheatreModeIcon } from '../../assets/icons';
 import { useAutoHideControls, useTooltipControls } from '../../hooks/usePlayerControls';
+import { usePlayerSettings } from '../../hooks/usePlayerSettings';
 import { TauriHlsLoader } from '../../media/TauriHlsLoader';
 import type { M3u8Variant } from '../../types/twitch';
 import { formatTime } from '../../utils/time';
@@ -37,6 +39,8 @@ interface VideoPlayerProps {
   readonly streamType?: 'on-demand' | 'live' | 'live:dvr' | 'll-live' | 'll-live:dvr';
   readonly variants?: readonly M3u8Variant[];
   readonly onQualityChange?: (variant: M3u8Variant) => void;
+  readonly theatreMode?: boolean;
+  readonly onToggleTheatreMode?: () => void;
 }
 
 export interface VideoPlayerHandle {
@@ -98,21 +102,32 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     onPlaying: onPlayingProp,
     variants,
     onQualityChange,
+    theatreMode = false,
+    onToggleTheatreMode,
   } = props;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const playerSettings = usePlayerSettings();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(() => (initialMuted ? 0 : 80));
-  const [isMuted, setIsMuted] = useState(initialMuted ?? false);
+  const [volume, setVolume] = useState(playerSettings.volume);
+  const [isMuted, setIsMuted] = useState(playerSettings.muted);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isBuffering, setIsBuffering] = useState(false);
   const [source, setSource] = useState(m3u8Url);
+
+  useEffect(() => {
+    setVolume(playerSettings.volume);
+  }, [playerSettings.volume]);
+
+  useEffect(() => {
+    setIsMuted(playerSettings.muted);
+  }, [playerSettings.muted]);
 
   const { showControls } = useAutoHideControls({
     isPlaying,
@@ -296,14 +311,22 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   }, []);
 
   const toggleMute = useCallback(() => {
-    setIsMuted((v) => !v);
-  }, []);
+    setIsMuted((v) => {
+      const next = !v;
+      playerSettings.setMuted(next);
+      return next;
+    });
+  }, [playerSettings]);
 
-  const handleVolumeChange = useCallback((_e: Event, val: number | number[]) => {
-    const v = typeof val === 'number' ? val : val[0];
-    setVolume(v);
-    if (v > 0) setIsMuted(false);
-  }, []);
+  const handleVolumeChange = useCallback(
+    (_e: Event, val: number | number[]) => {
+      const v = typeof val === 'number' ? val : val[0];
+      setVolume(v);
+      playerSettings.setVolume(v);
+      if (v > 0) setIsMuted(false);
+    },
+    [playerSettings],
+  );
 
   const handleSeekChange = useCallback((_e: Event, val: number | number[]) => {
     const v = typeof val === 'number' ? val : val[0];
@@ -675,6 +698,17 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   >
                     <PictureInPicture2 className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
+
+                  {onToggleTheatreMode && (
+                    <button
+                      type="button"
+                      onClick={onToggleTheatreMode}
+                      className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                      title={theatreMode ? 'Exit Theatre Mode' : 'Theatre Mode'}
+                    >
+                      <TheatreModeIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    </button>
+                  )}
 
                   <button
                     type="button"

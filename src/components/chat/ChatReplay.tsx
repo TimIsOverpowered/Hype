@@ -13,16 +13,12 @@ import {
   CHAT_SCROLL_UP_THRESHOLD,
   CHAT_SKELETON_COUNT,
   CHAT_STATE_CHANGE_DELAY_MS,
-  DEFAULT_CHAT_FONT_FAMILY,
-  DEFAULT_CHAT_FONT_SIZE,
-  DEFAULT_CHAT_WIDTH,
-  DEFAULT_CHAT_WIDTH_MAX,
-  DEFAULT_CHAT_WIDTH_MIN,
   LUMINANCE_B,
   LUMINANCE_G,
   LUMINANCE_R,
   MIN_USERNAME_LUMINANCE,
 } from '../../constants/ui';
+import type { UseChatSettingsReturn } from '../../hooks/useChatSettings';
 import type {
   ChatBadge,
   CommentNode,
@@ -55,6 +51,8 @@ interface ChatReplayProps {
   readonly showChat?: boolean;
   readonly setShowChat?: (v: boolean) => void;
   readonly emoteData?: WorkerEmoteData;
+  readonly onOpenSettings?: () => void;
+  readonly chatSettings?: UseChatSettingsReturn;
 }
 
 interface BadgeRef {
@@ -928,22 +926,24 @@ export default function ChatReplay({
   playerRef,
   userChatDelay,
   playerState,
-  chatWidth = DEFAULT_CHAT_WIDTH,
-  setChatWidth,
+  chatWidth: chatWidthProp,
+  setChatWidth: _setChatWidthProp,
   showChat: showChatProp,
   setShowChat: setShowChatProp,
   emoteData,
+  onOpenSettings,
+  chatSettings,
 }: ChatReplayProps) {
   const [showChatInternal, setShowChatInternal] = useState(true);
   const showChat = showChatProp ?? showChatInternal;
   const setShowChat = setShowChatProp ?? setShowChatInternal;
-  const [showSettings, setShowSettings] = useState(false);
 
   const [filterWords] = useState<string[]>([]);
 
-  const [showTimestamp, setShowTimestamp] = useState(false);
-  const [fontFamily] = useState(DEFAULT_CHAT_FONT_FAMILY);
-  const [messageFontSize] = useState(DEFAULT_CHAT_FONT_SIZE);
+  const chatWidth = chatWidthProp ?? chatSettings?.chatWidth;
+  const showTimestamp = chatSettings?.showTimestamp ?? false;
+  const fontFamily = chatSettings?.fontFamily ?? 'Inter, sans-serif';
+  const messageFontSize = chatSettings?.messageFontSize ?? 14;
 
   const badgesRef = useRef<BadgeRef | null>(null);
 
@@ -1018,7 +1018,7 @@ export default function ChatReplay({
             <span className="flex-1 text-center text-sm font-medium text-text-primary">Chat Replay</span>
             <button
               type="button"
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => onOpenSettings?.()}
               className="text-text-secondary transition-colors hover:text-text-primary"
               title="Settings"
             >
@@ -1070,73 +1070,6 @@ export default function ChatReplay({
             )}
           </div>
         </>
-      )}
-
-      {/* Settings panel */}
-      {showSettings && (
-        <div
-          className="absolute inset-0 z-40 flex cursor-pointer items-center justify-center bg-black/50"
-          onClick={() => setShowSettings(false)}
-        >
-          <div
-            className="w-72 rounded-lg border border-border bg-surface p-4 text-text-primary"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-medium">Chat Settings</h3>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="text-text-secondary transition-colors hover:text-text-primary"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <title>Close settings</title>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={showTimestamp}
-                  onChange={() => setShowTimestamp(!showTimestamp)}
-                  className="accent-primary"
-                />
-                Show timestamps
-              </label>
-
-              {setChatWidth && (
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span>Width</span>
-                    <span className="text-text-secondary">{chatWidth}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={DEFAULT_CHAT_WIDTH_MIN}
-                    max={DEFAULT_CHAT_WIDTH_MAX}
-                    value={chatWidth}
-                    onChange={(e) => setChatWidth(Number(e.target.value))}
-                    className="w-full accent-primary"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

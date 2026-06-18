@@ -1,16 +1,19 @@
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getVod, getVodToken, resolveM3u8 } from '../api/twitch';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
 import VideoPlayer, { type VideoPlayerHandle } from '../components/player/VideoPlayer';
+import ChatSettingsModal from '../components/ui/ChatSettingsModal';
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
 import JobProgress from '../components/ui/JobProgress';
 import { BTTV_API_BASE, FFZ_API_BASE, SEVENTV_API_BASE } from '../constants/emotes';
+import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
 import type { BttvEmote, FfzEmote, M3u8Variant, SevenTVEmote } from '../types/twitch';
+import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
   const { vodId: paramVodId } = useParams() as { vodId: string };
@@ -28,6 +31,12 @@ export default function VODPage() {
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showChat, setShowChat] = useState(true);
+  const [showChatSettings, setShowChatSettings] = useState(false);
+  const chatSettings = useChatSettings();
+  const [theatreMode, setTheatreMode] = useState(() => {
+    const saved = safeLocalStorage.getItem('theatre-mode');
+    return saved === 'true';
+  });
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
 
   const { progress, isRunning, error: jobError, elapsed, startClip, startDownload, cancel } = useClipJob();
@@ -181,10 +190,25 @@ export default function VODPage() {
     [startDownload, duration],
   );
 
+  const toggleTheatreMode = useCallback(() => {
+    setTheatreMode((prev) => {
+      const next = !prev;
+      if (next) {
+        document.body.classList.add('theatre-mode');
+      } else {
+        document.body.classList.remove('theatre-mode');
+      }
+      safeLocalStorage.setItem('theatre-mode', String(next));
+      return next;
+    });
+  }, []);
+
   return (
     <div className="flex h-full w-full flex-col bg-background">
-      {/* Player + Chat row — 50% height */}
-      <div className="relative flex h-[50%] w-full">
+      {/* Player + Chat row */}
+      <div
+        className={`relative flex w-full ${chatSettings.chatOnLeft ? 'flex-row-reverse' : ''} ${theatreMode ? 'h-full' : 'h-[50%]'}`}
+      >
         <div className="flex min-w-0 flex-1 flex-col bg-black">
           <VideoPlayer
             vodId={vodId || ''}
@@ -200,6 +224,8 @@ export default function VODPage() {
             onPlaying={() => setPlayerState(1)}
             streamType="on-demand"
             variants={variants}
+            theatreMode={theatreMode}
+            onToggleTheatreMode={toggleTheatreMode}
           />
         </div>
         <ChatReplay
@@ -210,21 +236,25 @@ export default function VODPage() {
           showChat={showChat}
           setShowChat={setShowChat}
           emoteData={emoteDataRef.current}
+          onOpenSettings={() => setShowChatSettings(true)}
+          chatSettings={chatSettings}
         />
         {!showChat && (
           <button
             type="button"
             onClick={() => setShowChat(!showChat)}
-            className="absolute top-2 right-2 z-50 flex cursor-pointer items-center justify-center rounded-l-lg border border-border bg-surface p-1.5 text-text-primary shadow-xl transition-all hover:bg-surface-elevated hover:text-text-primary"
+            className={`absolute top-2 z-50 flex cursor-pointer items-center justify-center border border-border bg-surface p-1.5 text-text-primary shadow-xl transition-all hover:bg-surface-elevated hover:text-text-primary ${
+              chatSettings.chatOnLeft ? 'left-2 rounded-r-lg' : 'right-2 rounded-l-lg'
+            }`}
             title="Expand Chat"
           >
-            <ChevronLeft size={16} />
+            {chatSettings.chatOnLeft ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         )}
       </div>
 
-      {/* Clip bar + Graph + Job progress — remaining 50% */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      {/* Clip bar + Graph + Job progress — hidden in theatre mode */}
+      <div className="theatre-hide flex min-h-0 flex-1 flex-col">
         <ClipBar
           vodId={vodId || ''}
           m3u8Url={m3u8Url || ''}
@@ -233,6 +263,11 @@ export default function VODPage() {
           onClip={handleClip}
           onDownload={() => setShowDownloadModal(true)}
           isProcessing={isRunning}
+        />
+        <ChatSettingsModal
+          open={showChatSettings}
+          onClose={() => setShowChatSettings(false)}
+          chatSettings={chatSettings}
         />
         <DownloadVodModal
           open={showDownloadModal}

@@ -68,3 +68,19 @@ body {
     opacity: 1;
   }
 }
+
+/* Theatre mode overrides */
+body.theatre-mode nav {
+  /* biome-ignore lint/complexity/noImportantStyles: needed to override navbar/footer styles */
+  display: none !important;
+}
+
+body.theatre-mode footer {
+  /* biome-ignore lint/complexity/noImportantStyles: needed to override navbar/footer styles */
+  display: none !important;
+}
+
+body.theatre-mode .theatre-hide {
+  /* biome-ignore lint/complexity/noImportantStyles: needed to hide bottom section */
+  display: none !important;
+}
