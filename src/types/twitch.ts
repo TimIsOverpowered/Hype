@@ -193,6 +193,7 @@ export interface CustomEmoteFragment {
   readonly type: 'custom';
   readonly id: string;
   readonly code: string;
+  readonly name?: string;
   readonly provider: EmoteProvider;
   readonly isZeroWidth?: boolean;
 }

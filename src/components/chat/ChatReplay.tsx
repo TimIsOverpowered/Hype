@@ -97,148 +97,305 @@ function adjustUsernameColor(hex: string): string {
 
 // ─── Fragment rendering helpers ────────────────────────────────────────────
 
-function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: number): React.ReactNode {
-  const key = `frag-${index}`;
+type EmoteFragment = TwitchEmoteFragment | CustomEmoteFragment;
+
+interface EmoteRenderResult {
+  element: React.ReactNode;
+  isEmote: true;
+  isZeroWidth?: boolean;
+  word?: string;
+}
+
+interface TextRenderResult {
+  element: React.ReactNode;
+  isEmote: false;
+  isZeroWidth?: undefined;
+}
+
+type RenderResult = EmoteRenderResult | TextRenderResult;
+
+function getEmoteSrc(
+  id: string | number,
+  provider: string,
+  size: 'src' | 'srcSet' | 'tooltip',
+): { src?: string; srcSet?: string } {
+  if (provider === '7TV') {
+    if (size === 'src') return { src: `${SEVENTV_CDN_BASE}/${id}/1x.webp` };
+    if (size === 'srcSet')
+      return {
+        srcSet: `${SEVENTV_CDN_BASE}/${id}/1x.webp 1x, ${SEVENTV_CDN_BASE}/${id}/2x.webp 2x, ${SEVENTV_CDN_BASE}/${id}/3x.webp 3x, ${SEVENTV_CDN_BASE}/${id}/4x.webp 4x`,
+      };
+    return { src: `${SEVENTV_CDN_BASE}/${id}/2x.webp` };
+  }
+  if (provider === 'BTTV') {
+    if (size === 'src') return { src: `${BTTV_CDN_BASE}/${id}/1x` };
+    if (size === 'srcSet')
+      return { srcSet: `${BTTV_CDN_BASE}/${id}/1x 1x, ${BTTV_CDN_BASE}/${id}/2x 2x, ${BTTV_CDN_BASE}/${id}/3x 3x` };
+    return { src: `${BTTV_CDN_BASE}/${id}/2x` };
+  }
+  if (provider === 'FFZ') {
+    if (size === 'src') return { src: `${FFZ_CDN_BASE}/${id}/1` };
+    if (size === 'srcSet')
+      return { srcSet: `${FFZ_CDN_BASE}/${id}/1 1x, ${FFZ_CDN_BASE}/${id}/2 2x, ${FFZ_CDN_BASE}/${id}/4 4x` };
+    return { src: `${FFZ_CDN_BASE}/${id}/2` };
+  }
+  return { src: '' };
+}
+
+function renderSingleEmote(
+  emote: EmoteFragment,
+  word: string,
+  key: string,
+  isZeroWidthWrapper?: boolean,
+): RenderResult {
+  const provider = 'provider' in emote ? emote.provider : 'Twitch';
+  const emoteID = 'emoteID' in emote ? emote.emoteID : String(emote.id);
+  const isCustom = 'provider' in emote;
+  const isZW = isZeroWidthWrapper ?? ('isZeroWidth' in emote && !!emote.isZeroWidth);
+
+  let src = '';
+  let srcSet: string | undefined;
+  let tooltipSrc = '';
+  let alt = word;
+
+  if (isCustom) {
+    const result = getEmoteSrc(emote.id, provider, 'src');
+    src = result.src ?? '';
+    const setResult = getEmoteSrc(emote.id, provider, 'srcSet');
+    srcSet = setResult.srcSet;
+    tooltipSrc = getEmoteSrc(emote.id, provider, 'tooltip').src ?? '';
+    alt = 'code' in emote ? emote.name || emote.code || word : word;
+  } else {
+    src = `${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/1.0`;
+    srcSet = `${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/1.0 1x, ${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/2.0 2x, ${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/3.0 4x`;
+    tooltipSrc = `${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/2.0`;
+    alt = emote.text;
+  }
+
+  const imgStyle: React.CSSProperties = {
+    verticalAlign: 'middle',
+    border: 'none',
+    maxWidth: '100%',
+    height: 'auto',
+    minWidth: isZW ? '0px' : '28px',
+    maxHeight: '32px',
+  };
+
+  if (isZW) {
+    (imgStyle as React.CSSProperties & { pointerEvents: string }).pointerEvents = 'none';
+    imgStyle.position = 'absolute' as const;
+    imgStyle.top = '50%';
+    imgStyle.left = '50%';
+    imgStyle.transform = 'translate(-50%, -50%)';
+  }
+
+  const emoteElement = (
+    <span
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        position: isZW ? 'relative' : undefined,
+      }}
+    >
+      <img src={src} srcSet={srcSet} alt={alt} style={imgStyle} />{' '}
+    </span>
+  );
+
+  let tooltipContent: React.ReactNode;
+  if (isCustom) {
+    tooltipContent = (
+      <div className="flex w-fit flex-col items-center">
+        <img className="mb-[0.3rem] w-auto border-none align-top" src={tooltipSrc} alt={alt} />
+        <p className="block text-xs">{`Emote: ${emote.name || emote.code}`}</p>
+        <p className="block text-xs">{`${provider} Emotes`}</p>
+      </div>
+    );
+  } else {
+    tooltipContent = (
+      <div className="flex w-fit flex-col items-center">
+        <img className="mb-[0.3rem] w-auto border-none align-top" src={tooltipSrc} alt="" />
+        <p className="block text-xs">{`Emote: ${emote.text}`}</p>
+        <p className="block text-xs">Twitch Emotes</p>
+      </div>
+    );
+  }
+
+  return {
+    element: (
+      <MessageTooltip key={key} title={tooltipContent}>
+        {emoteElement}
+      </MessageTooltip>
+    ),
+    isEmote: true,
+    isZeroWidth: isZW,
+    word,
+  };
+}
+
+function renderCombinedEmote(normalEmote: EmoteFragment, zwEmote: CustomEmoteFragment, key: string): RenderResult {
+  const normalProvider = 'provider' in normalEmote ? normalEmote.provider : 'Twitch';
+  const zwProvider = zwEmote.provider;
+  const normalID = 'emoteID' in normalEmote ? normalEmote.emoteID : String(normalEmote.id);
+  const zwID = zwEmote.id;
+
+  const normalSrc = getEmoteSrc(normalID, normalProvider, 'src').src;
+  const normalSrcSet = getEmoteSrc(normalID, normalProvider, 'srcSet').srcSet;
+  const normalTooltipSrc = getEmoteSrc(normalID, normalProvider, 'tooltip').src;
+
+  const zwSrc = getEmoteSrc(zwID, zwProvider, 'src').src;
+  const zwSrcSet = getEmoteSrc(zwID, zwProvider, 'srcSet').srcSet;
+  const zwTooltipSrc = getEmoteSrc(zwID, zwProvider, 'tooltip').src;
+
+  const normalImgStyle: React.CSSProperties = {
+    verticalAlign: 'middle',
+    border: 'none',
+    maxWidth: '100%',
+    height: 'auto',
+    minWidth: '28px',
+    maxHeight: '32px',
+  };
+
+  const zwImgStyle: React.CSSProperties & { pointerEvents: string } = {
+    verticalAlign: 'middle',
+    border: 'none',
+    maxWidth: '100%',
+    height: 'auto',
+    minWidth: '0px',
+    maxHeight: '32px',
+    pointerEvents: 'none',
+    position: 'absolute' as const,
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+  };
+
+  const combinedElement = (
+    <span
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        position: 'relative',
+      }}
+    >
+      <img src={normalSrc} srcSet={normalSrcSet} alt="" style={normalImgStyle} />
+      <img src={zwSrc} srcSet={zwSrcSet} alt="" style={zwImgStyle} />{' '}
+    </span>
+  );
+
+  const normalCode = 'code' in normalEmote ? normalEmote.name || normalEmote.code || '' : normalEmote.text;
+  const zwCode = 'code' in zwEmote ? zwEmote.name || zwEmote.code : '';
+
+  const tooltipContent = (
+    <div className="flex w-fit flex-col items-center gap-2">
+      <div className="flex flex-col items-center">
+        <img className="mb-[0.3rem] w-auto border-none align-top" src={normalTooltipSrc} alt={normalCode} />
+        <p className="block text-xs">{`Emote: ${normalCode}`}</p>
+        <p className="block text-xs">{`${normalProvider} Emotes`}</p>
+      </div>
+      <hr className="w-full border-[#222230]" />
+      <div className="flex flex-col items-center">
+        <img className="mb-[0.3rem] w-auto border-none align-top" src={zwTooltipSrc} alt={zwCode} />
+        <p className="block text-xs">{`Zero-Width: ${zwCode}`}</p>
+        <p className="block text-xs">{`${zwProvider} Emotes`}</p>
+      </div>
+    </div>
+  );
+
+  return {
+    element: (
+      <MessageTooltip key={key} title={tooltipContent}>
+        {combinedElement}
+      </MessageTooltip>
+    ),
+    isEmote: true,
+    isZeroWidth: false,
+  };
+}
+
+function renderFragment(fragment: FormattedFragment, keyPrefix: string, index: number): RenderResult {
+  const key = `${keyPrefix}-frag-${index}`;
 
   switch (fragment.type) {
     case 'text': {
       const f = fragment as TextFragment;
-      return <span key={key}>{f.text}</span>;
+      return { element: <span key={key}>{f.text}</span>, isEmote: false };
     }
 
     case 'twitch': {
-      const f = fragment as TwitchEmoteFragment;
-      const src = `${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/1.0`;
-      const srcSet = `${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/1.0 1x, ${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/2.0 2x, ${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/3.0 4x`;
-      return (
-        <MessageTooltip
-          key={key}
-          title={
-            <div className="flex w-fit flex-col items-center">
-              <img
-                className="mb-[0.3rem] w-auto border-none align-top"
-                src={`${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/2.0`}
-                alt=""
-              />
-              <p className="block text-xs">{`Emote: ${f.text}`}</p>
-              <p className="block text-xs">Twitch Emotes</p>
-            </div>
-          }
-        >
-          <span style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-            <img
-              src={src}
-              srcSet={srcSet}
-              alt=""
-              style={{
-                verticalAlign: 'middle',
-                border: 'none',
-                maxWidth: '100%',
-                height: 'auto',
-                minWidth: '28px',
-                maxHeight: '32px',
-              }}
-            />{' '}
-          </span>
-        </MessageTooltip>
-      );
+      return renderSingleEmote(fragment, fragment.text, `${key}-emote-${fragment.text}`);
     }
 
     case 'custom': {
       const f = fragment as CustomEmoteFragment;
-      const isZeroWidth = f.isZeroWidth;
-      const provider = f.provider;
-
-      let src: string;
-      let srcSet: string;
-      let tooltipSrc: string;
-      if (provider === '7TV') {
-        src = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp`;
-        srcSet = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp 1x, ${SEVENTV_CDN_BASE}/${f.id}/2x.webp 2x, ${SEVENTV_CDN_BASE}/${f.id}/3x.webp 3x, ${SEVENTV_CDN_BASE}/${f.id}/4x.webp 4x`;
-        tooltipSrc = `${SEVENTV_CDN_BASE}/${f.id}/2x.webp`;
-      } else if (provider === 'BTTV') {
-        src = `${BTTV_CDN_BASE}/${f.id}/1x`;
-        srcSet = `${BTTV_CDN_BASE}/${f.id}/1x 1x, ${BTTV_CDN_BASE}/${f.id}/2x 2x, ${BTTV_CDN_BASE}/${f.id}/3x 3x`;
-        tooltipSrc = `${BTTV_CDN_BASE}/${f.id}/2x`;
-      } else {
-        src = `${FFZ_CDN_BASE}/${f.id}/1`;
-        srcSet = `${FFZ_CDN_BASE}/${f.id}/1 1x, ${FFZ_CDN_BASE}/${f.id}/2 2x, ${FFZ_CDN_BASE}/${f.id}/4 4x`;
-        tooltipSrc = `${FFZ_CDN_BASE}/${f.id}/2`;
-      }
-
-      const imgStyle: React.CSSProperties = {
-        verticalAlign: 'middle',
-        border: 'none',
-        maxWidth: '100%',
-        height: 'auto',
-        minWidth: isZeroWidth ? '0px' : '28px',
-        maxHeight: '32px',
-      };
-
-      if (isZeroWidth) {
-        imgStyle.pointerEvents = 'none';
-        imgStyle.position = 'absolute' as const;
-        imgStyle.top = '50%';
-        imgStyle.left = '50%';
-        imgStyle.transform = 'translate(-50%, -50%)';
-      }
-
-      return (
-        <MessageTooltip
-          key={key}
-          title={
-            <div className="flex w-fit flex-col items-center">
-              <img className="mb-[0.3rem] w-auto border-none align-top" src={tooltipSrc} alt={f.code} />
-              <p className="block text-xs">{`Emote: ${f.code}`}</p>
-              <p className="block text-xs">{`${provider} Emotes`}</p>
-            </div>
-          }
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              verticalAlign: 'middle',
-              position: isZeroWidth ? ('relative' as const) : undefined,
-            }}
-          >
-            <img src={src} srcSet={srcSet} alt="" style={imgStyle} />{' '}
-          </span>
-        </MessageTooltip>
-      );
+      const word = f.code || String(f.id);
+      return renderSingleEmote(fragment, word, `${key}-emote-${word}`);
     }
 
     case 'emoji': {
       const f = fragment as EmojiFragment;
-      return (
-        <MessageTooltip
-          key={key}
-          title={
-            <div className="flex w-fit flex-col items-center">
+      return {
+        element: (
+          <MessageTooltip
+            key={key}
+            title={
+              <div className="flex w-fit flex-col items-center">
+                <Twemoji options={{ className: 'twemoji' }}>{f.text}</Twemoji>
+                <p className="block text-xs">Twitter Emotes</p>
+              </div>
+            }
+          >
+            <span style={{ display: 'inline-block', verticalAlign: 'middle' }}>
               <Twemoji options={{ className: 'twemoji' }}>{f.text}</Twemoji>
-              <p className="block text-xs">Twitter Emotes</p>
-            </div>
-          }
-        >
-          <span style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-            <Twemoji options={{ className: 'twemoji' }}>{f.text}</Twemoji>
-          </span>
-        </MessageTooltip>
-      );
+            </span>
+          </MessageTooltip>
+        ),
+        isEmote: false,
+      };
     }
 
     case 'url': {
       const f = fragment as UrlFragment;
       const href = f.text.startsWith('http') ? f.text : `https://${f.text}`;
-      return (
-        <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-          {f.text}
-        </a>
-      );
+      return {
+        element: (
+          <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+            {f.text}
+          </a>
+        ),
+        isEmote: false,
+      };
     }
 
     default:
-      return null;
+      return { element: null, isEmote: false };
   }
+}
+
+function renderFragmentsWithCombining(fragments: readonly FormattedFragment[], keyPrefix: string): React.ReactNode {
+  const results: RenderResult[] = [];
+  for (let i = 0; i < fragments.length; i++) {
+    results.push(renderFragment(fragments[i], keyPrefix, i));
+  }
+
+  const output: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < results.length) {
+    const result = results[i];
+
+    if (result.isEmote && !result.isZeroWidth && results[i + 1]?.isEmote && results[i + 1]?.isZeroWidth) {
+      const normalFrag = fragments[i] as EmoteFragment;
+      const zwFrag = fragments[i + 1] as CustomEmoteFragment;
+      const combinedKey = `${keyPrefix}-frag-${i}-combined-${normalFrag}${zwFrag.code || zwFrag.id}`;
+      output.push(renderCombinedEmote(normalFrag, zwFrag, combinedKey).element);
+      i += 2;
+    } else {
+      output.push(result.element);
+      i++;
+    }
+  }
+
+  return output;
 }
 
 // ─── Badge rendering ───────────────────────────────────────────────────────
@@ -323,9 +480,7 @@ const MemoizedComment = memo(
             {message.displayName}
           </span>
           <span>: </span>
-          <span style={{ display: 'inline' }}>
-            {message.fragments.map((frag, i) => renderFragment(frag, keyPrefix, i))}
-          </span>
+          <span style={{ display: 'inline' }}>{renderFragmentsWithCombining(message.fragments, keyPrefix)}</span>
         </div>
       </div>
     );

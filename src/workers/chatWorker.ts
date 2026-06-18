@@ -107,22 +107,15 @@ function transformFragments(
         const isZeroWidth = (emote.flags ?? 0) & SEVENTV_ZERO_WIDTH_FLAG;
 
         if (isZeroWidth && pendingNormalEmote) {
-          const prevIndex = pendingNormalEmote.index;
-
-          if (result[prevIndex]) {
-            const combined = result[prevIndex] as CustomEmoteFragment;
-            result[prevIndex] = {
-              ...combined,
-              isZeroWidth: true,
-            };
-          }
-
           pendingNormalEmote = null;
-        } else if (isZeroWidth) {
+        }
+
+        if (isZeroWidth) {
           const zwFragment: CustomEmoteFragment = {
             type: 'custom',
             id: String(emote.id),
             code: emote.code,
+            name: emote.name,
             provider: emote.provider as '7TV' | 'BTTV' | 'FFZ',
             isZeroWidth: true,
           };
@@ -132,6 +125,7 @@ function transformFragments(
             type: 'custom',
             id: String(emote.id),
             code: emote.code,
+            name: emote.name,
             provider: emote.provider as '7TV' | 'BTTV' | 'FFZ',
           };
           pendingNormalEmote = { entry: emote, index: result.length };
