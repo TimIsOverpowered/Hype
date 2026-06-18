@@ -2,6 +2,7 @@ import Hls from 'hls.js';
 import { Check, ChevronLeft, Loader2, Maximize, Minimize, Pause, Play, Settings, Volume2, VolumeX } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { TheatreModeIcon } from '../../assets/icons';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAutoHideControls, useTooltipControls } from '../../hooks/usePlayerControls';
 import { usePlayerSettings } from '../../hooks/usePlayerSettings';
 import { TauriHlsLoader } from '../../media/TauriHlsLoader';
@@ -344,6 +345,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       setIsFullscreen(false);
     }
   }, []);
+
+  useKeyboardShortcuts({
+    playerRef: videoRef,
+    toggleFullscreen,
+    toggleMute,
+    togglePlayPause,
+  });
 
   useEffect(() => {
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
