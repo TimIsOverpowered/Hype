@@ -1,17 +1,5 @@
 import Hls from 'hls.js';
-import {
-  Check,
-  ChevronLeft,
-  Loader2,
-  Maximize,
-  Minimize,
-  Pause,
-  PictureInPicture2,
-  Play,
-  Settings,
-  Volume2,
-  VolumeX,
-} from 'lucide-react';
+import { Check, ChevronLeft, Loader2, Maximize, Minimize, Pause, Play, Settings, Volume2, VolumeX } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { TheatreModeIcon } from '../../assets/icons';
 import { useAutoHideControls, useTooltipControls } from '../../hooks/usePlayerControls';
@@ -145,6 +133,18 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     setSettingsAnchorEl(null);
     setShowQualityMenu(false);
   }, []);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (!settingsMenuRef.current && !settingsAnchorEl) return;
+      if (settingsMenuRef.current?.contains(e.target as Node)) return;
+      const settingsBtn = e.target as HTMLElement | null;
+      if (settingsBtn?.closest('[title="Settings"]')) return;
+      handleCloseSettings();
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [settingsAnchorEl, handleCloseSettings]);
 
   const [showSpeedCircle, setShowSpeedCircle] = useState(false);
   const [speedCirclePos, setSpeedCirclePos] = useState({ x: 0, y: 0 });
@@ -349,20 +349,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
-  }, []);
-
-  const togglePiP = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video) return;
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else {
-        await video.requestPictureInPicture();
-      }
-    } catch {
-      /* ignore */
-    }
   }, []);
 
   const handleQualitySelect = useCallback(
@@ -688,15 +674,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                     title="Settings"
                   >
                     <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={togglePiP}
-                    className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
-                    title="Picture in Picture"
-                  >
-                    <PictureInPicture2 className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
 
                   {onToggleTheatreMode && (
