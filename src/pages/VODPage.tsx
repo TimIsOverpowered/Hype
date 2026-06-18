@@ -198,6 +198,7 @@ export default function VODPage() {
             onPlay={() => setPlayerState(1)}
             onPlaying={() => setPlayerState(1)}
             streamType="on-demand"
+            variants={variants}
           />
         </div>
         <ChatReplay

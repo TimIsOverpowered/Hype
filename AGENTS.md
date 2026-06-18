@@ -10,7 +10,7 @@ Hype is a desktop application for visualizing Twitch chat data and clipping Twit
 - **Frontend:** React 19, Vite, TypeScript
 - **Styling:** Tailwind CSS v4 (via `@tailwindcss/vite`, no `tailwind.config.js`), shadcn/ui
 - **Media Processing:** MediaBunny (Browser-native WebCodecs)
-- **Video Player:** Vidstack + hls.js/light
+- **Video Player:** Native `<video>` + hls.js
 - **Charting/Graphs:** Apache ECharts (`echarts-for-react`)
 - **State/Fetching:** TanStack Query v5, React Router v7
 
