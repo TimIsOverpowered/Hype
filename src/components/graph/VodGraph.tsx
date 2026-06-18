@@ -2,8 +2,8 @@ import ReactECharts from 'echarts-for-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ZSTDDecoder } from 'zstddec';
 import { getChapters } from '../../api/twitch';
-import { ECharts } from '../../constants/echarts';
 import { getToken } from '../../auth';
+import { ECharts } from '../../constants/echarts';
 import {
   DEFAULT_INTERVAL_SECONDS,
   DEFAULT_MESSAGE_THRESHOLD,
