@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { getVod, getVodToken, resolveM3u8 } from '../api/twitch';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
-import SimpleVideoPlayer, { type SimpleVideoPlayerHandle } from '../components/player/SimpleVideoPlayer';
+import VideoPlayer, { type VideoPlayerHandle } from '../components/player/VideoPlayer';
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
 import JobProgress from '../components/ui/JobProgress';
@@ -21,7 +21,7 @@ export default function VODPage() {
   const [vodInfo, setVodInfo] = useState<{ id: string; title: string; lengthSeconds: number } | null>(null);
   const [broadcasterId, setBroadcasterId] = useState<string | undefined>();
 
-  const playerRef = useRef<SimpleVideoPlayerHandle>(null);
+  const playerRef = useRef<VideoPlayerHandle>(null);
   const [playerState, setPlayerState] = useState<number>(-1);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -186,7 +186,7 @@ export default function VODPage() {
       {/* Player + Chat row — 50% height */}
       <div className="relative flex h-[50%] w-full">
         <div className="flex min-w-0 flex-1 flex-col bg-black">
-          <SimpleVideoPlayer
+          <VideoPlayer
             vodId={vodId || ''}
             m3u8Url={m3u8Url}
             ref={playerRef}

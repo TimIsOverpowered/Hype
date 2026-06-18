@@ -15,9 +15,10 @@ import {
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useAutoHideControls, useTooltipControls } from '../../hooks/usePlayerControls';
 import { TauriHlsLoader } from '../../media/TauriHlsLoader';
+import { formatTime } from '../../utils/time';
 import type { M3u8Variant } from '../../types/twitch';
 
-interface SimpleVideoPlayerProps {
+interface VideoPlayerProps {
   readonly vodId: string;
   readonly m3u8Url: string;
   readonly onTimeUpdate?: (time: number) => void;
@@ -38,7 +39,7 @@ interface SimpleVideoPlayerProps {
   readonly onQualityChange?: (variant: M3u8Variant) => void;
 }
 
-export interface SimpleVideoPlayerHandle {
+export interface VideoPlayerHandle {
   readonly seek: (time: number) => void;
   readonly play: () => void;
   readonly pause: () => void;
@@ -49,15 +50,6 @@ const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3];
 const CIRCLE_START_ANGLE = 135;
 const CIRCLE_END_ANGLE = 405;
 const CIRCLE_RANGE = CIRCLE_END_ANGLE - CIRCLE_START_ANGLE;
-
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 function getSpeedIndex(speed: number): number {
   const idx = PLAYBACK_RATES.indexOf(speed);
@@ -89,8 +81,8 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
 }
 
-const SimpleVideoPlayer = forwardRef<SimpleVideoPlayerHandle, SimpleVideoPlayerProps>(
-  function SimpleVideoPlayer(props, ref) {
+const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
+  function VideoPlayer(props, ref) {
     const {
       m3u8Url,
       autoPlay,
@@ -767,4 +759,4 @@ const SimpleVideoPlayer = forwardRef<SimpleVideoPlayerHandle, SimpleVideoPlayerP
   },
 );
 
-export default SimpleVideoPlayer;
+export default VideoPlayer;
