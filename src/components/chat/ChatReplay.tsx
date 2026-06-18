@@ -3,7 +3,9 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { getBadges, getComments } from '../../api/twitch';
 import {
   BTTV_API_BASE,
+  BTTV_CDN_BASE,
   FFZ_API_BASE,
+  FFZ_CDN_BASE,
   SEVENTV_API_BASE,
   SEVENTV_CDN_BASE,
   TWITCH_CDN_BASE,
@@ -48,6 +50,7 @@ import type {
   WorkerEmoteData,
 } from '../../types/twitch';
 import { toHHMMSS } from '../../utils/time';
+import MessageTooltip from './MessageTooltip';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -117,29 +120,59 @@ function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: 
       const src = `${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/1.0`;
       const srcSet = `${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/1.0 1x, ${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/2.0 2x, ${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/3.0 4x`;
       return (
-        <span key={key} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-          <img
-            src={src}
-            srcSet={srcSet}
-            alt=""
-            style={{
-              verticalAlign: 'middle',
-              border: 'none',
-              maxWidth: '100%',
-              height: 'auto',
-              minWidth: '28px',
-              maxHeight: '32px',
-            }}
-          />
-        </span>
+        <MessageTooltip
+          key={key}
+          title={
+            <div className="flex w-fit flex-col items-center">
+              <img
+                className="mb-[0.3rem] w-auto border-none align-top"
+                src={`${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/2.0`}
+                alt=""
+              />
+              <p className="block text-xs">{`Emote: ${f.emoteID}`}</p>
+            </div>
+          }
+        >
+          <span style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+            <img
+              src={src}
+              srcSet={srcSet}
+              alt=""
+              style={{
+                verticalAlign: 'middle',
+                border: 'none',
+                maxWidth: '100%',
+                height: 'auto',
+                minWidth: '28px',
+                maxHeight: '32px',
+              }}
+            />{' '}
+          </span>
+        </MessageTooltip>
       );
     }
 
     case 'custom': {
       const f = fragment as CustomEmoteFragment;
       const isZeroWidth = f.isZeroWidth;
-      const src = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp`;
-      const srcSet = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp 1x, ${SEVENTV_CDN_BASE}/${f.id}/2x.webp 2x, ${SEVENTV_CDN_BASE}/${f.id}/3x.webp 3x, ${SEVENTV_CDN_BASE}/${f.id}/4x.webp 4x`;
+      const provider = f.provider;
+
+      let src: string;
+      let srcSet: string;
+      let tooltipSrc: string;
+      if (provider === '7TV') {
+        src = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp`;
+        srcSet = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp 1x, ${SEVENTV_CDN_BASE}/${f.id}/2x.webp 2x, ${SEVENTV_CDN_BASE}/${f.id}/3x.webp 3x, ${SEVENTV_CDN_BASE}/${f.id}/4x.webp 4x`;
+        tooltipSrc = `${SEVENTV_CDN_BASE}/${f.id}/2x.webp`;
+      } else if (provider === 'BTTV') {
+        src = `${BTTV_CDN_BASE}/${f.id}/1x`;
+        srcSet = `${BTTV_CDN_BASE}/${f.id}/1x 1x, ${BTTV_CDN_BASE}/${f.id}/2x 2x, ${BTTV_CDN_BASE}/${f.id}/3x 3x`;
+        tooltipSrc = `${BTTV_CDN_BASE}/${f.id}/2x`;
+      } else {
+        src = `${FFZ_CDN_BASE}/${f.id}/1`;
+        srcSet = `${FFZ_CDN_BASE}/${f.id}/1 1x, ${FFZ_CDN_BASE}/${f.id}/2 2x, ${FFZ_CDN_BASE}/${f.id}/4 4x`;
+        tooltipSrc = `${FFZ_CDN_BASE}/${f.id}/2`;
+      }
 
       const imgStyle: React.CSSProperties = {
         verticalAlign: 'middle',
@@ -159,16 +192,26 @@ function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: 
       }
 
       return (
-        <span
+        <MessageTooltip
           key={key}
-          style={{
-            display: 'inline-block',
-            verticalAlign: 'middle',
-            position: isZeroWidth ? ('relative' as const) : undefined,
-          }}
+          title={
+            <div className="flex w-fit flex-col items-center">
+              <img className="mb-[0.3rem] w-auto border-none align-top" src={tooltipSrc} alt={f.code} />
+              <p className="block text-xs">{`Emote: ${f.code}`}</p>
+              <p className="block text-xs">{`${provider} Emotes`}</p>
+            </div>
+          }
         >
-          <img src={src} srcSet={srcSet} alt="" style={imgStyle} />
-        </span>
+          <span
+            style={{
+              display: 'inline-block',
+              verticalAlign: 'middle',
+              position: isZeroWidth ? ('relative' as const) : undefined,
+            }}
+          >
+            <img src={src} srcSet={srcSet} alt="" style={imgStyle} />{' '}
+          </span>
+        </MessageTooltip>
       );
     }
 

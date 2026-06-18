@@ -61,3 +61,12 @@ body {
 .chat-message-highlight:hover::before {
   background-color: var(--highlight-color, #6366f1);
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
