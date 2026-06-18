@@ -22,7 +22,7 @@ export default function VODPage() {
   const [twitchId, setTwitchId] = useState<number | undefined>();
 
   const playerRef = useRef<SimpleVideoPlayerHandle>(null);
-  const [playerState] = useState<number>(-1);
+  const [playerState, setPlayerState] = useState<number>(-1);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState(0);
 
@@ -198,6 +198,11 @@ export default function VODPage() {
             ref={playerRef}
             onTimeUpdate={handleTimeUpdate}
             onDuration={handleDuration}
+            onPause={() => setPlayerState(2)}
+            onEnded={() => setPlayerState(0)}
+            onWaiting={() => setPlayerState(3)}
+            onPlay={() => setPlayerState(1)}
+            onPlaying={() => setPlayerState(1)}
             streamType="on-demand"
           />
         </div>

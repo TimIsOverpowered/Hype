@@ -13,6 +13,11 @@ interface SimpleVideoPlayerProps {
   readonly onDuration?: (duration: number) => void;
   readonly onError?: (error: string | null) => void;
   readonly onSeekable?: (time: number) => void;
+  readonly onPlay?: () => void;
+  readonly onPause?: () => void;
+  readonly onEnded?: () => void;
+  readonly onWaiting?: () => void;
+  readonly onPlaying?: () => void;
   readonly streamType?: 'on-demand' | 'live' | 'live:dvr' | 'll-live' | 'll-live:dvr';
 }
 
@@ -33,6 +38,11 @@ const SimpleVideoPlayer = forwardRef<SimpleVideoPlayerHandle, SimpleVideoPlayerP
       onError: onErrorProp,
       onSeekable: onSeekableProp,
       onTimeUpdate: onTimeUpdateProp,
+      onPlay: onPlayProp,
+      onPause: onPauseProp,
+      onEnded: onEndedProp,
+      onWaiting: onWaitingProp,
+      onPlaying: onPlayingProp,
     } = props;
 
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -81,18 +91,58 @@ const SimpleVideoPlayer = forwardRef<SimpleVideoPlayerHandle, SimpleVideoPlayerP
         onErrorProp?.(video.error?.message ?? 'Playback error occurred');
       };
 
+      const handlePlay = () => {
+        onPlayProp?.();
+      };
+
+      const handlePause = () => {
+        onPauseProp?.();
+      };
+
+      const handleEnded = () => {
+        onEndedProp?.();
+      };
+
+      const handleWaiting = () => {
+        onWaitingProp?.();
+      };
+
+      const handlePlaying = () => {
+        onPlayingProp?.();
+      };
+
       video.addEventListener('timeupdate', handleTimeUpdate);
       video.addEventListener('durationchange', handleDurationChange);
       video.addEventListener('seeked', handleSeeked);
       video.addEventListener('error', handleError);
+      video.addEventListener('play', handlePlay);
+      video.addEventListener('pause', handlePause);
+      video.addEventListener('ended', handleEnded);
+      video.addEventListener('waiting', handleWaiting);
+      video.addEventListener('playing', handlePlaying);
 
       return () => {
         video.removeEventListener('timeupdate', handleTimeUpdate);
         video.removeEventListener('durationchange', handleDurationChange);
         video.removeEventListener('seeked', handleSeeked);
         video.removeEventListener('error', handleError);
+        video.removeEventListener('play', handlePlay);
+        video.removeEventListener('pause', handlePause);
+        video.removeEventListener('ended', handleEnded);
+        video.removeEventListener('waiting', handleWaiting);
+        video.removeEventListener('playing', handlePlaying);
       };
-    }, [onTimeUpdateProp, onDurationProp, onErrorProp, onSeekableProp]);
+    }, [
+      onTimeUpdateProp,
+      onDurationProp,
+      onErrorProp,
+      onSeekableProp,
+      onPlayProp,
+      onPauseProp,
+      onEndedProp,
+      onWaitingProp,
+      onPlayingProp,
+    ]);
 
     useEffect(() => {
       const video = videoRef.current;
