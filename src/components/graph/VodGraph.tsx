@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ZSTDDecoder } from 'zstddec';
 import { getChapters } from '../../api/twitch';
 import { ECharts } from '../../constants/echarts';
+import { getToken } from '../../auth';
 import {
   DEFAULT_INTERVAL_SECONDS,
   DEFAULT_MESSAGE_THRESHOLD,
@@ -195,7 +196,7 @@ const VodGraph = memo(function VodGraph({
   useEffect(() => {
     let worker: Worker | null = null;
     try {
-      worker = new Worker(new URL('../../workers/graphWorker.ts', import.meta.url));
+      worker = new Worker(new URL('../../workers/graphWorker.ts', import.meta.url), { type: 'module' });
       workerRef.current = worker;
 
       worker.onmessage = (e: MessageEvent) => {
@@ -228,7 +229,9 @@ const VodGraph = memo(function VodGraph({
 
   const fetchClips = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`${HYPE_API_BASE}/vods/${id}/clips`);
+      const res = await fetch(`${HYPE_API_BASE}/vods/${id}/clips`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
       if (!res.ok) return;
       const data = await res.json();
       if (data && Array.isArray(data)) {
@@ -252,7 +255,9 @@ const VodGraph = memo(function VodGraph({
 
   const fetchZstdLogs = useCallback(async (id: string): Promise<string[] | null> => {
     try {
-      const res = await fetch(`${HYPE_API_BASE}/vods/${id}/logs`);
+      const res = await fetch(`${HYPE_API_BASE}/vods/${id}/logs`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
       if (!res.ok) return null;
       const buffer = await res.arrayBuffer();
       const decoder = new ZSTDDecoder();

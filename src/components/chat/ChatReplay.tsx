@@ -362,7 +362,7 @@ function useChatEngine({
   useEffect(() => {
     let worker: Worker | null = null;
     try {
-      worker = new Worker(new URL('../../workers/chatWorker.ts', import.meta.url));
+      worker = new Worker(new URL('../../workers/chatWorker.ts', import.meta.url), { type: 'module' });
       workerRef.current = worker;
 
       worker.onmessage = (e: MessageEvent<OutgoingWorkerMessage>) => {
