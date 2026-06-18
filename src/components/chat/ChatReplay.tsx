@@ -880,7 +880,8 @@ export default function ChatReplay({
 
   return (
     <div
-      className={`${isPortrait ? 'w-full flex-1' : 'shrink-0 self-stretch'} relative flex min-h-0 min-w-0 flex-col bg-surface`}
+      className={`${isPortrait ? 'w-full flex-1' : 'shrink-0 self-stretch'} relative flex min-h-0 flex-col bg-surface`}
+      style={isPortrait ? undefined : { width: `${chatWidth}px` }}
     >
       {showChat && (
         <>

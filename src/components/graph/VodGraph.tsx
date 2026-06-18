@@ -14,7 +14,7 @@ const TABS: Array<{ key: GraphType; label: string }> = [
 interface VodGraphProps {
   readonly vodId: string;
   readonly playerRef: React.RefObject<{ seek: (time: number) => void; play: () => void; pause: () => void } | null>;
-  readonly emoteData: WorkerEmoteData;
+  readonly emoteData: React.RefObject<WorkerEmoteData | null>;
   readonly interval?: number;
   readonly messageThreshold?: number;
   readonly searchThreshold?: number;
@@ -184,6 +184,7 @@ const VodGraph = memo(function VodGraph({
     node: { positionMilliseconds: number; durationMilliseconds: number; details: { game?: { displayName: string } } };
   }> | null>(null);
   const durationRef = useRef<number>(0);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
     let worker: Worker | null = null;
@@ -278,6 +279,7 @@ const VodGraph = memo(function VodGraph({
           setError('No log data available');
           setIsLoading(false);
         }
+        fetchedRef.current = true;
         return;
       }
 
@@ -303,12 +305,14 @@ const VodGraph = memo(function VodGraph({
           logs,
           duration: durationRef.current,
           interval,
-          emotes: emoteData,
+          emotes: emoteData.current,
           threshold: type === 'search' ? searchThreshold : messageThreshold,
           searchType: type,
           searchTerm: type === 'search' ? searchTerm : undefined,
         },
       });
+
+      fetchedRef.current = true;
     },
     [fetchZstdLogs, emoteData, interval, messageThreshold, searchThreshold, searchTerm],
   );
@@ -319,7 +323,7 @@ const VodGraph = memo(function VodGraph({
   }, [vodId, fetchClips, fetchChapters]);
 
   useEffect(() => {
-    if (!vodId) return;
+    if (!vodId || fetchedRef.current) return;
     runAggregate(vodId, activeTab, propDuration || 0);
   }, [vodId, activeTab, runAggregate, propDuration]);
 
@@ -349,7 +353,7 @@ const VodGraph = memo(function VodGraph({
   );
 
   return (
-    <div className="flex w-full flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+    <div className="flex w-full flex-1 flex-col min-h-0 rounded-lg border border-border bg-surface p-3">
       {/* Tab bar */}
       <div className="flex items-center gap-1 overflow-x-auto">
         {TABS.map((tab) => (
@@ -369,7 +373,7 @@ const VodGraph = memo(function VodGraph({
       </div>
 
       {/* Chart area */}
-      <div className="relative h-64 min-h-0 w-full">
+      <div className="relative flex min-h-[200px] w-full flex-1 flex-col">
         {isLoading && !error ? (
           <SkeletonGraph />
         ) : error ? (

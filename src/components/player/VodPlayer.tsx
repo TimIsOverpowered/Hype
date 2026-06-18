@@ -6,9 +6,9 @@ import {
   type MediaProviderAdapter,
   type MediaProviderChangeEvent,
 } from '@vidstack/react';
-import { DefaultVideoLayout, defaultLayoutIcons } from '@vidstack/react/player/layouts/default';
-import Hls from 'hls.js/light';
+import Hls from 'hls.js';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { TauriHlsLoader } from '../../media/TauriHlsLoader';
 
 interface VodPlayerProps {
   readonly vodId: string;
@@ -36,7 +36,7 @@ const VodPlayer = forwardRef<VodPlayerHandle, VodPlayerProps>(function VodPlayer
     startTime,
     autoPlay,
     muted: initialMuted,
-    aspectRatio,
+    aspectRatio: _,
     onDuration: onDurationProp,
     onError: onErrorProp,
     onSeekable: onSeekableProp,
@@ -50,6 +50,11 @@ const VodPlayer = forwardRef<VodPlayerHandle, VodPlayerProps>(function VodPlayer
   const onProviderChange = (provider: MediaProviderAdapter | null, _event: MediaProviderChangeEvent) => {
     if (isHLSProvider(provider)) {
       provider.library = Hls;
+      provider.config = {
+        ...provider.config,
+        fLoader: TauriHlsLoader,
+        pLoader: TauriHlsLoader,
+      };
     }
   };
 
@@ -115,20 +120,19 @@ const VodPlayer = forwardRef<VodPlayerHandle, VodPlayerProps>(function VodPlayer
   }, [onDurationProp, onErrorProp, onSeekableProp, onTimeUpdateProp]);
 
   return (
-    <div className="relative w-full overflow-hidden bg-black rounded-lg select-none">
+    <div className="relative h-full w-full overflow-hidden bg-black rounded-lg select-none">
       <MediaPlayer
         src={m3u8Url}
         ref={playerInstanceRef}
-        aspectRatio={aspectRatio}
         autoPlay={autoPlay ?? false}
         muted={initialMuted ?? false}
         streamType={streamType ?? 'on-demand'}
         currentTime={startTime}
         crossOrigin="anonymous"
         onProviderChange={onProviderChange}
+        className="w-full"
       >
         <MediaProvider />
-        <DefaultVideoLayout icons={defaultLayoutIcons} />
       </MediaPlayer>
     </div>
   );

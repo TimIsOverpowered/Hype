@@ -3,14 +3,12 @@ import { useParams } from 'react-router-dom';
 import { getChapters, getVod, getVodToken, resolveM3u8 } from '../api/twitch';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
-import VodPlayer, { type VodPlayerHandle } from '../components/player/VodPlayer';
+import SimpleVideoPlayer, { type SimpleVideoPlayerHandle } from '../components/player/SimpleVideoPlayer';
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
 import JobProgress from '../components/ui/JobProgress';
 import { useClipJob } from '../hooks/useClipJob';
-import type { M3u8Variant } from '../types/twitch';
-import type { WorkerEmoteData } from '../types/graph';
-import type { BttvEmote, FfzEmote, SevenTVEmote } from '../types/twitch';
+import type { BttvEmote, FfzEmote, M3u8Variant, SevenTVEmote } from '../types/twitch';
 
 const BASE_BTTV_EMOTE_API = 'https://api.betterttv.net/3';
 const BASE_FFZ_EMOTE_API = 'https://api.frankerfacez.com/v1';
@@ -19,18 +17,13 @@ const BASE_7TV_EMOTE_API = 'https://7tv.io/v3';
 export default function VODPage() {
   const { vodId: paramVodId } = useParams() as { vodId: string };
   const [vodId, setVodId] = useState(paramVodId);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [m3u8Url, setM3u8Url] = useState('');
   const [vodInfo, setVodInfo] = useState<{ id: string; title: string; lengthSeconds: number } | null>(null);
   const [twitchId, setTwitchId] = useState<number | undefined>();
 
-  const [bttvEmotes, setBttvEmotes] = useState<BttvEmote[]>([]);
-  const [ffzEmotes, setFfzEmotes] = useState<FfzEmote[]>([]);
-  const [seventvEmotes, setSeventvEmotes] = useState<SevenTVEmote[]>([]);
-
-  const playerRef = useRef<VodPlayerHandle>(null);
+  const playerRef = useRef<SimpleVideoPlayerHandle>(null);
   const [_playerState] = useState<number>(-1);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -40,11 +33,11 @@ export default function VODPage() {
 
   const { progress, isRunning, error: jobError, elapsed, startClip, startDownload, cancel } = useClipJob();
 
-  const emoteData: WorkerEmoteData = {
-    bttv: bttvEmotes,
-    ffz: ffzEmotes,
-    seventv: seventvEmotes,
-  };
+  const emoteDataRef = useRef({
+    bttv: [] as BttvEmote[],
+    ffz: [] as FfzEmote[],
+    seventv: [] as SevenTVEmote[],
+  });
 
   useEffect(() => {
     if (!twitchId) return;
@@ -56,7 +49,7 @@ export default function VODPage() {
         const response = await fetch(`${BASE_BTTV_EMOTE_API}/cached/emotes/global`, { signal: abortController.signal });
         const data = await response.json();
         if (!abortController.signal.aborted && Array.isArray(data)) {
-          setBttvEmotes((prev) => [...prev, ...data]);
+          emoteDataRef.current.bttv = [...emoteDataRef.current.bttv, ...data];
         }
       } catch {
         // ignore
@@ -72,7 +65,7 @@ export default function VODPage() {
         if (!abortController.signal.aborted && data && typeof data === 'object') {
           const d = data as { sharedEmotes?: BttvEmote[]; channelEmotes?: BttvEmote[] };
           const combined = [...(d.sharedEmotes ?? []), ...(d.channelEmotes ?? [])];
-          setBttvEmotes((prev) => [...prev, ...combined]);
+          emoteDataRef.current.bttv = [...emoteDataRef.current.bttv, ...combined];
         }
       } catch {
         // ignore
@@ -86,7 +79,7 @@ export default function VODPage() {
         if (!abortController.signal.aborted && raw && typeof raw === 'object') {
           const d = raw as { sets?: Record<string, { emoticons: FfzEmote[] }>; room?: { set?: number } };
           const emoticons = d.sets?.[String(d.room?.set)]?.emoticons ?? [];
-          setFfzEmotes(emoticons);
+          emoteDataRef.current.ffz = emoticons;
         }
       } catch {
         // ignore
@@ -101,7 +94,7 @@ export default function VODPage() {
         const data = await response.json();
         if (!abortController.signal.aborted && data && typeof data === 'object') {
           const d = data as { emote_set?: { emotes: SevenTVEmote[] } };
-          setSeventvEmotes(d.emote_set?.emotes ?? []);
+          emoteDataRef.current.seventv = d.emote_set?.emotes ?? [];
         }
       } catch {
         // ignore
@@ -117,7 +110,7 @@ export default function VODPage() {
         const data = await response.json();
         if (!abortController.signal.aborted && data && typeof data === 'object') {
           const d = data as { emotes: SevenTVEmote[] };
-          setSeventvEmotes((prev) => [...prev, ...(d.emotes ?? [])]);
+          emoteDataRef.current.seventv = [...emoteDataRef.current.seventv, ...(d.emotes ?? [])];
         }
       } catch {
         // ignore
@@ -137,7 +130,6 @@ export default function VODPage() {
     const id = vodId.trim();
     if (!id) return;
 
-    setIsLoading(true);
     setError(null);
     setM3u8Url('');
     setVodInfo(null);
@@ -145,7 +137,12 @@ export default function VODPage() {
     try {
       const vod = await getVod(id);
       const token = await getVodToken(id);
-      const { m3u8Url: m3u8, variants: m3u8Variants } = await resolveM3u8(id, token.value, token.signature, vod.previewThumbnailURL);
+      const { m3u8Url: m3u8, variants: m3u8Variants } = await resolveM3u8(
+        id,
+        token.value,
+        token.signature,
+        vod.previewThumbnailURL,
+      );
       const chapters = await getChapters(id);
       const firstChapter = chapters.find((c) => c.node.details.game);
       const gameId = firstChapter?.node.details.game?.id;
@@ -158,8 +155,6 @@ export default function VODPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load VOD');
-    } finally {
-      setIsLoading(false);
     }
   }, [vodId]);
 
@@ -194,109 +189,84 @@ export default function VODPage() {
   );
 
   return (
-    <div className="flex h-full flex-col bg-background">
-      {isLoading && !m3u8Url ? (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            <p className="text-sm text-text-hint">Loading VOD...</p>
-          </div>
+    <div className="flex h-full w-full flex-col bg-background">
+      {/* Player + Chat row — 50% height */}
+      <div className="flex h-[50%] w-full">
+        <div className="flex min-w-0 flex-1 flex-col bg-black">
+          <SimpleVideoPlayer
+            vodId={vodId || ''}
+            m3u8Url={m3u8Url}
+            ref={playerRef}
+            onTimeUpdate={handleTimeUpdate}
+            onDuration={handleDuration}
+            streamType="on-demand"
+          />
         </div>
-      ) : (
-        <>
-          {/* Player + Chat row */}
-          <div className="flex flex-1 gap-0 min-h-0">
-            {m3u8Url && vodInfo ? (
-              <>
-                <div className="flex min-w-0 flex-1 flex-col items-center justify-center bg-black">
-                  <VodPlayer
-                    vodId={vodInfo.id}
-                    m3u8Url={m3u8Url}
-                    ref={playerRef}
-                    onTimeUpdate={handleTimeUpdate}
-                    onDuration={handleDuration}
-                    streamType="on-demand"
-                  />
-                </div>
-                <ChatReplay
-                  vodId={vodInfo.id}
-                  twitchId={twitchId}
-                  playerRef={playerRef as React.RefObject<unknown>}
-                  userChatDelay={0}
-                  playerState={_playerState}
-                />
-              </>
-            ) : (
-              <div className="flex flex-1 items-center justify-center" />
-            )}
-          </div>
+        <ChatReplay
+          vodId={vodId || ''}
+          twitchId={twitchId}
+          playerRef={playerRef as React.RefObject<unknown>}
+          userChatDelay={0}
+          playerState={_playerState}
+        />
+      </div>
 
-          {/* Clip bar + Download modal */}
-          {m3u8Url && vodInfo && (
-            <>
-              <ClipBar
-                vodId={vodInfo.id}
-                m3u8Url={m3u8Url}
-                duration={duration}
-                currentTime={currentTime}
-                onClip={handleClip}
-                onDownload={() => setShowDownloadModal(true)}
-                isProcessing={isRunning}
-              />
-              <DownloadVodModal
-                open={showDownloadModal}
-                onClose={() => setShowDownloadModal(false)}
-                onDownload={handleDownload}
-                vodId={vodInfo.id}
-                vodTitle={vodInfo.title}
-                duration={duration}
-                variants={variants}
-                isLoading={false}
-              />
-            </>
-          )}
-
-          {/* Graph */}
-          {m3u8Url && vodInfo && (
-            <div className="border-t border-border p-3">
-              <VodGraph
-                vodId={vodInfo.id}
-                playerRef={
-                  playerRef as React.RefObject<{
-                    seek: (t: number) => void;
-                    play: () => void;
-                    pause: () => void;
-                  } | null>
+      {/* Clip bar + Graph + Job progress — remaining 50% */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ClipBar
+          vodId={vodId || ''}
+          m3u8Url={m3u8Url || ''}
+          duration={duration}
+          currentTime={currentTime}
+          onClip={handleClip}
+          onDownload={() => setShowDownloadModal(true)}
+          isProcessing={isRunning}
+        />
+        <DownloadVodModal
+          open={showDownloadModal}
+          onClose={() => setShowDownloadModal(false)}
+          onDownload={handleDownload}
+          vodId={vodId || ''}
+          vodTitle={vodInfo?.title ?? ''}
+          duration={duration}
+          variants={variants}
+          isLoading={false}
+        />
+        <div className="border-t border-border p-3 flex flex-1 flex-col min-h-0">
+          <VodGraph
+            vodId={vodId || ''}
+            playerRef={
+              playerRef as React.RefObject<{
+                seek: (t: number) => void;
+                play: () => void;
+                pause: () => void;
+              } | null>
+            }
+            emoteData={emoteDataRef}
+            duration={duration}
+            messageThreshold={25}
+            searchThreshold={10}
+            searchTerm=""
+          />
+        </div>
+        {isRunning && (
+          <div className="border-t border-border p-3">
+            <JobProgress
+              progress={progress}
+              isRunning={isRunning}
+              error={jobError}
+              elapsed={elapsed}
+              onCancel={cancel}
+              onRetry={() => {
+                if (jobError) {
+                  if (m3u8Url) startDownload(m3u8Url, duration);
                 }
-                emoteData={emoteData}
-                duration={duration}
-                messageThreshold={25}
-                searchThreshold={10}
-                searchTerm=""
-              />
-            </div>
-          )}
-
-          {/* Job progress */}
-          {isRunning && m3u8Url && vodInfo && (
-            <div className="border-t border-border p-3">
-              <JobProgress
-                progress={progress}
-                isRunning={isRunning}
-                error={jobError}
-                elapsed={elapsed}
-                onCancel={cancel}
-                onRetry={() => {
-                  if (jobError) {
-                    if (m3u8Url) startDownload(m3u8Url, duration);
-                  }
-                }}
-                jobType="download"
-              />
-            </div>
-          )}
-        </>
-      )}
+              }}
+              jobType="download"
+            />
+          </div>
+        )}
+      </div>
 
       {error && (
         <div className="border-t border-red-900/50 bg-red-950/30 px-4 py-2">

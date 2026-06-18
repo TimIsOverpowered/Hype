@@ -56,7 +56,7 @@ function DeepLinkHandler() {
           await login(parsed.value);
           await refetchRef.current();
           navigateRef.current('/', { replace: true });
-        } catch (e) {
+        } catch {
           // silent
         }
       } else if (parsed.type === 'channel') {
@@ -83,7 +83,7 @@ function DeepLinkHandler() {
         cleanupListen = () => {
           unlisten();
         };
-      } catch (e) {
+      } catch {
         // silent
       }
     };

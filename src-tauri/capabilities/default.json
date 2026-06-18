@@ -7,6 +7,14 @@
     "core:default",
     "opener:default",
     "fs:default",
-    "dialog:default"
+    "dialog:default",
+    "http:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://**" },
+        { "url": "http://**" }
+      ]
+    }
   ]
 }

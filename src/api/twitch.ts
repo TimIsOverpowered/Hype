@@ -401,12 +401,14 @@ export async function resolveM3u8(
     const masterM3u8 = await fetchM3u8(vodId, token, sig);
     const parsed = hlsParse(masterM3u8);
     if ('variants' in parsed) {
-      const variants = parsed.variants.map((v: { uri: string; attributes?: { RESOLUTION?: { width: number; height: number }; label?: string } }) => ({
-        uri: v.uri,
-        name: v.attributes?.RESOLUTION
-          ? `${v.attributes.RESOLUTION.width}x${v.attributes.RESOLUTION.height}`
-          : v.attributes?.label || 'Unknown',
-      }));
+      const variants = parsed.variants.map(
+        (v: { uri: string; attributes?: { RESOLUTION?: { width: number; height: number }; label?: string } }) => ({
+          uri: v.uri,
+          name: v.attributes?.RESOLUTION
+            ? `${v.attributes.RESOLUTION.width}x${v.attributes.RESOLUTION.height}`
+            : v.attributes?.label || 'Unknown',
+        }),
+      );
       return { m3u8Url: variants[0]?.uri ?? '', variants };
     }
     throw new Error('Received non-master playlist from usher');
