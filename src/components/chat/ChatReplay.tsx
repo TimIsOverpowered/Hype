@@ -938,20 +938,19 @@ export default function ChatReplay({
               className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
               style={{ overflowAnchor: 'none' }}
             >
-              <div className="min-h-0 flex-1" />
-
-              <div className="flex shrink-0 flex-col py-2">
-                {isLoading && commentsCount === 0 ? (
+              <div className="flex shrink-0 flex-col">
+                {isLoading ? (
                   <ChatSkeleton />
-                ) : messages.length === 0 ? (
-                  <div className="flex h-full w-full flex-col items-center justify-center py-8">
+                ) : commentsCount === 0 ? (
+                  <div className="flex h-full w-full flex-1 flex-col items-center justify-center py-8">
                     <p className="text-sm text-text-muted">No messages</p>
                   </div>
                 ) : (
-                  commentElements
+                  <>
+                    {commentElements}
+                    <div ref={bottomAnchorRef} className="pointer-events-none h-[1px] w-full shrink-0 opacity-0" />
+                  </>
                 )}
-
-                <div ref={bottomAnchorRef} className="pointer-events-none h-[1px] w-full shrink-0 opacity-0" />
               </div>
             </div>
 
