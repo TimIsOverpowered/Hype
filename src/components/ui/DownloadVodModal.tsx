@@ -43,7 +43,7 @@ export default function DownloadVodModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
