@@ -202,5 +202,3 @@ export function useSettingsMenu({ isMenuOpen }: UseSettingsMenuOptions) {
     handleCloseSettings,
   };
 }
-
-

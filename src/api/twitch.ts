@@ -381,7 +381,7 @@ export async function getChapters(vodId: string): Promise<ReadonlyArray<ChapterE
 
 export async function fetchM3u8(vodId: string, token: string, sig: string): Promise<string> {
   const codecs = encodeURIComponent('av1,h265,h264');
-  const url = `${Twitch.USHER_BASE_URL}/${vodId}.m3u8?allow_source=true&player=mediaplayer&include_unavailable=true&supported_codecs=${codecs}&playlist_include_framerate=true&allow_spectre=true&nauthsig=${sig}&nauth=${token}`;
+  const url = `${Twitch.USHER_BASE_URL}/${vodId}.m3u8?allow_source=true&allow_audio_only=true&player=mediaplayer&include_unavailable=true&supported_codecs=${codecs}&playlist_include_framerate=true&allow_spectre=true&nauthsig=${sig}&nauth=${token}`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -402,11 +402,13 @@ export async function resolveM3u8(
     const parsed = hlsParse(masterM3u8);
     if ('variants' in parsed) {
       const variants = parsed.variants.map(
-        (v: { uri: string; attributes?: { RESOLUTION?: { width: number; height: number }; label?: string } }) => ({
+        (v: { uri: string; resolution?: { width: number; height: number }; video?: { name?: string }[] }) => ({
           uri: v.uri,
-          name: v.attributes?.RESOLUTION
-            ? `${v.attributes.RESOLUTION.width}x${v.attributes.RESOLUTION.height}`
-            : v.attributes?.label || 'Unknown',
+          name: v.video?.[0]?.name
+            ? `${v.video[0].name}`
+            : v.resolution
+              ? `${v.resolution.width}x${v.resolution.height}`
+              : 'Unknown',
         }),
       );
       return { m3u8Url: variants[0]?.uri ?? '', variants };
@@ -455,7 +457,7 @@ export async function findM3u8(hash: string): Promise<{ domains: string[]; varia
     return { domains: [], variants: [] };
   }
 
-  const knownVariants = ['chunked', '720p60', '480p30', 'audio_only', '360p30', '160p30'];
+  const knownVariants = ['chunked', '1080p60', '720p60', '480p30', 'audio_only', '360p30', '160p30'];
   const variants: M3u8Variant[] = [];
 
   for (const variant of knownVariants) {

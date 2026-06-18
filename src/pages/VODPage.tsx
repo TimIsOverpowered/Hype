@@ -190,6 +190,7 @@ export default function VODPage() {
             vodId={vodId || ''}
             m3u8Url={m3u8Url}
             ref={playerRef}
+            autoPlay
             onTimeUpdate={handleTimeUpdate}
             onDuration={handleDuration}
             onPause={() => setPlayerState(2)}
