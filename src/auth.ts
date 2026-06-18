@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { getUsers } from './api/twitch';
+import { API_BASE } from './constants/api';
+import { AUTH_KEY, DEFAULT_RETRY_COUNT, SEARCH_MAX_RESULTS, STALE_TIME_5MIN } from './constants/auth';
 import type { PaginatedWhitelistResponse, SearchResult, TwitchUser } from './types/twitch';
 import type { User } from './types/user';
 
-const AUTH_KEY = 'hype-auth';
-export const API_BASE = 'https://api.hype.lol';
+export { API_BASE };
 
 export function getToken(): string {
   return localStorage.getItem(AUTH_KEY) || '';
@@ -36,8 +37,8 @@ export function useUser() {
   return useQuery({
     queryKey: ['user'],
     queryFn: fetchUser,
-    staleTime: 1000 * 60 * 5,
-    retry: 1,
+    staleTime: STALE_TIME_5MIN,
+    retry: DEFAULT_RETRY_COUNT,
   });
 }
 
@@ -51,7 +52,7 @@ export async function searchWhitelistedChannels(query: string): Promise<SearchRe
     if (!res.ok) return [];
     const data = await res.json();
     const entries = (data.data ?? []).map((entry: { channel: string }) => entry.channel);
-    const channels = entries.slice(0, 15);
+    const channels = entries.slice(0, SEARCH_MAX_RESULTS);
     if (channels.length === 0) return [];
 
     try {

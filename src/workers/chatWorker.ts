@@ -1,3 +1,4 @@
+import { SEVENTV_ZERO_WIDTH_FLAG } from '../constants/ui';
 import type {
   BttvEmote,
   CommentNode,
@@ -13,7 +14,6 @@ import type {
   WorkerEmoteData,
 } from '../types/twitch';
 
-const SEVENTV_ZERO_WIDTH_FLAG = 1 << 8;
 const URL_PATTERN = /^(https?:\/\/)?[\w.-]+\.[\w/.-]+$/i;
 const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
 

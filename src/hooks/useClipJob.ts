@@ -1,6 +1,7 @@
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 import { useCallback, useRef, useState } from 'react';
+import { ELAPSED_TIMER_INTERVAL_MS, VIDEO_FILE_EXTENSIONS } from '../constants/ui';
 import { clipVod, downloadVod } from '../media/clipper';
 import { toHHMMSS } from '../utils/time';
 
@@ -39,7 +40,7 @@ export function useClipJob(): UseClipJobResult {
   const saveFile = useCallback(async (blob: Blob, defaultName: string): Promise<void> => {
     const filePath = await save({
       defaultPath: defaultName,
-      filters: [{ name: 'Video', extensions: ['mp4'] }],
+      filters: [{ name: 'Video', extensions: VIDEO_FILE_EXTENSIONS }],
     });
 
     if (!filePath) {
@@ -61,7 +62,7 @@ export function useClipJob(): UseClipJobResult {
       clearTimer();
       timerRef.current = setInterval(() => {
         setElapsed((prev) => prev + 1);
-      }, 1000);
+      }, ELAPSED_TIMER_INTERVAL_MS);
 
       try {
         let blob: Blob;

@@ -3,9 +3,8 @@ import { User } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchWhitelistedChannels } from '../auth';
+import { CHANNEL_PAGE_SIZE, INTERSECTION_OBSERVER_MARGIN } from '../constants/ui';
 import type { WhitelistChannel } from '../types/twitch';
-
-const PAGE_SIZE = 100;
 
 function ChannelCard({ channel }: { channel: WhitelistChannel }) {
   const navigate = useNavigate();
@@ -59,9 +58,9 @@ export default function HomePage() {
     error,
   } = useInfiniteQuery({
     queryKey: ['whitelisted-channels'],
-    queryFn: ({ pageParam }) => fetchWhitelistedChannels(pageParam, PAGE_SIZE),
+    queryFn: ({ pageParam }) => fetchWhitelistedChannels(pageParam, CHANNEL_PAGE_SIZE),
     initialPageParam: 1,
-    getNextPageParam: (lastPage) => (lastPage.channels.length >= PAGE_SIZE ? lastPage.page + 1 : undefined),
+    getNextPageParam: (lastPage) => (lastPage.channels.length >= CHANNEL_PAGE_SIZE ? lastPage.page + 1 : undefined),
   });
 
   useEffect(() => {
@@ -75,7 +74,7 @@ export default function HomePage() {
           fetchNextPage();
         }
       },
-      { root, rootMargin: '200px' },
+      { root, rootMargin: INTERSECTION_OBSERVER_MARGIN },
     );
 
     observer.observe(el);

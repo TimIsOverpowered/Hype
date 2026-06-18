@@ -1,9 +1,17 @@
 import ReactECharts from 'echarts-for-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ZSTDDecoder } from 'zstddec';
+import { getChapters } from '../../api/twitch';
+import { ECharts } from '../../constants/echarts';
+import {
+  DEFAULT_INTERVAL_SECONDS,
+  DEFAULT_MESSAGE_THRESHOLD,
+  DEFAULT_SEARCH_TERM,
+  DEFAULT_SEARCH_THRESHOLD,
+} from '../../constants/ui';
+import { HYPE_API_BASE } from '../../constants/urls';
 import type { GraphDataPoint, GraphType, TopEmote, WorkerEmoteData } from '../../types/graph';
-
-const HYPE_API_BASE = 'https://api.hype.lol/v1';
+import type { ChapterEdge } from '../../types/twitch';
 
 const TABS: Array<{ key: GraphType; label: string }> = [
   { key: 'messages', label: 'Messages' },
@@ -86,28 +94,28 @@ function buildEChartsOption(
 
   return {
     backgroundColor: 'transparent',
-    grid: { top: 20, right: 20, bottom: 40, left: 50, containLabel: false },
+    grid: ECharts.GRID_PADDING,
     xAxis: {
       type: 'category',
       data: xData,
       boundaryGap: false,
-      axisLine: { lineStyle: { color: '#222230' } },
-      axisLabel: { color: '#adadb8', fontSize: 11, interval: 'auto', rotate: 0 },
+      axisLine: { lineStyle: { color: ECharts.AXIS_COLOR } },
+      axisLabel: { color: ECharts.LABEL_COLOR, fontSize: 11, interval: 'auto', rotate: 0 },
       splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
-      axisLine: { lineStyle: { color: '#222230' } },
-      axisLabel: { color: '#adadb8', fontSize: 11 },
-      splitLine: { lineStyle: { color: '#1a1a28' } },
+      axisLine: { lineStyle: { color: ECharts.AXIS_COLOR } },
+      axisLabel: { color: ECharts.LABEL_COLOR, fontSize: 11 },
+      splitLine: { lineStyle: { color: ECharts.SPLIT_COLOR } },
     },
     tooltip: {
       trigger: 'axis' as const,
-      backgroundColor: '#16161e',
-      borderColor: '#222230',
+      backgroundColor: ECharts.TOOLTIP_BG,
+      borderColor: ECharts.BORDER_COLOR,
       borderWidth: 1,
-      textStyle: { color: '#f0f0f5', fontSize: 12 },
-      extraCssText: 'max-width:280px;white-space:normal;border-radius:6px;padding:10px;',
+      textStyle: { color: ECharts.TEXT_COLOR, fontSize: 12 },
+      extraCssText: ECharts.TOOLTIP_CSS,
       formatter: tooltipFormatter,
     },
     series: [
@@ -117,7 +125,7 @@ function buildEChartsOption(
         data: yData,
         smooth: true,
         symbol: 'none',
-        lineStyle: { width: 2, color: '#008080' },
+        lineStyle: { width: 2, color: ECharts.SERIES_COLOR },
         areaStyle: {
           color: {
             type: 'linear',
@@ -126,8 +134,8 @@ function buildEChartsOption(
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: 'rgba(0,128,128,0.3)' },
-              { offset: 1, color: 'rgba(0,128,128,0.02)' },
+              { offset: 0, color: ECharts.AREA_TOP },
+              { offset: 1, color: ECharts.AREA_BOTTOM },
             ],
           },
         },
@@ -144,13 +152,13 @@ function buildEChartsOption(
         bottom: 8,
         height: 18,
         borderColor: 'transparent',
-        backgroundColor: '#16161e',
-        fillerColor: 'rgba(0,128,128,0.15)',
-        handleStyle: { color: '#008080' },
+        backgroundColor: ECharts.TOOLTIP_BG,
+        fillerColor: ECharts.SLIDER_FILL,
+        handleStyle: { color: ECharts.SERIES_COLOR },
         textStyle: { color: '#adadb8', fontSize: 10 },
         dataBackground: {
-          lineStyle: { color: '#222230' },
-          areaStyle: { color: '#1a1a28' },
+          lineStyle: { color: ECharts.AXIS_COLOR },
+          areaStyle: { color: ECharts.SPLIT_COLOR },
         },
       },
     ],
@@ -161,10 +169,10 @@ const VodGraph = memo(function VodGraph({
   vodId,
   playerRef,
   emoteData,
-  interval = 10,
-  messageThreshold = 25,
-  searchThreshold = 10,
-  searchTerm = '',
+  interval = DEFAULT_INTERVAL_SECONDS,
+  messageThreshold = DEFAULT_MESSAGE_THRESHOLD,
+  searchThreshold = DEFAULT_SEARCH_THRESHOLD,
+  searchTerm = DEFAULT_SEARCH_TERM,
   duration: propDuration,
 }: VodGraphProps) {
   const [activeTab, setActiveTab] = useState<GraphType>('messages');
@@ -180,9 +188,7 @@ const VodGraph = memo(function VodGraph({
     slug: string;
     duration: number;
   }> | null>(null);
-  const chaptersRef = useRef<Array<{
-    node: { positionMilliseconds: number; durationMilliseconds: number; details: { game?: { displayName: string } } };
-  }> | null>(null);
+  const chaptersRef = useRef<readonly ChapterEdge[] | null>(null);
   const durationRef = useRef<number>(0);
   const fetchedRef = useRef(false);
 
@@ -235,14 +241,9 @@ const VodGraph = memo(function VodGraph({
 
   const fetchChapters = useCallback(async (id: string) => {
     try {
-      const apiUrl = `https://api.twitch.tv/helix/videos/${id}/chapters?first=100`;
-      const res = await fetch(apiUrl, {
-        headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko' },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data?.data) {
-        chaptersRef.current = data.data;
+      const edges = await getChapters(id);
+      if (edges) {
+        chaptersRef.current = edges;
       }
     } catch {
       // ignore

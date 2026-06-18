@@ -8,6 +8,7 @@ import {
 } from '@vidstack/react';
 import Hls from 'hls.js';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
 import { TauriHlsLoader } from '../../media/TauriHlsLoader';
 
 interface VodPlayerProps {
@@ -85,7 +86,7 @@ const VodPlayer = forwardRef<VodPlayerHandle, VodPlayerProps>(function VodPlayer
 
     const handleTimeUpdate = () => {
       const now = performance.now();
-      if (now - timeUpdateThrottleRef.current < 100) return;
+      if (now - timeUpdateThrottleRef.current < TIME_UPDATE_THROTTLE_MS) return;
       timeUpdateThrottleRef.current = now;
       onTimeUpdateProp?.(player.currentTime);
     };

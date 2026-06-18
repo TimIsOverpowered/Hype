@@ -3,11 +3,19 @@ import { LogOut, Search, Settings, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getToken, logout, searchWhitelistedChannels, useUser } from '../../auth';
+import { TWITCH_OAUTH_LOGIN_URL } from '../../constants/auth';
+import {
+  CHANNEL_SEARCH_DEBOUNCE_MS,
+  MIN_SEARCH_QUERY_LENGTH,
+  SEARCH_BLUR_DELAY_MS,
+  STALE_TIME_30SEC,
+} from '../../constants/ui';
+import { DiscordUrl, KoFiUrl, PatreonUrl, TwitterUrl } from '../../constants/urls';
 import type { SearchResult } from '../../types/twitch';
 
 const SOCIALS = [
   {
-    href: 'https://discord.gg/chUMEPR',
+    href: DiscordUrl,
     label: 'Discord',
     svg: (
       <svg
@@ -23,7 +31,7 @@ const SOCIALS = [
     ),
   },
   {
-    href: 'https://twitter.com/overpowered',
+    href: TwitterUrl,
     label: 'Twitter',
     svg: (
       <svg
@@ -39,7 +47,7 @@ const SOCIALS = [
     ),
   },
   {
-    href: 'https://patreon.com/join/overpoweredgg',
+    href: PatreonUrl,
     label: 'Patreon',
     svg: (
       <svg
@@ -55,7 +63,7 @@ const SOCIALS = [
     ),
   },
   {
-    href: 'https://ko-fi.com/overpoweredgg',
+    href: KoFiUrl,
     label: 'Ko-fi',
     svg: (
       <svg
@@ -81,7 +89,7 @@ function LogoIcon() {
 function LoginButton({ className }: { className?: string }) {
   return (
     <a
-      href={`https://api.hype.lol/oauth/twitch?client=desktop`}
+      href={`${TWITCH_OAUTH_LOGIN_URL}?client=desktop`}
       target="_blank"
       rel="noopener noreferrer"
       className={`flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover ${className}`}
@@ -183,15 +191,15 @@ export default function NavBar() {
   const isHomePage = location.pathname === '/' || location.pathname === '/home';
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(channelInput), 200);
+    const timer = setTimeout(() => setDebouncedQuery(channelInput), CHANNEL_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [channelInput]);
 
   const { data: searchResults = [], isFetching } = useQuery({
     queryKey: ['search', debouncedQuery],
     queryFn: () => searchWhitelistedChannels(debouncedQuery),
-    enabled: debouncedQuery.length >= 2,
-    staleTime: 1000 * 30,
+    enabled: debouncedQuery.length >= MIN_SEARCH_QUERY_LENGTH,
+    staleTime: STALE_TIME_30SEC,
   });
 
   const handleChannelSubmit = (e: React.FormEvent) => {
@@ -204,7 +212,7 @@ export default function NavBar() {
   };
 
   const handleBlur = () => {
-    setTimeout(() => setSearchOpen(false), 150);
+    setTimeout(() => setSearchOpen(false), SEARCH_BLUR_DELAY_MS);
   };
 
   const handleFocus = () => {

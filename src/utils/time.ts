@@ -1,14 +1,16 @@
+import { HMS_PAD_WIDTH, SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from '../constants/ui';
+
 export const toHHMMSS = (seconds: number): string => {
   const totalSeconds = Math.floor(seconds);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-  return [hours, minutes, secs].map((a: number) => a.toString().padStart(2, '0')).join(':');
+  const hours = Math.floor(totalSeconds / SECONDS_PER_HOUR);
+  const minutes = Math.floor((totalSeconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE);
+  const secs = totalSeconds % SECONDS_PER_MINUTE;
+  return [hours, minutes, secs].map((a: number) => a.toString().padStart(HMS_PAD_WIDTH, '0')).join(':');
 };
 
 export const toSeconds = (hms: string): number => {
   const time = hms.split(':');
-  return +time[0] * 3600 + +time[1] * 60 + +time[2];
+  return +time[0] * SECONDS_PER_HOUR + +time[1] * SECONDS_PER_MINUTE + +time[2];
 };
 
 export const hmsValid = (str: string): boolean => {

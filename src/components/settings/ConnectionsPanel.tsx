@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_BASE, getToken, useUser } from '../../auth';
+import { getToken, useUser } from '../../auth';
+import { API_BASE } from '../../constants/api';
+import { PATREON_OAUTH_URL } from '../../constants/auth';
 
 function ConnectionCard({
   icon,
@@ -56,7 +58,7 @@ export default function ConnectionsPanel() {
 
   const patreonConnect = () => {
     const token = getToken();
-    window.open(`https://api.hype.lol/oauth/patreon?token=${token}&client=desktop`, '_blank');
+    window.open(`${PATREON_OAUTH_URL}?token=${token}&client=desktop`, '_blank');
   };
 
   const disconnectMutation = useMutation({

@@ -1,3 +1,10 @@
+import {
+  MIN_LOG_LINE_LENGTH,
+  SECONDS_PER_HOUR,
+  SECONDS_PER_MINUTE,
+  SIMPLIFICATION_TOLERANCE,
+  TOP_EMOTES_COUNT,
+} from '../constants/ui';
 import type {
   AggregatePayload,
   IncomingWorkerMessage,
@@ -45,10 +52,10 @@ function buildEmoteLookup(
 function toSeconds(timeStr: string): number {
   const parts = timeStr.split(':').map(Number);
   if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return parts[0] * SECONDS_PER_HOUR + parts[1] * SECONDS_PER_MINUTE + parts[2];
   }
   if (parts.length === 2) {
-    return parts[0] * 60 + parts[1];
+    return parts[0] * SECONDS_PER_MINUTE + parts[1];
   }
   return parts[0] ?? 0;
 }
@@ -144,7 +151,7 @@ function aggregateLogs(payload: AggregatePayload): Array<{ x: number; y: number 
   >();
 
   for (const log of logs) {
-    if (!log || log.length < 10) continue;
+    if (!log || log.length < MIN_LOG_LINE_LENGTH) continue;
 
     const parsed = parseLogLine(log);
     if (!parsed) continue;
@@ -207,7 +214,7 @@ function buildGraphData(
   let messagesTotal = 0;
 
   for (const log of logs) {
-    if (!log || log.length < 10) continue;
+    if (!log || log.length < MIN_LOG_LINE_LENGTH) continue;
     const parsed = parseLogLine(log);
     if (!parsed) continue;
 
@@ -221,10 +228,10 @@ function buildGraphData(
 
   const topEmotes: TopEmote[] = [...emoteCounts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
+    .slice(0, TOP_EMOTES_COUNT)
     .map(([name, count]) => ({ name, count }));
 
-  const simplified = ramerDouglasPeucker(rawBuckets, 5);
+  const simplified = ramerDouglasPeucker(rawBuckets, SIMPLIFICATION_TOLERANCE);
 
   return simplified.map((point) => ({
     x: point.x,

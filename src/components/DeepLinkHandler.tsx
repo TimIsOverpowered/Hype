@@ -3,13 +3,14 @@ import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, useUser } from '../auth';
+import { DeepLinkProtocol } from '../constants/urls';
 
 function parseDeepLink(url: string): { type: string; value: string } | null {
-  if (!url.startsWith('hype://')) {
+  if (!url.startsWith(DeepLinkProtocol)) {
     return null;
   }
 
-  const path = url.slice('hype://'.length).split('?')[0].replace(/\/+$/, '');
+  const path = url.slice(DeepLinkProtocol.length).split('?')[0].replace(/\/+$/, '');
   const query = url.includes('?') ? url.slice(url.indexOf('?') + 1) : '';
 
   if (path === 'oauth' && query) {

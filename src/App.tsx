@@ -3,13 +3,14 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import DeepLinkHandler from './components/DeepLinkHandler';
 import AppLayout from './components/layout/AppLayout';
 import SettingsPage from './components/settings/SettingsPage';
+import { DEFAULT_RETRY_COUNT, STALE_TIME_5MIN } from './constants/auth';
 import ChannelPage from './pages/ChannelPage';
 import HomePage from './pages/HomePage';
 import VODPage from './pages/VODPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 1000 * 60 * 5, retry: 1 },
+    queries: { staleTime: STALE_TIME_5MIN, retry: DEFAULT_RETRY_COUNT },
   },
 });
 

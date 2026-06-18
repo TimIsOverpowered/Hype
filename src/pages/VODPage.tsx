@@ -7,12 +7,9 @@ import SimpleVideoPlayer, { type SimpleVideoPlayerHandle } from '../components/p
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
 import JobProgress from '../components/ui/JobProgress';
+import { BTTV_API_BASE, FFZ_API_BASE, SEVENTV_API_BASE } from '../constants/emotes';
 import { useClipJob } from '../hooks/useClipJob';
 import type { BttvEmote, FfzEmote, M3u8Variant, SevenTVEmote } from '../types/twitch';
-
-const BASE_BTTV_EMOTE_API = 'https://api.betterttv.net/3';
-const BASE_FFZ_EMOTE_API = 'https://api.frankerfacez.com/v1';
-const BASE_7TV_EMOTE_API = 'https://7tv.io/v3';
 
 export default function VODPage() {
   const { vodId: paramVodId } = useParams() as { vodId: string };
@@ -24,7 +21,7 @@ export default function VODPage() {
   const [twitchId, setTwitchId] = useState<number | undefined>();
 
   const playerRef = useRef<SimpleVideoPlayerHandle>(null);
-  const [_playerState] = useState<number>(-1);
+  const [playerState] = useState<number>(-1);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState(0);
 
@@ -46,7 +43,7 @@ export default function VODPage() {
 
     const loadBTTVGlobalEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_BTTV_EMOTE_API}/cached/emotes/global`, { signal: abortController.signal });
+        const response = await fetch(`${BTTV_API_BASE}/cached/emotes/global`, { signal: abortController.signal });
         const data = await response.json();
         if (!abortController.signal.aborted && Array.isArray(data)) {
           emoteDataRef.current.bttv = [...emoteDataRef.current.bttv, ...data];
@@ -58,7 +55,7 @@ export default function VODPage() {
 
     const loadBTTVChannelEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_BTTV_EMOTE_API}/cached/users/twitch/${twitchId}`, {
+        const response = await fetch(`${BTTV_API_BASE}/cached/users/twitch/${twitchId}`, {
           signal: abortController.signal,
         });
         const data = await response.json();
@@ -74,7 +71,7 @@ export default function VODPage() {
 
     const loadFFZEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_FFZ_EMOTE_API}/room/id/${twitchId}`, { signal: abortController.signal });
+        const response = await fetch(`${FFZ_API_BASE}/room/id/${twitchId}`, { signal: abortController.signal });
         const raw = await response.json();
         if (!abortController.signal.aborted && raw && typeof raw === 'object') {
           const d = raw as { sets?: Record<string, { emoticons: FfzEmote[] }>; room?: { set?: number } };
@@ -88,7 +85,7 @@ export default function VODPage() {
 
     const load7TVEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_7TV_EMOTE_API}/users/twitch/${twitchId}`, {
+        const response = await fetch(`${SEVENTV_API_BASE}/users/twitch/${twitchId}`, {
           signal: abortController.signal,
         });
         const data = await response.json();
@@ -103,7 +100,7 @@ export default function VODPage() {
 
     const load7TVGlobalEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_7TV_EMOTE_API}/emote-sets/global`, {
+        const response = await fetch(`${SEVENTV_API_BASE}/emote-sets/global`, {
           signal: abortController.signal,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -207,7 +204,7 @@ export default function VODPage() {
           twitchId={twitchId}
           playerRef={playerRef as React.RefObject<unknown>}
           userChatDelay={0}
-          playerState={_playerState}
+          playerState={playerState}
         />
       </div>
 

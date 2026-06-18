@@ -1,5 +1,31 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { getBadges, getComments } from '../../api/twitch';
+import {
+  BTTV_API_BASE,
+  FFZ_API_BASE,
+  SEVENTV_API_BASE,
+  SEVENTV_CDN_BASE,
+  TWITCH_CDN_BASE,
+} from '../../constants/emotes';
+import {
+  CHAT_BOTTOM_THRESHOLD,
+  CHAT_FETCH_RETRIES,
+  CHAT_INTERSECTION_MARGIN,
+  CHAT_LOOP_INTERVAL_MS,
+  CHAT_RETRY_DELAY_MS,
+  CHAT_SCROLL_UP_THRESHOLD,
+  CHAT_SKELETON_COUNT,
+  CHAT_STATE_CHANGE_DELAY_MS,
+  DEFAULT_CHAT_FONT_FAMILY,
+  DEFAULT_CHAT_FONT_SIZE,
+  DEFAULT_CHAT_WIDTH,
+  DEFAULT_CHAT_WIDTH_MAX,
+  DEFAULT_CHAT_WIDTH_MIN,
+  LUMINANCE_B,
+  LUMINANCE_G,
+  LUMINANCE_R,
+  MIN_USERNAME_LUMINANCE,
+} from '../../constants/ui';
 import type {
   BadgeItem,
   BttvEmote,
@@ -19,19 +45,6 @@ import type {
   WorkerEmoteData,
 } from '../../types/twitch';
 import { toHHMMSS } from '../../utils/time';
-
-// ─── CDNs ──────────────────────────────────────────────────────────────────
-
-const BASE_FFZ_EMOTE_API = 'https://api.frankerfacez.com/v1';
-const BASE_BTTV_EMOTE_API = 'https://api.betterttv.net/3';
-const BASE_7TV_EMOTE_API = 'https://7tv.io/v3';
-const BASE_7TV_EMOTE_CDN = 'https://cdn.7tv.app/emote';
-const BASE_TWITCH_CDN = 'https://static-cdn.jtvnw.net';
-
-// ─── Constants ─────────────────────────────────────────────────────────────
-
-const CHAT_LOOP_INTERVAL_MS = 1000;
-const CHAT_STATE_CHANGE_DELAY_MS = 300;
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -72,9 +85,9 @@ function adjustUsernameColor(hex: string): string {
   let g = parseInt(hex.slice(3, 5), 16);
   let b = parseInt(hex.slice(5, 7), 16);
 
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  const luminance = LUMINANCE_R * r + LUMINANCE_G * g + LUMINANCE_B * b;
 
-  if (luminance < 90) {
+  if (luminance < MIN_USERNAME_LUMINANCE) {
     const mix = (90 - luminance) / 90;
     r = Math.round(r + (255 - r) * mix);
     g = Math.round(g + (255 - g) * mix);
@@ -97,8 +110,8 @@ function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: 
 
     case 'twitch': {
       const f = fragment as TwitchEmoteFragment;
-      const src = `${BASE_TWITCH_CDN}/emoticons/v2/${f.emoteID}/default/dark/1.0`;
-      const srcSet = `${BASE_TWITCH_CDN}/emoticons/v2/${f.emoteID}/default/dark/1.0 1x, ${BASE_TWITCH_CDN}/emoticons/v2/${f.emoteID}/default/dark/2.0 2x, ${BASE_TWITCH_CDN}/emoticons/v2/${f.emoteID}/default/dark/3.0 4x`;
+      const src = `${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/1.0`;
+      const srcSet = `${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/1.0 1x, ${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/2.0 2x, ${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/3.0 4x`;
       return (
         <span key={key} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
           <img
@@ -121,8 +134,8 @@ function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: 
     case 'custom': {
       const f = fragment as CustomEmoteFragment;
       const isZeroWidth = f.isZeroWidth;
-      const src = `${BASE_7TV_EMOTE_CDN}/${f.id}/1x.webp`;
-      const srcSet = `${BASE_7TV_EMOTE_CDN}/${f.id}/1x.webp 1x, ${BASE_7TV_EMOTE_CDN}/${f.id}/2x.webp 2x, ${BASE_7TV_EMOTE_CDN}/${f.id}/3x.webp 3x, ${BASE_7TV_EMOTE_CDN}/${f.id}/4x.webp 4x`;
+      const src = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp`;
+      const srcSet = `${SEVENTV_CDN_BASE}/${f.id}/1x.webp 1x, ${SEVENTV_CDN_BASE}/${f.id}/2x.webp 2x, ${SEVENTV_CDN_BASE}/${f.id}/3x.webp 3x, ${SEVENTV_CDN_BASE}/${f.id}/4x.webp 4x`;
 
       const imgStyle: React.CSSProperties = {
         verticalAlign: 'middle',
@@ -288,7 +301,7 @@ const MemoizedComment = memo(
 // ─── Skeleton loader ───────────────────────────────────────────────────────
 
 function ChatSkeleton(): React.ReactNode {
-  const items = Array.from({ length: 8 }, (_, idx) => idx);
+  const items = Array.from({ length: CHAT_SKELETON_COUNT }, (_, idx) => idx);
   return (
     <div className="flex flex-col gap-2 p-2">
       {items.map((idx) => (
@@ -404,7 +417,11 @@ function useChatEngine({
     paginationAbortRef.current = new AbortController();
     lastFetchedCursorRef.current = cursorRef.current;
 
-    fetchWithRetry(() => getComments(vodId, parseFloat(cursorRef.current ?? '0')), 3, 1000)
+    fetchWithRetry(
+      () => getComments(vodId, parseFloat(cursorRef.current ?? '0')),
+      CHAT_FETCH_RETRIES,
+      CHAT_RETRY_DELAY_MS,
+    )
       .then((res) => {
         if (!res) return;
         stoppedAtIndexRef.current = 0;
@@ -536,14 +553,14 @@ function useChatEngine({
 
       const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
       const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
-      const atBottom = distanceFromBottom <= 50;
+      const atBottom = distanceFromBottom <= CHAT_BOTTOM_THRESHOLD;
 
       if (atBottom) {
         isAtBottomRef.current = true;
         setScrolling(false);
         scrollingRef.current = false;
       } else {
-        if (scrollTop < lastScrollTopRef.current - 25) {
+        if (scrollTop < lastScrollTopRef.current - CHAT_SCROLL_UP_THRESHOLD) {
           isAtBottomRef.current = false;
           setScrolling(true);
           scrollingRef.current = true;
@@ -574,7 +591,7 @@ function useChatEngine({
     async (offset: number = 0) => {
       try {
         setIsLoading(true);
-        const res = await fetchWithRetry(() => getComments(vodId, offset), 3, 1000);
+        const res = await fetchWithRetry(() => getComments(vodId, offset), CHAT_FETCH_RETRIES, CHAT_RETRY_DELAY_MS);
 
         if (!res) {
           setIsLoading(false);
@@ -634,7 +651,7 @@ function useChatEngine({
       },
       {
         root: chatRef.current,
-        rootMargin: '0px 0px 100px 0px',
+        rootMargin: CHAT_INTERSECTION_MARGIN,
         threshold: 0,
       },
     );
@@ -716,7 +733,7 @@ export default function ChatReplay({
   userChatDelay,
   playerState,
   isPortrait = false,
-  chatWidth = 340,
+  chatWidth = DEFAULT_CHAT_WIDTH,
   setChatWidth,
 }: ChatReplayProps) {
   const [showChat, setShowChat] = useState(true);
@@ -728,8 +745,8 @@ export default function ChatReplay({
   const [filterWords] = useState<string[]>([]);
 
   const [showTimestamp, setShowTimestamp] = useState(false);
-  const [fontFamily] = useState('Inter, sans-serif');
-  const [messageFontSize] = useState(14);
+  const [fontFamily] = useState(DEFAULT_CHAT_FONT_FAMILY);
+  const [messageFontSize] = useState(DEFAULT_CHAT_FONT_SIZE);
 
   const badgesRef = useRef<BadgeRef | null>(null);
 
@@ -787,7 +804,7 @@ export default function ChatReplay({
 
     const loadBTTVGlobalEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_BTTV_EMOTE_API}/cached/emotes/global`, { signal: abortController.signal });
+        const response = await fetch(`${BTTV_API_BASE}/cached/emotes/global`, { signal: abortController.signal });
         const data = await response.json();
         if (!abortController.signal.aborted && Array.isArray(data)) {
           setBttvEmotes((prev) => [...prev, ...data]);
@@ -799,7 +816,7 @@ export default function ChatReplay({
 
     const loadBTTVChannelEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_BTTV_EMOTE_API}/cached/users/twitch/${twitchId}`, {
+        const response = await fetch(`${BTTV_API_BASE}/cached/users/twitch/${twitchId}`, {
           signal: abortController.signal,
         });
         const data = await response.json();
@@ -815,7 +832,7 @@ export default function ChatReplay({
 
     const loadFFZEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_FFZ_EMOTE_API}/room/id/${twitchId}`, { signal: abortController.signal });
+        const response = await fetch(`${FFZ_API_BASE}/room/id/${twitchId}`, { signal: abortController.signal });
         const data = await response.json();
         if (!abortController.signal.aborted && data && typeof data === 'object') {
           const d = data as { sets?: Record<string, { emoticons: FfzEmote[] }>; room?: { set?: number } };
@@ -829,7 +846,7 @@ export default function ChatReplay({
 
     const load7TVEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_7TV_EMOTE_API}/users/twitch/${twitchId}`, {
+        const response = await fetch(`${SEVENTV_API_BASE}/users/twitch/${twitchId}`, {
           signal: abortController.signal,
         });
         const data = await response.json();
@@ -844,7 +861,7 @@ export default function ChatReplay({
 
     const load7TVGlobalEmotes = async () => {
       try {
-        const response = await fetch(`${BASE_7TV_EMOTE_API}/emote-sets/global`, {
+        const response = await fetch(`${SEVENTV_API_BASE}/emote-sets/global`, {
           signal: abortController.signal,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -1056,8 +1073,8 @@ export default function ChatReplay({
                   </div>
                   <input
                     type="range"
-                    min="150"
-                    max="800"
+                    min={DEFAULT_CHAT_WIDTH_MIN}
+                    max={DEFAULT_CHAT_WIDTH_MAX}
                     value={chatWidth}
                     onChange={(e) => setChatWidth(Number(e.target.value))}
                     className="w-full accent-primary"

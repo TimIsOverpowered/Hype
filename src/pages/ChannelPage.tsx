@@ -3,6 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getNextVods, getVods } from '../api/twitch';
+import { INTERSECTION_OBSERVER_MARGIN } from '../constants/ui';
 import type { VodEdge, VodPage } from '../types/twitch';
 import { toHHMMSS } from '../utils/time';
 
@@ -96,7 +97,7 @@ export default function ChannelPage() {
           fetchNextPage();
         }
       },
-      { root, rootMargin: '200px' },
+      { root, rootMargin: INTERSECTION_OBSERVER_MARGIN },
     );
 
     observer.observe(el);
