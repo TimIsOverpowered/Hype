@@ -434,12 +434,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             <Play className="h-[15%] max-h-[72px] min-h-[32px] w-[15%] max-w-[72px] min-w-[32px] translate-x-1 text-white drop-shadow-2xl" />
           </div>
 
-          {isBuffering && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <Loader2 className="h-10 w-10 animate-spin text-white/80" />
-            </div>
-          )}
-
           <div
             className="absolute right-0 bottom-0 left-0 flex flex-col justify-end"
             style={{
@@ -766,6 +760,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               </div>
             </div>
           </div>
+
+          {isBuffering && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30">
+              <Loader2 className="h-10 w-10 animate-spin text-white/80" />
+            </div>
+          )}
         </>
       )}
     </div>
