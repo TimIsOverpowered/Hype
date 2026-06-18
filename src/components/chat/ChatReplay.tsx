@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { getBadges, getComments } from '../../api/twitch';
 import {
@@ -54,9 +55,10 @@ interface ChatReplayProps {
   readonly playerRef: React.RefObject<unknown>;
   readonly userChatDelay: number;
   readonly playerState: number;
-  readonly isPortrait?: boolean;
   readonly chatWidth?: number;
   readonly setChatWidth?: (w: number) => void;
+  readonly showChat?: boolean;
+  readonly setShowChat?: (v: boolean) => void;
 }
 
 interface BadgeRef {
@@ -732,11 +734,14 @@ export default function ChatReplay({
   playerRef,
   userChatDelay,
   playerState,
-  isPortrait = false,
   chatWidth = DEFAULT_CHAT_WIDTH,
   setChatWidth,
+  showChat: showChatProp,
+  setShowChat: setShowChatProp,
 }: ChatReplayProps) {
-  const [showChat, setShowChat] = useState(true);
+  const [showChatInternal, setShowChatInternal] = useState(true);
+  const showChat = showChatProp ?? showChatInternal;
+  const setShowChat = setShowChatProp ?? setShowChatInternal;
   const [showSettings, setShowSettings] = useState(false);
 
   const [bttvEmotes, setBttvEmotes] = useState<BttvEmote[]>([]);
@@ -897,55 +902,36 @@ export default function ChatReplay({
 
   return (
     <div
-      className={`${isPortrait ? 'w-full flex-1' : 'shrink-0 self-stretch'} relative flex min-h-0 flex-col bg-surface`}
-      style={isPortrait ? undefined : { width: `${chatWidth}px` }}
+      className="absolute right-0 top-0 h-full relative flex min-h-0 flex-col bg-surface"
+      style={{ width: showChat ? `${chatWidth}px` : '0px' }}
     >
       {showChat && (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-sm font-medium text-text-primary">Chat Replay</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setShowTimestamp(!showTimestamp)}
-                className={`rounded px-1.5 py-0.5 text-xs transition-colors ${showTimestamp ? 'bg-white/10 text-text-primary' : 'text-text-secondary hover:bg-white/5'}`}
-                title="Toggle timestamps"
-              >
-                Timestamps
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSettings(!showSettings)}
-                className="rounded p-1 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
-                title="Settings"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <title>Settings</title>
-                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </button>
-            </div>
+          <div className="flex flex-nowrap items-center justify-between px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setShowChat(!showChat)}
+              className="text-text-secondary transition-colors hover:text-text-primary"
+              title="Collapse"
+            >
+              {showChat ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+            </button>
+            <span className="flex-1 text-center text-sm font-medium text-text-primary">Chat Replay</span>
+            <button
+              type="button"
+              onClick={() => setShowSettings(!showSettings)}
+              className="text-text-secondary transition-colors hover:text-text-primary"
+              title="Settings"
+            >
+              <Settings size={20} />
+            </button>
           </div>
 
           <hr className="border-t border-border" />
 
           {/* Messages */}
-          <div
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-            style={{ width: isPortrait ? '100%' : `${chatWidth}px` }}
-          >
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={{ width: `${chatWidth}px` }}>
             <div
               ref={chatRef}
               onScroll={handleScroll}
@@ -999,36 +985,16 @@ export default function ChatReplay({
         </>
       )}
 
-      {!isPortrait && !showChat && (
-        <div className="absolute top-2 right-2 z-50">
-          <button
-            type="button"
-            onClick={() => setShowChat(!showChat)}
-            className="flex cursor-pointer items-center justify-center rounded-l-lg border border-border bg-surface p-1.5 text-text-primary shadow-xl transition-all hover:bg-surface-elevated hover:text-text-primary"
-            title="Expand Chat"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Expand Chat</title>
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        </div>
-      )}
-
       {/* Settings panel */}
       {showSettings && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
-          <div className="w-72 rounded-lg border border-border bg-surface p-4 text-text-primary">
+        <div
+          className="absolute inset-0 z-40 flex cursor-pointer items-center justify-center bg-black/50"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="w-72 rounded-lg border border-border bg-surface p-4 text-text-primary"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-medium">Chat Settings</h3>
               <button

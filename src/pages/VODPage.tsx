@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getChapters, getVod, getVodToken, resolveM3u8 } from '../api/twitch';
@@ -26,6 +27,7 @@ export default function VODPage() {
   const [currentTime, setCurrentTime] = useState(0);
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [showChat, setShowChat] = useState(true);
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
 
   const { progress, isRunning, error: jobError, elapsed, startClip, startDownload, cancel } = useClipJob();
@@ -188,7 +190,7 @@ export default function VODPage() {
   return (
     <div className="flex h-full w-full flex-col bg-background">
       {/* Player + Chat row — 50% height */}
-      <div className="flex h-[50%] w-full">
+      <div className="relative flex h-[50%] w-full">
         <div className="flex min-w-0 flex-1 flex-col bg-black">
           <SimpleVideoPlayer
             vodId={vodId || ''}
@@ -205,7 +207,19 @@ export default function VODPage() {
           playerRef={playerRef as React.RefObject<unknown>}
           userChatDelay={0}
           playerState={playerState}
+          showChat={showChat}
+          setShowChat={setShowChat}
         />
+        {!showChat && (
+          <button
+            type="button"
+            onClick={() => setShowChat(!showChat)}
+            className="absolute top-2 right-2 z-50 flex cursor-pointer items-center justify-center rounded-l-lg border border-border bg-surface p-1.5 text-text-primary shadow-xl transition-all hover:bg-surface-elevated hover:text-text-primary"
+            title="Expand Chat"
+          >
+            <ChevronLeft size={16} />
+          </button>
+        )}
       </div>
 
       {/* Clip bar + Graph + Job progress — remaining 50% */}
