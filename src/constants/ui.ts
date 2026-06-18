@@ -34,7 +34,9 @@ export const DEFAULT_CHAT_WIDTH = 340;
 // Chat UI
 export const DEFAULT_CHAT_FONT_FAMILY = 'Inter, sans-serif';
 export const DEFAULT_CHAT_FONT_SIZE = 14;
-export const CHAT_SKELETON_COUNT = 8;
+export const CHAT_SKELETON_COUNT = 24;
+export const CHAT_MAX_MESSAGES = 1500;
+export const CHAT_MAX_MESSAGES_AT_BOTTOM = 200;
 
 // Graph
 export const DEFAULT_INTERVAL_SECONDS = 10;

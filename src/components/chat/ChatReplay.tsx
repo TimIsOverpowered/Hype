@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pause, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { getBadges, getComments } from '../../api/twitch';
 import {
@@ -13,6 +13,8 @@ import {
   CHAT_FETCH_RETRIES,
   CHAT_INTERSECTION_MARGIN,
   CHAT_LOOP_INTERVAL_MS,
+  CHAT_MAX_MESSAGES,
+  CHAT_MAX_MESSAGES_AT_BOTTOM,
   CHAT_RETRY_DELAY_MS,
   CHAT_SCROLL_UP_THRESHOLD,
   CHAT_SKELETON_COUNT,
@@ -263,7 +265,7 @@ const MemoizedComment = memo(
 
     return (
       <div
-        className="flex w-full shrink-0 items-baseline px-2 py-1 transition-colors hover:bg-white/5"
+        className="chat-message-highlight flex w-full shrink-0 items-baseline px-2 py-1 transition-colors hover:bg-white/5"
         style={{ '--highlight-color': adjustedColor } as React.CSSProperties}
       >
         {showTimestamp && (
@@ -369,7 +371,17 @@ function useChatEngine({
 
       worker.onmessage = (e: MessageEvent<OutgoingWorkerMessage>) => {
         if (e.data.type === 'result') {
-          setMessages([...e.data.payload.messages]);
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const unique = e.data.payload.messages.filter((m) => !existingIds.has(m.id));
+            if (unique.length === 0) return prev;
+            const merged = [...prev, ...unique];
+            const maxLimit = isAtBottomRef.current ? CHAT_MAX_MESSAGES_AT_BOTTOM : CHAT_MAX_MESSAGES;
+            if (merged.length > maxLimit) {
+              merged.splice(0, merged.length - maxLimit);
+            }
+            return merged;
+          });
         }
       };
     } catch {
@@ -450,17 +462,21 @@ function useChatEngine({
   }, [playerRef, userChatDelay]);
 
   const isPlaying = useCallback(() => {
-    const current = playerRef.current;
-    if (!current) return false;
-    if (typeof current === 'object' && current !== null && 'paused' in current) {
-      return (current as { paused: boolean }).paused === false;
-    }
-    return false;
-  }, [playerRef]);
+    return playerState === 1;
+  }, [playerState]);
 
-  const processAndSend = useCallback(() => {
+  const buildComments = useCallback(() => {
+    if (
+      !playerRef.current ||
+      commentsRef.current.length === 0 ||
+      !cursorRef.current ||
+      stoppedAtIndexRef.current === null
+    )
+      return;
+    if (!isPlaying()) return;
+
     const worker = workerRef.current;
-    if (!worker || commentsRef.current.length === 0 || !cursorRef.current) return;
+    if (!worker) return;
 
     const time = getCurrentTime();
 
@@ -484,7 +500,6 @@ function useChatEngine({
     if (stoppedAtIndexRef.current === lastIndex && stoppedAtIndexRef.current !== 0) return;
 
     const rawSlice = commentsRef.current.slice(stoppedAtIndexRef.current, lastIndex);
-
     if (rawSlice.length === 0) return;
 
     const payload: IncomingWorkerMessage = {
@@ -497,28 +512,15 @@ function useChatEngine({
       },
     };
 
-    worker.postMessage(payload);
-
     newMessagesRef.current = rawSlice;
     stoppedAtIndexRef.current = lastIndex;
+
+    worker.postMessage(payload);
 
     if (commentsRef.current.length === lastIndex && !isFetchingNextRef.current) {
       fetchNextComments();
     }
-  }, [getCurrentTime, filterWords, emoteData, fetchNextComments]);
-
-  const buildComments = useCallback(() => {
-    if (
-      !playerRef.current ||
-      commentsRef.current.length === 0 ||
-      !cursorRef.current ||
-      stoppedAtIndexRef.current === null
-    )
-      return;
-    if (!isPlaying()) return;
-
-    processAndSend();
-  }, [playerRef, isPlaying, processAndSend]);
+  }, [playerRef, isPlaying, getCurrentTime, filterWords, emoteData, fetchNextComments]);
 
   const scrollToBottom = useCallback(() => {
     if (!chatRef.current) return;
@@ -685,7 +687,7 @@ function useChatEngine({
           time < commentsRef.current[0].contentOffsetSeconds ||
           time > commentsRef.current[commentsRef.current.length - 1].contentOffsetSeconds
         ) {
-          playRef.current = window.setTimeout(() => {
+          playRef.current = window.setTimeout(async () => {
             stopLoop();
             stoppedAtIndexRef.current = 0;
             commentsRef.current = [];
@@ -694,7 +696,7 @@ function useChatEngine({
             setCommentsCount(0);
             hasFetchedRef.current = false;
             setIsLoading(true);
-            fetchComments(time);
+            await fetchComments(time);
             loopCbRef.current?.();
           }, CHAT_STATE_CHANGE_DELAY_MS);
         } else {
@@ -931,54 +933,44 @@ export default function ChatReplay({
           <hr className="border-t border-border" />
 
           {/* Messages */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={{ width: `${chatWidth}px` }}>
-            <div
-              ref={chatRef}
-              onScroll={handleScroll}
-              className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
-              style={{ overflowAnchor: 'none' }}
-            >
-              <div className="flex shrink-0 flex-col">
-                {isLoading ? (
-                  <ChatSkeleton />
-                ) : commentsCount === 0 ? (
-                  <div className="flex h-full w-full flex-1 flex-col items-center justify-center py-8">
-                    <p className="text-sm text-text-muted">No messages</p>
-                  </div>
-                ) : (
-                  <>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {commentsCount === 0 ? (
+              isLoading ? (
+                <ChatSkeleton />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center">
+                  <p className="text-sm text-text-muted">No messages</p>
+                </div>
+              )
+            ) : (
+              <>
+                <div
+                  ref={chatRef}
+                  onScroll={handleScroll}
+                  className="chat-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
+                  style={{ overflowAnchor: 'none' }}
+                >
+                  <div className="min-h-0 flex-1"></div>
+
+                  <div className="flex shrink-0 flex-col py-2">
                     {commentElements}
                     <div ref={bottomAnchorRef} className="pointer-events-none h-[1px] w-full shrink-0 opacity-0" />
-                  </>
-                )}
-              </div>
-            </div>
+                  </div>
+                </div>
 
-            {scrolling && (
-              <div className="relative flex justify-center">
-                <button
-                  type="button"
-                  onClick={scrollToBottom}
-                  className="absolute bottom-1 z-10 flex cursor-pointer items-center gap-1.5 rounded-full bg-surface-elevated px-4 py-2 text-xs text-text-muted shadow-md transition-all hover:bg-surface-elevated hover:text-text-primary"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <title>Resume chat</title>
-                    <rect x="6" y="4" width="4" height="16" />
-                    <rect x="14" y="4" width="4" height="16" />
-                  </svg>
-                  <span>Chat Paused</span>
-                </button>
-              </div>
+                {scrolling && (
+                  <div className="relative flex justify-center">
+                    <button
+                      type="button"
+                      onClick={scrollToBottom}
+                      className="absolute bottom-1 z-10 flex cursor-pointer items-center gap-1.5 rounded-full bg-surface-elevated px-4 py-2 text-xs text-text-muted shadow-md transition-all hover:bg-surface-elevated hover:text-text-primary"
+                    >
+                      <Pause size={18} />
+                      <span>Chat Paused</span>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>

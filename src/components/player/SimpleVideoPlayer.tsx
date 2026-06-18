@@ -25,6 +25,7 @@ export interface SimpleVideoPlayerHandle {
   readonly seek: (time: number) => void;
   readonly play: () => void;
   readonly pause: () => void;
+  readonly currentTime: number;
 }
 
 const SimpleVideoPlayer = forwardRef<SimpleVideoPlayerHandle, SimpleVideoPlayerProps>(
@@ -66,6 +67,9 @@ const SimpleVideoPlayer = forwardRef<SimpleVideoPlayerHandle, SimpleVideoPlayerP
         if (video) {
           video.pause();
         }
+      },
+      get currentTime() {
+        return videoRef.current?.currentTime ?? 0;
       },
     }));
 

@@ -267,7 +267,7 @@ export async function getComments(vodId: string, offset: number): Promise<Commen
     operationName: 'VideoCommentsByOffsetOrCursor',
     variables: {
       videoID: vodId,
-      contentOffsetSeconds: offset,
+      contentOffsetSeconds: Math.floor(offset),
     },
     extensions: {
       persistedQuery: {
