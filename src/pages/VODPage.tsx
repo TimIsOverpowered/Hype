@@ -176,8 +176,8 @@ export default function VODPage() {
   }, [paramVodId, loadVod]);
 
   const handleClip = useCallback(
-    (_m3u8Url: string, startSeconds: number, durationSeconds: number) => {
-      startClip(m3u8Url, startSeconds, durationSeconds);
+    (vodId: string, _m3u8Url: string, startSeconds: number, durationSeconds: number) => {
+      startClip(vodId, m3u8Url, startSeconds, durationSeconds);
     },
     [startClip, m3u8Url],
   );

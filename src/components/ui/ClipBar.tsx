@@ -6,12 +6,12 @@ interface ClipBarProps {
   readonly m3u8Url: string;
   readonly duration: number;
   readonly currentTime: number;
-  readonly onClip: (m3u8Url: string, startSeconds: number, durationSeconds: number) => void;
+  readonly onClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => void;
   readonly onDownload: () => void;
   readonly isProcessing: boolean;
 }
 
-export default function ClipBar({ currentTime, onClip, onDownload, isProcessing }: ClipBarProps) {
+export default function ClipBar({ currentTime, vodId, onClip, onDownload, isProcessing }: ClipBarProps) {
   const [startStr, setStartStr] = useState('00:00:00');
   const [endStr, setEndStr] = useState('00:00:00');
 
@@ -20,7 +20,7 @@ export default function ClipBar({ currentTime, onClip, onDownload, isProcessing 
     const startSec = toSeconds(startStr);
     const endSec = toSeconds(endStr);
     if (startSec >= endSec) return;
-    onClip('', startSec, endSec - startSec);
+    onClip(vodId, '', startSec, endSec - startSec);
   };
 
   return (
