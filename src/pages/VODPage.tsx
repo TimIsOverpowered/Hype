@@ -1,7 +1,7 @@
 import { ChevronLeft } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getChapters, getVod, getVodToken, resolveM3u8 } from '../api/twitch';
+import { getVod, getVodToken, resolveM3u8 } from '../api/twitch';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
 import SimpleVideoPlayer, { type SimpleVideoPlayerHandle } from '../components/player/SimpleVideoPlayer';
@@ -19,7 +19,7 @@ export default function VODPage() {
 
   const [m3u8Url, setM3u8Url] = useState('');
   const [vodInfo, setVodInfo] = useState<{ id: string; title: string; lengthSeconds: number } | null>(null);
-  const [twitchId, setTwitchId] = useState<number | undefined>();
+  const [broadcasterId, setBroadcasterId] = useState<string | undefined>();
 
   const playerRef = useRef<SimpleVideoPlayerHandle>(null);
   const [playerState, setPlayerState] = useState<number>(-1);
@@ -39,7 +39,7 @@ export default function VODPage() {
   });
 
   useEffect(() => {
-    if (!twitchId) return;
+    if (!broadcasterId) return;
 
     const abortController = new AbortController();
 
@@ -57,7 +57,7 @@ export default function VODPage() {
 
     const loadBTTVChannelEmotes = async () => {
       try {
-        const response = await fetch(`${BTTV_API_BASE}/cached/users/twitch/${twitchId}`, {
+        const response = await fetch(`${BTTV_API_BASE}/cached/users/twitch/${broadcasterId}`, {
           signal: abortController.signal,
         });
         const data = await response.json();
@@ -73,7 +73,7 @@ export default function VODPage() {
 
     const loadFFZEmotes = async () => {
       try {
-        const response = await fetch(`${FFZ_API_BASE}/room/id/${twitchId}`, { signal: abortController.signal });
+        const response = await fetch(`${FFZ_API_BASE}/room/id/${broadcasterId}`, { signal: abortController.signal });
         const raw = await response.json();
         if (!abortController.signal.aborted && raw && typeof raw === 'object') {
           const d = raw as { sets?: Record<string, { emoticons: FfzEmote[] }>; room?: { set?: number } };
@@ -87,7 +87,7 @@ export default function VODPage() {
 
     const load7TVEmotes = async () => {
       try {
-        const response = await fetch(`${SEVENTV_API_BASE}/users/twitch/${twitchId}`, {
+        const response = await fetch(`${SEVENTV_API_BASE}/users/twitch/${broadcasterId}`, {
           signal: abortController.signal,
         });
         const data = await response.json();
@@ -123,7 +123,7 @@ export default function VODPage() {
     load7TVGlobalEmotes();
 
     return () => abortController.abort();
-  }, [twitchId]);
+  }, [broadcasterId]);
 
   const loadVod = useCallback(async () => {
     const id = vodId.trim();
@@ -142,16 +142,10 @@ export default function VODPage() {
         token.signature,
         vod.previewThumbnailURL,
       );
-      const chapters = await getChapters(id);
-      const firstChapter = chapters.find((c) => c.node.details.game);
-      const gameId = firstChapter?.node.details.game?.id;
-
       setVodInfo({ id: vod.id, title: vod.title, lengthSeconds: vod.lengthSeconds });
       setM3u8Url(m3u8);
       setVariants(m3u8Variants);
-      if (gameId) {
-        setTwitchId(Number(gameId));
-      }
+      setBroadcasterId(vod.creator.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load VOD');
     }
@@ -208,12 +202,12 @@ export default function VODPage() {
         </div>
         <ChatReplay
           vodId={vodId || ''}
-          twitchId={twitchId}
           playerRef={playerRef as React.RefObject<unknown>}
           userChatDelay={0}
           playerState={playerState}
           showChat={showChat}
           setShowChat={setShowChat}
+          emoteData={emoteDataRef.current}
         />
         {!showChat && (
           <button

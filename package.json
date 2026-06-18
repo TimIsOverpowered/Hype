@@ -21,6 +21,7 @@
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2",
     "@tauri-apps/plugin-updater": "^2",
+    "@twemoji/api": "^17.0.3",
     "@vidstack/react": "^1.15.6",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",

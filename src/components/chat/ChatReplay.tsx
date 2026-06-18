@@ -1,15 +1,7 @@
 import { ChevronLeft, ChevronRight, Pause, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { getBadges, getComments } from '../../api/twitch';
-import {
-  BTTV_API_BASE,
-  BTTV_CDN_BASE,
-  FFZ_API_BASE,
-  FFZ_CDN_BASE,
-  SEVENTV_API_BASE,
-  SEVENTV_CDN_BASE,
-  TWITCH_CDN_BASE,
-} from '../../constants/emotes';
+import { BTTV_CDN_BASE, FFZ_CDN_BASE, SEVENTV_CDN_BASE, TWITCH_CDN_BASE } from '../../constants/emotes';
 import {
   CHAT_BOTTOM_THRESHOLD,
   CHAT_FETCH_RETRIES,
@@ -32,17 +24,14 @@ import {
   MIN_USERNAME_LUMINANCE,
 } from '../../constants/ui';
 import type {
-  BttvEmote,
   ChatBadge,
   CommentNode,
   CustomEmoteFragment,
   EmojiFragment,
-  FfzEmote,
   FormattedFragment,
   FormattedMessage,
   IncomingWorkerMessage,
   OutgoingWorkerMessage,
-  SevenTVEmote,
   TextFragment,
   TwitchBadge,
   TwitchEmoteFragment,
@@ -51,12 +40,13 @@ import type {
 } from '../../types/twitch';
 import { toHHMMSS } from '../../utils/time';
 import MessageTooltip from './MessageTooltip';
+import { Twemoji } from './Twemoji';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface ChatReplayProps {
   readonly vodId: string;
-  readonly twitchId?: number;
+  readonly broadcasterId?: string;
   readonly playerRef: React.RefObject<unknown>;
   readonly userChatDelay: number;
   readonly playerState: number;
@@ -64,6 +54,7 @@ interface ChatReplayProps {
   readonly setChatWidth?: (w: number) => void;
   readonly showChat?: boolean;
   readonly setShowChat?: (v: boolean) => void;
+  readonly emoteData?: WorkerEmoteData;
 }
 
 interface BadgeRef {
@@ -129,7 +120,8 @@ function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: 
                 src={`${TWITCH_CDN_BASE}/emoticons/v2/${f.emoteID}/default/dark/2.0`}
                 alt=""
               />
-              <p className="block text-xs">{`Emote: ${f.emoteID}`}</p>
+              <p className="block text-xs">{`Emote: ${f.text}`}</p>
+              <p className="block text-xs">Twitch Emotes</p>
             </div>
           }
         >
@@ -218,9 +210,19 @@ function renderFragment(fragment: FormattedFragment, _keyPrefix: string, index: 
     case 'emoji': {
       const f = fragment as EmojiFragment;
       return (
-        <span key={key} style={{ display: 'inline-block', verticalAlign: 'middle', fontSize: '1.1em' }}>
-          {f.text}
-        </span>
+        <MessageTooltip
+          key={key}
+          title={
+            <div className="flex w-fit flex-col items-center">
+              <Twemoji options={{ className: 'twemoji' }}>{f.text}</Twemoji>
+              <p className="block text-xs">Twitter Emotes</p>
+            </div>
+          }
+        >
+          <span style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+            <Twemoji options={{ className: 'twemoji' }}>{f.text}</Twemoji>
+          </span>
+        </MessageTooltip>
       );
     }
 
@@ -768,7 +770,6 @@ function useChatEngine({
 
 export default function ChatReplay({
   vodId,
-  twitchId,
   playerRef,
   userChatDelay,
   playerState,
@@ -776,15 +777,13 @@ export default function ChatReplay({
   setChatWidth,
   showChat: showChatProp,
   setShowChat: setShowChatProp,
+  emoteData,
 }: ChatReplayProps) {
   const [showChatInternal, setShowChatInternal] = useState(true);
   const showChat = showChatProp ?? showChatInternal;
   const setShowChat = setShowChatProp ?? setShowChatInternal;
   const [showSettings, setShowSettings] = useState(false);
 
-  const [bttvEmotes, setBttvEmotes] = useState<BttvEmote[]>([]);
-  const [ffzEmotes, setFfzEmotes] = useState<FfzEmote[]>([]);
-  const [seventvEmotes, setSeventvEmotes] = useState<SevenTVEmote[]>([]);
   const [filterWords] = useState<string[]>([]);
 
   const [showTimestamp, setShowTimestamp] = useState(false);
@@ -793,19 +792,13 @@ export default function ChatReplay({
 
   const badgesRef = useRef<BadgeRef | null>(null);
 
-  const emoteData: WorkerEmoteData = {
-    bttv: bttvEmotes,
-    ffz: ffzEmotes,
-    seventv: seventvEmotes,
-  };
-
   const { messages, scrolling, isLoading, commentsCount, chatRef, bottomAnchorRef, handleScroll, scrollToBottom } =
     useChatEngine({
       vodId,
       playerRef,
       userChatDelay,
       playerState,
-      emoteData,
+      emoteData: emoteData ?? { bttv: [], ffz: [], seventv: [] },
       filterWords,
     });
 
@@ -838,94 +831,6 @@ export default function ChatReplay({
 
     return () => abortController.abort();
   }, [vodId]);
-
-  // Fetch emotes (fallback only, no archive API)
-  useEffect(() => {
-    if (!twitchId) return;
-
-    const abortController = new AbortController();
-
-    const loadBTTVGlobalEmotes = async () => {
-      try {
-        const response = await fetch(`${BTTV_API_BASE}/cached/emotes/global`, { signal: abortController.signal });
-        const data = await response.json();
-        if (!abortController.signal.aborted && Array.isArray(data)) {
-          setBttvEmotes((prev) => [...prev, ...data]);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const loadBTTVChannelEmotes = async () => {
-      try {
-        const response = await fetch(`${BTTV_API_BASE}/cached/users/twitch/${twitchId}`, {
-          signal: abortController.signal,
-        });
-        const data = await response.json();
-        if (!abortController.signal.aborted && data && typeof data === 'object') {
-          const d = data as { sharedEmotes?: BttvEmote[]; channelEmotes?: BttvEmote[] };
-          const combined = [...(d.sharedEmotes ?? []), ...(d.channelEmotes ?? [])];
-          setBttvEmotes((prev) => [...prev, ...combined]);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const loadFFZEmotes = async () => {
-      try {
-        const response = await fetch(`${FFZ_API_BASE}/room/id/${twitchId}`, { signal: abortController.signal });
-        const data = await response.json();
-        if (!abortController.signal.aborted && data && typeof data === 'object') {
-          const d = data as { sets?: Record<string, { emoticons: FfzEmote[] }>; room?: { set?: number } };
-          const emoticons = d.sets?.[String(d.room?.set)]?.emoticons ?? [];
-          setFfzEmotes(emoticons);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const load7TVEmotes = async () => {
-      try {
-        const response = await fetch(`${SEVENTV_API_BASE}/users/twitch/${twitchId}`, {
-          signal: abortController.signal,
-        });
-        const data = await response.json();
-        if (!abortController.signal.aborted && data && typeof data === 'object') {
-          const d = data as { emote_set?: { emotes: SevenTVEmote[] } };
-          setSeventvEmotes(d.emote_set?.emotes ?? []);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const load7TVGlobalEmotes = async () => {
-      try {
-        const response = await fetch(`${SEVENTV_API_BASE}/emote-sets/global`, {
-          signal: abortController.signal,
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const data = await response.json();
-        if (!abortController.signal.aborted && data && typeof data === 'object') {
-          const d = data as { emotes: SevenTVEmote[] };
-          setSeventvEmotes((prev) => [...prev, ...(d.emotes ?? [])]);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    loadBTTVGlobalEmotes();
-    loadBTTVChannelEmotes();
-    loadFFZEmotes();
-    load7TVEmotes();
-    load7TVGlobalEmotes();
-
-    return () => abortController.abort();
-  }, [twitchId]);
 
   const commentElements = messages.map((msg) => (
     <MemoizedComment
