@@ -25,6 +25,7 @@ impl JobType {
         }
     }
 
+    #[allow(dead_code)]
     pub fn event_prefix(&self) -> &'static str {
         match self {
             JobType::Clip => "clip",
@@ -71,7 +72,6 @@ pub struct Job {
     pub error: Mutex<Option<String>>,
     pub cancel_flag: Arc<AtomicBool>,
     pub child_handle: Mutex<Option<Child>>,
-    pub app_handle: AppHandle,
 }
 
 pub struct JobQueue {
@@ -85,12 +85,7 @@ impl JobQueue {
         }
     }
 
-    pub fn submit(
-        &self,
-        job_type: JobType,
-        name: String,
-        app_handle: AppHandle,
-    ) -> String {
+    pub fn submit(&self, job_type: JobType, name: String) -> String {
         let id = uuid::Uuid::new_v4().to_string();
         let cancel_flag = Arc::new(AtomicBool::new(false));
         let progress = Arc::new(AtomicU8::new(0));
@@ -104,7 +99,6 @@ impl JobQueue {
             error: Mutex::new(None),
             cancel_flag,
             child_handle: Mutex::new(None),
-            app_handle,
         });
 
         self.jobs.write().unwrap().insert(id.clone(), job);
@@ -210,6 +204,7 @@ impl JobQueue {
         }
     }
 
+    #[allow(dead_code)]
     pub fn remove(&self, id: &str) {
         self.jobs.write().unwrap().remove(id);
     }

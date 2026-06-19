@@ -194,7 +194,6 @@ pub async fn submit_clip(
     let job_id = job_queue::get_queue().submit(
         job_queue::JobType::Clip,
         output_path.split('/').last().unwrap_or("clip.mp4").to_string(),
-        app.clone(),
     );
 
     let args: Vec<String> = vec![
@@ -232,7 +231,6 @@ pub async fn submit_download(
     let job_id = job_queue::get_queue().submit(
         job_queue::JobType::Download,
         output_path.split('/').last().unwrap_or("vod.mp4").to_string(),
-        app.clone(),
     );
 
     let args: Vec<String> = vec![
