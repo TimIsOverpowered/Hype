@@ -425,15 +425,10 @@ const VodGraph = memo(function VodGraph({
   }, [vodId, activeTab, runAggregate, userMessageThreshold, userSearchThreshold, interval, isWhitelisted]);
 
   useEffect(() => {
-    if (
-      vodId &&
-      propDurationRef.current > 0 &&
-      !fetchedRef.current &&
-      isWhitelisted === true
-    ) {
+    if (vodId && propDurationRef.current > 0 && !fetchedRef.current && isWhitelisted === true) {
       runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
     }
-  }, [propDuration, isWhitelisted]);
+  }, [isWhitelisted, activeTab, runAggregate, vodId, userMessageThreshold, userSearchThreshold, interval]);
 
   const handleChartClick = useCallback(
     (idx: number) => {
