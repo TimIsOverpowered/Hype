@@ -259,7 +259,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
     let hls: Hls | null = null;
     if (Hls.isSupported()) {
-      hls = new Hls({ loader: TauriHlsLoader, enableWorker: false });
+      hls = new Hls({
+        loader: TauriHlsLoader,
+        enableWorker: true,
+        lowLatencyMode: false,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 600,
+        maxBufferSize: 60 * 1000 * 1000,
+        backBufferLength: 30,
+      });
       hlsRef.current = hls;
       hls.loadSource(source);
       hls.attachMedia(video);
