@@ -1,0 +1,220 @@
+use std::collections::HashMap;
+use std::process::Child;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
+
+use serde::Serialize;
+use tauri::AppHandle;
+use tauri::Emitter;
+
+lazy_static::lazy_static! {
+    static ref JOB_QUEUE: JobQueue = JobQueue::new();
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum JobType {
+    Clip,
+    Download,
+}
+
+impl JobType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            JobType::Clip => "clip",
+            JobType::Download => "download",
+        }
+    }
+
+    pub fn event_prefix(&self) -> &'static str {
+        match self {
+            JobType::Clip => "clip",
+            JobType::Download => "download",
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize)]
+pub enum JobStatus {
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl JobStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            JobStatus::Running => "running",
+            JobStatus::Completed => "completed",
+            JobStatus::Failed => "failed",
+            JobStatus::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Serialize, Clone)]
+pub struct JobSummary {
+    pub id: String,
+    pub job_type: String,
+    pub name: String,
+    pub status: String,
+    pub progress: f32,
+    pub error: Option<String>,
+}
+
+pub struct Job {
+    pub id: String,
+    pub job_type: JobType,
+    pub name: String,
+    pub status: Mutex<JobStatus>,
+    pub progress: Arc<AtomicU8>,
+    pub error: Mutex<Option<String>>,
+    pub cancel_flag: Arc<AtomicBool>,
+    pub child_handle: Mutex<Option<Child>>,
+    pub app_handle: AppHandle,
+}
+
+pub struct JobQueue {
+    jobs: RwLock<HashMap<String, Arc<Job>>>,
+}
+
+impl JobQueue {
+    pub fn new() -> Self {
+        JobQueue {
+            jobs: RwLock::new(HashMap::new()),
+        }
+    }
+
+    pub fn submit(
+        &self,
+        job_type: JobType,
+        name: String,
+        app_handle: AppHandle,
+    ) -> String {
+        let id = uuid::Uuid::new_v4().to_string();
+        let cancel_flag = Arc::new(AtomicBool::new(false));
+        let progress = Arc::new(AtomicU8::new(0));
+
+        let job = Arc::new(Job {
+            id: id.clone(),
+            job_type,
+            name,
+            status: Mutex::new(JobStatus::Running),
+            progress,
+            error: Mutex::new(None),
+            cancel_flag,
+            child_handle: Mutex::new(None),
+            app_handle,
+        });
+
+        self.jobs.write().unwrap().insert(id.clone(), job);
+        id
+    }
+
+    pub fn cancel(&self, id: &str) -> bool {
+        let jobs = self.jobs.read().unwrap();
+        if let Some(job) = jobs.get(id) {
+            let mut status = job.status.lock().unwrap();
+            if *status == JobStatus::Running {
+                *status = JobStatus::Cancelled;
+                job.cancel_flag.store(true, Ordering::SeqCst);
+                if let Some(mut child) = job.child_handle.lock().ok().and_then(|mut c| c.take()) {
+                    let _ = child.kill();
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn list(&self) -> Vec<JobSummary> {
+        self.jobs
+            .read()
+            .unwrap()
+            .values()
+            .map(|job| {
+                let status = job.status.lock().unwrap();
+                let error = job.error.lock().unwrap();
+                JobSummary {
+                    id: job.id.clone(),
+                    job_type: job.job_type.as_str().to_string(),
+                    name: job.name.clone(),
+                    status: status.as_str().to_string(),
+                    progress: job.progress.load(Ordering::SeqCst) as f32,
+                    error: error.clone(),
+                }
+            })
+            .collect()
+    }
+
+    pub fn update_progress(&self, id: &str, percent: u8) {
+        let jobs = self.jobs.read().unwrap();
+        if let Some(job) = jobs.get(id) {
+            let status = job.status.lock().unwrap();
+            if *status == JobStatus::Running {
+                job.progress.store(percent.min(100), Ordering::SeqCst);
+            }
+        }
+    }
+
+    pub fn get_job(&self, id: &str) -> Option<Arc<Job>> {
+        self.jobs.read().unwrap().get(id).cloned()
+    }
+
+    pub fn complete(&self, id: &str, success: bool, app: &AppHandle, event_prefix: &str) {
+        {
+            let mut jobs = self.jobs.write().unwrap();
+            if let Some(job) = jobs.get_mut(id) {
+                let mut status = job.status.lock().unwrap();
+                *status = if success {
+                    JobStatus::Completed
+                } else {
+                    JobStatus::Failed
+                };
+                job.progress.store(100, Ordering::SeqCst);
+
+                if !success {
+                    let mut error = job.error.lock().unwrap();
+                    if error.is_none() {
+                        *error = Some("FFmpeg exited with error".to_string());
+                    }
+                }
+            }
+        }
+
+        if success {
+            let _ = app.emit(&format!("{}-completed", event_prefix), id);
+        } else {
+            let summary = self.list().into_iter().find(|j| j.id == id);
+            if let Some(s) = summary {
+                let _ = app.emit(&format!("{}-failed", event_prefix), s);
+            }
+        }
+    }
+
+    pub fn fail(&self, id: &str, error: String, app: &AppHandle, event_prefix: &str) {
+        {
+            let mut jobs = self.jobs.write().unwrap();
+            if let Some(job) = jobs.get_mut(id) {
+                let mut status = job.status.lock().unwrap();
+                *status = JobStatus::Failed;
+                let mut err = job.error.lock().unwrap();
+                *err = Some(error);
+            }
+        }
+
+        let summary = self.list().into_iter().find(|j| j.id == id);
+        if let Some(s) = summary {
+            let _ = app.emit(&format!("{}-failed", event_prefix), s);
+        }
+    }
+
+    pub fn remove(&self, id: &str) {
+        self.jobs.write().unwrap().remove(id);
+    }
+}
+
+pub fn get_queue() -> &'static JobQueue {
+    &JOB_QUEUE
+}

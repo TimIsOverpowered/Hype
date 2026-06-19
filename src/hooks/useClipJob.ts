@@ -1,28 +1,15 @@
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
 import { parse as hlsParse } from 'hls-parser';
 import { useCallback, useRef, useState } from 'react';
-import { ELAPSED_TIMER_INTERVAL_MS } from '../constants/ui';
+import { useJobQueue } from '../contexts/JobQueueContext';
 import { toHHMMSS } from '../utils/time';
 
 type JobType = 'clip' | 'download';
 
-interface ProgressPayload {
-  percent: number;
-  elapsed: number;
-  eta: number;
-}
-
 interface UseClipJobResult {
-  progress: number;
-  isRunning: boolean;
-  error: string | null;
-  elapsed: number;
   jobType: JobType;
   startClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => Promise<void>;
   startDownload: (m3u8Url: string, durationSeconds: number) => Promise<void>;
-  cancel: () => void;
 }
 
 async function detectFmp4(m3u8Url: string): Promise<boolean> {
@@ -37,44 +24,14 @@ async function detectFmp4(m3u8Url: string): Promise<boolean> {
 }
 
 export function useClipJob(): UseClipJobResult {
-  const [progress, setProgress] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0);
+  const { submitJob } = useJobQueue();
   const [jobType, setJobType] = useState<JobType>('clip');
   const cancelledRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const cancel = useCallback(async () => {
-    cancelledRef.current = true;
-    clearTimer();
-    try {
-      await invoke('cancel_job');
-    } catch {
-      // Ignore cancel errors
-    }
-  }, [clearTimer]);
 
   const runJob = useCallback(
-    async (m3u8Url: string, startSeconds: number, durationSeconds: number, jobType: JobType, defaultName: string) => {
+    async (m3u8Url: string, startSeconds: number, durationSeconds: number, type: JobType, defaultName: string) => {
       cancelledRef.current = false;
-      setIsRunning(true);
-      setError(null);
-      setProgress(0);
-      setElapsed(0);
-      setJobType(jobType);
-
-      clearTimer();
-      timerRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
-      }, ELAPSED_TIMER_INTERVAL_MS);
+      setJobType(type);
 
       const isFmp4 = await detectFmp4(m3u8Url);
 
@@ -84,77 +41,12 @@ export function useClipJob(): UseClipJobResult {
       });
 
       if (!outputPath) {
-        setIsRunning(false);
-        clearTimer();
         return;
       }
 
-      const unlistenProgress = await listen<ProgressPayload>(
-        jobType === 'clip' ? 'clip-progress' : 'download-progress',
-        (event) => {
-          if (cancelledRef.current) return;
-          const p = event.payload;
-          setProgress(Math.min(p.percent, 100));
-
-          if (p.percent > 0 && p.elapsed > 0 && durationSeconds > 0) {
-            const eta = p.elapsed / p.percent - p.elapsed;
-            if (eta > durationSeconds * 3) {
-              cancelledRef.current = true;
-              setError('Job appears stuck, aborting');
-              setIsRunning(false);
-              clearTimer();
-              cancel();
-              return;
-            }
-          }
-        },
-      );
-
-      const unlistenError = await listen<string>(jobType === 'clip' ? 'clip-error' : 'download-error', (event) => {
-        if (cancelledRef.current) return;
-        setError(event.payload);
-        setIsRunning(false);
-        clearTimer();
-      });
-
-      try {
-        if (jobType === 'clip') {
-          await invoke('clip_vod', {
-            m3u8Url,
-            start: startSeconds,
-            duration: durationSeconds,
-            outputPath,
-            isFmp4,
-          });
-        } else {
-          await invoke('download_vod', {
-            m3u8Url,
-            duration: durationSeconds,
-            outputPath,
-            isFmp4,
-          });
-        }
-
-        if (cancelledRef.current) return;
-
-        setProgress(100);
-        setIsRunning(false);
-      } catch (err) {
-        if (cancelledRef.current) {
-          setError(null);
-          setIsRunning(false);
-          return;
-        }
-        const msg = err instanceof Error ? err.message : 'Job failed';
-        setError(msg);
-        setIsRunning(false);
-      } finally {
-        clearTimer();
-        await unlistenProgress();
-        await unlistenError();
-      }
+      await submitJob(type, m3u8Url, durationSeconds, outputPath, isFmp4, startSeconds);
     },
-    [cancel, clearTimer],
+    [submitJob],
   );
 
   const startClip = useCallback(
@@ -175,5 +67,5 @@ export function useClipJob(): UseClipJobResult {
     [runJob],
   );
 
-  return { progress, isRunning, error, elapsed, jobType, startClip, startDownload, cancel };
+  return { jobType, startClip, startDownload };
 }

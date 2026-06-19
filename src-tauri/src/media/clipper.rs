@@ -1,28 +1,16 @@
 use std::io::BufRead;
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::atomic::Ordering;
 
 use serde::Serialize;
-use tauri::Emitter;
 use tauri::AppHandle;
+use tauri::Emitter;
 
-use ffmpeg_sidecar::download;
-use ffmpeg_sidecar::paths;
-
-static CANCEL_FLAG: Mutex<Option<std::sync::Arc<AtomicBool>>> = Mutex::new(None);
+use crate::media::job_queue;
 
 #[derive(Serialize, Clone)]
-pub struct ProgressPayload {
-    pub percent: u8,
-    pub elapsed: f64,
-    pub eta: f64,
-}
-
-pub fn trigger_cancel() {
-    if let Some(flag) = CANCEL_FLAG.lock().ok().and_then(|mut f| f.take()) {
-        flag.store(true, Ordering::SeqCst);
-    }
+pub struct SubmitJobResponse {
+    pub job_id: String,
 }
 
 fn parse_timecode(s: &str) -> f64 {
@@ -36,32 +24,54 @@ fn parse_timecode(s: &str) -> f64 {
     h * 3600.0 + m * 60.0 + sec
 }
 
-fn spawn_ffmpeg(
-    args: &[String],
+fn run_ffmpeg(
+    job_id: String,
+    args: Vec<String>,
     app: AppHandle,
-    emit_event: &str,
+    event_prefix: &'static str,
     duration_hint: f64,
-    cancel_flag: std::sync::Arc<AtomicBool>,
-) -> Result<(), String> {
-    // Download FFmpeg if not already present (like v1's ffmpeg-static install.js)
-    download::auto_download().map_err(|e| format!("FFmpeg download failed: {}", e))?;
+) {
+    let queue = job_queue::get_queue();
 
-    let ffmpeg_path = paths::ffmpeg_path();
+    // Download FFmpeg if not already present
+    if let Err(e) = ffmpeg_sidecar::download::auto_download() {
+        queue.fail(&job_id, format!("FFmpeg download failed: {}", e), &app, event_prefix);
+        return;
+    }
 
-    let mut child = std::process::Command::new(&ffmpeg_path)
-        .args(args)
+    let ffmpeg_path = ffmpeg_sidecar::paths::ffmpeg_path();
+
+    let mut child = match std::process::Command::new(&ffmpeg_path)
+        .args(&args)
         .stderr(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
+    {
+        Ok(c) => c,
+        Err(e) => {
+            queue.fail(&job_id, format!("Failed to spawn ffmpeg: {}", e), &app, event_prefix);
+            return;
+        }
+    };
 
-    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+    let stderr = match child.stderr.take() {
+        Some(s) => s,
+        None => {
+            queue.fail(&job_id, "Failed to capture stderr".into(), &app, event_prefix);
+            return;
+        }
+    };
+
+    // Store child handle for cancellation
+    if let Some(job) = queue.get_job(&job_id) {
+        *job.child_handle.lock().unwrap() = Some(child);
+    }
+
     let stderr_reader = std::io::BufReader::new(stderr);
 
     let app_clone = app.clone();
-    let progress_cancel = cancel_flag.clone();
-    let progress_emit = emit_event.to_string();
-    let progress_duration = duration_hint;
+    let job_id_clone = job_id.clone();
+    let event_prefix_clone = event_prefix.to_string();
 
     let total_duration = std::thread::spawn(move || {
         let mut total_duration: Option<f64> = None;
@@ -69,7 +79,12 @@ fn spawn_ffmpeg(
         let throttle = std::time::Duration::from_millis(500);
 
         for line in stderr_reader.lines() {
-            if progress_cancel.load(Ordering::SeqCst) {
+            let job = queue.get_job(&job_id_clone);
+            let cancelled = job
+                .as_ref()
+                .map(|j| j.cancel_flag.load(Ordering::SeqCst))
+                .unwrap_or(false);
+            if cancelled {
                 break;
             }
 
@@ -85,7 +100,7 @@ fn spawn_ffmpeg(
                 }
             }
 
-            let total = total_duration.unwrap_or(progress_duration);
+            let total = total_duration.unwrap_or(duration_hint);
             if total <= 0.0 {
                 continue;
             }
@@ -108,12 +123,14 @@ fn spawn_ffmpeg(
                         total - elapsed
                     };
 
+                    queue.update_progress(&job_id_clone, clamped);
+
                     let payload = ProgressPayload {
                         percent: clamped,
                         elapsed,
                         eta,
                     };
-                    let _ = app_clone.emit(&progress_emit, payload);
+                    let _ = app_clone.emit(&format!("{}-progress", event_prefix_clone), payload);
                 }
             }
         }
@@ -121,55 +138,64 @@ fn spawn_ffmpeg(
         total_duration
     });
 
-    loop {
-        if cancel_flag.load(Ordering::SeqCst) {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Ok(());
-        }
+    let _cancelled = queue.get_job(&job_id)
+        .map(|j| j.cancel_flag.load(Ordering::SeqCst))
+        .unwrap_or(false);
 
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let td = total_duration.join().unwrap_or(None);
-                let elapsed = td.unwrap_or(duration_hint);
-                let _ = app.emit(
-                    emit_event,
-                    ProgressPayload {
-                        percent: 100,
-                        elapsed,
-                        eta: 0.0,
-                    },
-                );
-                if status.success() {
-                    return Ok(());
-                } else {
-                    return Err(format!("FFmpeg exited with status: {}", status));
-                }
-            }
-            Ok(None) => {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-            Err(e) => {
-                return Err(format!("Failed to check process status: {}", e));
+    let status = if let Some(job_ref) = queue.get_job(&job_id) {
+        let mut child_opt = job_ref.child_handle.lock().unwrap();
+        if let Some(mut c) = child_opt.take() {
+            c.wait().ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(status) = status {
+        let td = total_duration.join().unwrap_or(None);
+        let elapsed = td.unwrap_or(duration_hint);
+        let is_success = status.success();
+        let _ = app.emit(
+            &format!("{}-progress", event_prefix),
+            ProgressPayload {
+                percent: 100,
+                elapsed,
+                eta: 0.0,
+            },
+        );
+        if !is_success {
+            if let Some(j) = queue.get_job(&job_id) {
+                let mut err = j.error.lock().unwrap();
+                *err = Some(format!("FFmpeg exited with status: {}", status));
             }
         }
+        queue.complete(&job_id, is_success, &app, event_prefix);
     }
 }
 
+#[derive(Serialize, Clone)]
+pub struct ProgressPayload {
+    pub percent: u8,
+    pub elapsed: f64,
+    pub eta: f64,
+}
+
 #[tauri::command]
-pub async fn clip_vod(
+pub async fn submit_clip(
     m3u8_url: String,
     start: f64,
     duration: f64,
     output_path: String,
     _is_fmp4: bool,
     app: AppHandle,
-) -> Result<(), String> {
-    let cancel_flag = std::sync::Arc::new(AtomicBool::new(false));
-    {
-        let mut flag = CANCEL_FLAG.lock().ok().unwrap();
-        *flag = Some(cancel_flag.clone());
-    }
+) -> Result<SubmitJobResponse, String> {
+    let job_id = job_queue::get_queue().submit(
+        job_queue::JobType::Clip,
+        output_path.split('/').last().unwrap_or("clip.mp4").to_string(),
+        app.clone(),
+    );
 
     let args: Vec<String> = vec![
         "-v".into(), "info".into(),
@@ -186,22 +212,28 @@ pub async fn clip_vod(
         output_path,
     ];
 
-    spawn_ffmpeg(&args, app, "clip-progress", duration, cancel_flag)
+    let app_clone = app.clone();
+    let id_clone = job_id.clone();
+    std::thread::spawn(move || {
+        run_ffmpeg(id_clone, args, app_clone, "clip", duration);
+    });
+
+    Ok(SubmitJobResponse { job_id })
 }
 
 #[tauri::command]
-pub async fn download_vod(
+pub async fn submit_download(
     m3u8_url: String,
     duration: f64,
     output_path: String,
     _is_fmp4: bool,
     app: AppHandle,
-) -> Result<(), String> {
-    let cancel_flag = std::sync::Arc::new(AtomicBool::new(false));
-    {
-        let mut flag = CANCEL_FLAG.lock().ok().unwrap();
-        *flag = Some(cancel_flag.clone());
-    }
+) -> Result<SubmitJobResponse, String> {
+    let job_id = job_queue::get_queue().submit(
+        job_queue::JobType::Download,
+        output_path.split('/').last().unwrap_or("vod.mp4").to_string(),
+        app.clone(),
+    );
 
     let args: Vec<String> = vec![
         "-v".into(), "info".into(),
@@ -215,11 +247,25 @@ pub async fn download_vod(
         output_path,
     ];
 
-    spawn_ffmpeg(&args, app, "download-progress", duration, cancel_flag)
+    let app_clone = app.clone();
+    let id_clone = job_id.clone();
+    std::thread::spawn(move || {
+        run_ffmpeg(id_clone, args, app_clone, "download", duration);
+    });
+
+    Ok(SubmitJobResponse { job_id })
 }
 
 #[tauri::command]
-pub async fn cancel_job() -> Result<(), String> {
-    trigger_cancel();
-    Ok(())
+pub async fn cancel_job(id: String) -> Result<(), String> {
+    if job_queue::get_queue().cancel(&id) {
+        Ok(())
+    } else {
+        Err("Job not found".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn list_jobs() -> Vec<job_queue::JobSummary> {
+    job_queue::get_queue().list()
 }

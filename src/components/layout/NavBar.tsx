@@ -12,6 +12,7 @@ import {
 } from '../../constants/ui';
 import { DiscordUrl, KoFiUrl, PatreonUrl, TwitterUrl } from '../../constants/urls';
 import type { SearchResult } from '../../types/twitch';
+import JobQueueDropdown from '../ui/JobQueueDropdown';
 
 const SOCIALS = [
   {
@@ -329,7 +330,10 @@ export default function NavBar() {
       </form>
 
       {/* Right: Auth buttons */}
-      <div className="flex items-center gap-2">{isAuthenticated ? <UserMenu /> : <LoginButton />}</div>
+      <div className="flex items-center gap-2">
+        {isAuthenticated && <JobQueueDropdown />}
+        {isAuthenticated ? <UserMenu /> : <LoginButton />}
+      </div>
     </nav>
   );
 }

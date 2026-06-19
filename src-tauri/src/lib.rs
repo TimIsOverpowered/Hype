@@ -44,9 +44,10 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             greet,
-            media::clipper::clip_vod,
-            media::clipper::download_vod,
+            media::clipper::submit_clip,
+            media::clipper::submit_download,
             media::clipper::cancel_job,
+            media::clipper::list_jobs,
         ]);
 
     #[cfg(desktop)]

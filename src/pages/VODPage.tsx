@@ -8,7 +8,6 @@ import VideoPlayer, { type VideoPlayerHandle } from '../components/player/VideoP
 import ChatSettingsModal from '../components/ui/ChatSettingsModal';
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
-import JobProgress from '../components/ui/JobProgress';
 import { BTTV_API_BASE, FFZ_API_BASE, SEVENTV_API_BASE } from '../constants/emotes';
 import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
@@ -39,7 +38,7 @@ export default function VODPage() {
   });
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
 
-  const { progress, isRunning, error: jobError, elapsed, jobType, startClip, startDownload, cancel } = useClipJob();
+  const { startClip, startDownload } = useClipJob();
 
   const emoteDataRef = useRef({
     bttv: [] as BttvEmote[],
@@ -262,7 +261,6 @@ export default function VODPage() {
           currentTime={currentTime}
           onClip={handleClip}
           onDownload={() => setShowDownloadModal(true)}
-          isProcessing={isRunning}
         />
         <ChatSettingsModal
           open={showChatSettings}
@@ -296,23 +294,6 @@ export default function VODPage() {
             searchTerm=""
           />
         </div>
-        {isRunning && (
-          <div className="border-t border-border p-3">
-            <JobProgress
-              progress={progress}
-              isRunning={isRunning}
-              error={jobError}
-              elapsed={elapsed}
-              onCancel={cancel}
-              onRetry={() => {
-                if (jobError) {
-                  if (m3u8Url) startDownload(m3u8Url, duration);
-                }
-              }}
-              jobType={jobType}
-            />
-          </div>
-        )}
       </div>
 
       {error && (

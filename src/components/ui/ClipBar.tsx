@@ -8,10 +8,9 @@ interface ClipBarProps {
   readonly currentTime: number;
   readonly onClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => void;
   readonly onDownload: () => void;
-  readonly isProcessing: boolean;
 }
 
-export default function ClipBar({ currentTime, vodId, onClip, onDownload, isProcessing }: ClipBarProps) {
+export default function ClipBar({ currentTime, vodId, onClip, onDownload }: ClipBarProps) {
   const [startStr, setStartStr] = useState('00:00:00');
   const [endStr, setEndStr] = useState('00:00:00');
 
@@ -40,7 +39,6 @@ export default function ClipBar({ currentTime, vodId, onClip, onDownload, isProc
             onClick={() => setStartStr(toHHMMSS(Math.floor(currentTime)))}
             className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
             title="Set from current player time"
-            disabled={isProcessing}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -74,7 +72,6 @@ export default function ClipBar({ currentTime, vodId, onClip, onDownload, isProc
             onClick={() => setEndStr(toHHMMSS(Math.floor(currentTime)))}
             className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
             title="Set from current player time"
-            disabled={isProcessing}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -100,9 +97,7 @@ export default function ClipBar({ currentTime, vodId, onClip, onDownload, isProc
         <button
           type="button"
           onClick={handleClip}
-          disabled={
-            isProcessing || !hmsValid(startStr) || !hmsValid(endStr) || toSeconds(startStr) >= toSeconds(endStr)
-          }
+          disabled={!hmsValid(startStr) || !hmsValid(endStr) || toSeconds(startStr) >= toSeconds(endStr)}
           className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           <svg
@@ -130,8 +125,7 @@ export default function ClipBar({ currentTime, vodId, onClip, onDownload, isProc
         <button
           type="button"
           onClick={onDownload}
-          disabled={isProcessing}
-          className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
