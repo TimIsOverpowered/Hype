@@ -32,11 +32,10 @@ function buildEmoteLookup(
   }
 
   for (const emote of ffz) {
-    const key = emote.code ?? emote.text;
-    if (key) {
-      const name = emote.name ?? key;
-      lookup.set(key, { id: emote.id, code: key, name, provider: 'FFZ' });
-    }
+    const code = emote.code || emote.text;
+    const name = emote.name || code || String(emote.id);
+    const key = code || name;
+    lookup.set(key, { id: emote.id, code: key, name, provider: 'FFZ' });
   }
 
   for (const emote of seventv) {

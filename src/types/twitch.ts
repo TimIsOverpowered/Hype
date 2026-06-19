@@ -156,7 +156,7 @@ export interface FfzEmote {
   readonly id: number | string;
   readonly code?: string;
   readonly name?: string;
-  readonly text: string;
+  readonly text?: string;
 }
 
 export interface SevenTVEmote {

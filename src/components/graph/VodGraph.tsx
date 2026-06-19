@@ -200,7 +200,7 @@ const VodGraph = memo(function VodGraph({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [effectiveThreshold, setEffectiveThreshold] = useState<number | null>(null);
-  const [totalViews, setTotalViews] = useState<number>(0);
+
   const [showSettings, setShowSettings] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -247,7 +247,6 @@ const VodGraph = memo(function VodGraph({
         if (e.data.type === 'aggregateClipsResult') {
           setGraphData(e.data.payload.data);
           setEffectiveThreshold(null);
-          setTotalViews(e.data.payload.totalViews);
           setIsLoading(false);
         }
       };
@@ -500,7 +499,7 @@ const VodGraph = memo(function VodGraph({
         </div>
         <span className="absolute left-1/2 -translate-x-1/2 text-xs tabular-nums text-text-secondary">
           {activeTab === 'clips' && graphData.length > 0
-            ? `${totalViews} views / ${interval}s`
+            ? 'Clip Views / Time'
             : effectiveThreshold != null && effectiveThreshold > 0
               ? `${effectiveThreshold} msgs / ${interval}s`
               : ''}
