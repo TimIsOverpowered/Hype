@@ -1,11 +1,18 @@
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile } from '@tauri-apps/plugin-fs';
+import { parse as hlsParse } from 'hls-parser';
 import { useCallback, useRef, useState } from 'react';
-import { ELAPSED_TIMER_INTERVAL_MS, VIDEO_FILE_EXTENSIONS } from '../constants/ui';
-import { clipVod, downloadVod } from '../media/clipper';
+import { ELAPSED_TIMER_INTERVAL_MS } from '../constants/ui';
 import { toHHMMSS } from '../utils/time';
 
 type JobType = 'clip' | 'download';
+
+interface ProgressPayload {
+  percent: number;
+  elapsed: number;
+  eta: number;
+}
 
 interface UseClipJobResult {
   progress: number;
@@ -15,6 +22,17 @@ interface UseClipJobResult {
   startClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => Promise<void>;
   startDownload: (m3u8Url: string, durationSeconds: number) => Promise<void>;
   cancel: () => void;
+}
+
+async function detectFmp4(m3u8Url: string): Promise<boolean> {
+  const response = await fetch(m3u8Url);
+  const content = await response.text();
+  const parsed = hlsParse(content);
+  if (!('segments' in parsed)) return false;
+  const mediaPlaylist = parsed as typeof parsed & {
+    segments: Array<{ uri?: string; map?: { uri?: string } }>;
+  };
+  return mediaPlaylist.segments.some((seg) => seg.map?.uri != null && seg.map.uri !== '');
 }
 
 export function useClipJob(): UseClipJobResult {
@@ -32,24 +50,15 @@ export function useClipJob(): UseClipJobResult {
     }
   }, []);
 
-  const cancel = useCallback(() => {
+  const cancel = useCallback(async () => {
     cancelledRef.current = true;
     clearTimer();
-  }, [clearTimer]);
-
-  const saveFile = useCallback(async (blob: Blob, defaultName: string): Promise<void> => {
-    const filePath = await save({
-      defaultPath: defaultName,
-      filters: [{ name: 'Video', extensions: VIDEO_FILE_EXTENSIONS }],
-    });
-
-    if (!filePath) {
-      return;
+    try {
+      await invoke('cancel_job');
+    } catch {
+      // Ignore cancel errors
     }
-
-    const buffer = await blob.arrayBuffer();
-    await writeFile(filePath, new Uint8Array(buffer));
-  }, []);
+  }, [clearTimer]);
 
   const runJob = useCallback(
     async (m3u8Url: string, startSeconds: number, durationSeconds: number, jobType: JobType, defaultName: string) => {
@@ -64,24 +73,64 @@ export function useClipJob(): UseClipJobResult {
         setElapsed((prev) => prev + 1);
       }, ELAPSED_TIMER_INTERVAL_MS);
 
-      try {
-        let blob: Blob;
+      const isFmp4 = await detectFmp4(m3u8Url);
 
+      const outputPath = await save({
+        defaultPath: defaultName,
+        filters: [{ name: 'Video', extensions: ['mp4'] }],
+      });
+
+      if (!outputPath) {
+        setIsRunning(false);
+        clearTimer();
+        return;
+      }
+
+      const unlistenProgress = await listen<ProgressPayload>(
+        jobType === 'clip' ? 'clip-progress' : 'download-progress',
+        (event) => {
+          if (cancelledRef.current) return;
+          const p = event.payload;
+          setProgress(Math.min(p.percent, 100));
+
+          if (p.percent > 0 && p.elapsed > 0 && durationSeconds > 0) {
+            const eta = p.elapsed / p.percent - p.elapsed;
+            if (eta > durationSeconds * 3) {
+              cancelledRef.current = true;
+              setError('Download appears stuck, aborting');
+              setIsRunning(false);
+              clearTimer();
+              cancel();
+              return;
+            }
+          }
+        },
+      );
+
+      const unlistenError = await listen<string>(jobType === 'clip' ? 'clip-error' : 'download-error', (event) => {
+        if (cancelledRef.current) return;
+        setError(event.payload);
+        setIsRunning(false);
+        clearTimer();
+      });
+
+      try {
         if (jobType === 'clip') {
-          blob = await clipVod(m3u8Url, startSeconds, durationSeconds, (p) => {
-            if (cancelledRef.current) throw new Error('Cancelled');
-            setProgress(Math.min(p, 100));
+          await invoke('clip_vod', {
+            m3u8Url,
+            start: startSeconds,
+            duration: durationSeconds,
+            outputPath,
+            isFmp4,
           });
         } else {
-          blob = await downloadVod(m3u8Url, durationSeconds, (p) => {
-            if (cancelledRef.current) throw new Error('Cancelled');
-            setProgress(Math.min(p, 100));
+          await invoke('download_vod', {
+            m3u8Url,
+            duration: durationSeconds,
+            outputPath,
+            isFmp4,
           });
         }
-
-        if (cancelledRef.current) return;
-
-        await saveFile(blob, defaultName);
 
         if (cancelledRef.current) return;
 
@@ -98,9 +147,11 @@ export function useClipJob(): UseClipJobResult {
         setIsRunning(false);
       } finally {
         clearTimer();
+        await unlistenProgress();
+        await unlistenError();
       }
     },
-    [clearTimer, saveFile],
+    [cancel, clearTimer],
   );
 
   const startClip = useCallback(
