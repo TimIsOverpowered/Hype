@@ -35,6 +35,15 @@ export interface AggregatePayload {
   readonly threshold: number;
   readonly searchType: GraphType;
   readonly searchTerm?: string;
+  readonly chapters?: Array<{
+    node: {
+      positionMilliseconds: number;
+      durationMilliseconds: number;
+      details: {
+        game?: { displayName?: string };
+      };
+    };
+  }>;
 }
 
 export interface SetEmotesPayload {

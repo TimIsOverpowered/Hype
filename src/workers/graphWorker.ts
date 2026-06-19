@@ -11,8 +11,35 @@ import type {
   IncomingWorkerMessage,
   OutgoingWorkerMessage,
   TopEmote,
-  WorkerEmoteData,
 } from '../types/graph';
+
+interface ChapterEntry {
+  readonly positionMilliseconds: number;
+  readonly durationMilliseconds: number;
+  readonly game?: string;
+}
+
+function buildChapterLookup(chapters: AggregatePayload['chapters']): ChapterEntry[] {
+  if (!chapters) return [];
+  return chapters.map((c) => ({
+    positionMilliseconds: c.node.positionMilliseconds,
+    durationMilliseconds: c.node.durationMilliseconds,
+    game: c.node.details?.game?.displayName,
+  }));
+}
+
+function getGameForTimestamp(timestampMs: number, chapterLookup: ChapterEntry[]): string | undefined {
+  for (const chapter of chapterLookup) {
+    if (
+      timestampMs >= chapter.positionMilliseconds &&
+      timestampMs < chapter.positionMilliseconds + chapter.durationMilliseconds
+    ) {
+      return chapter.game;
+    }
+  }
+  return undefined;
+}
+
 import type { BttvEmote, FfzEmote, SevenTVEmote } from '../types/twitch';
 
 interface EmoteLookupEntry {
@@ -152,17 +179,26 @@ function percentile(sorted: number[], p: number): number {
 }
 
 function aggregateLogs(payload: AggregatePayload): {
-  results: Array<{ x: number; y: number }>;
+  results: Array<{
+    x: number;
+    y: number;
+    subs: number;
+    messages: number;
+    emotes: Map<string, number>;
+    searchMatches: number;
+    game?: string;
+  }>;
   threshold: number;
   percentile: number;
 } {
-  const { logs, duration, interval, emotes, searchType, searchTerm, threshold: userThreshold } = payload;
+  const { logs, duration, interval, emotes, searchType, searchTerm, threshold: userThreshold, chapters } = payload;
 
   const emoteLookup = buildEmoteLookup(emotes.bttv, emotes.ffz, emotes.seventv);
+  const chapterLookup = buildChapterLookup(chapters);
 
   const buckets = new Map<
     number,
-    { messages: number; subs: number; emotes: Map<string, number>; searchMatches: number }
+    { messages: number; subs: number; emotes: Map<string, number>; searchMatches: number; game?: string }
   >();
 
   for (const log of logs) {
@@ -178,6 +214,13 @@ function aggregateLogs(payload: AggregatePayload): {
     if (!bucket) {
       bucket = { messages: 0, subs: 0, emotes: new Map(), searchMatches: 0 };
       buckets.set(bucketKey, bucket);
+    }
+
+    if (!bucket.game && chapterLookup.length > 0) {
+      const game = getGameForTimestamp(bucketKey * 1000, chapterLookup);
+      if (game) {
+        bucket.game = game;
+      }
     }
 
     bucket.messages++;
@@ -198,13 +241,29 @@ function aggregateLogs(payload: AggregatePayload): {
     }
   }
 
-  const results: Array<{ x: number; y: number }> = [];
+  const results: Array<{
+    x: number;
+    y: number;
+    subs: number;
+    messages: number;
+    emotes: Map<string, number>;
+    searchMatches: number;
+    game?: string;
+  }> = [];
 
   if (searchType === 'search') {
     const searchThreshold = userThreshold > 0 ? userThreshold : 1;
     for (const [bucketKey, data] of buckets) {
       if (data.searchMatches >= searchThreshold) {
-        results.push({ x: bucketKey, y: data.searchMatches });
+        results.push({
+          x: bucketKey,
+          y: data.searchMatches,
+          subs: data.subs,
+          messages: data.messages,
+          emotes: data.emotes,
+          searchMatches: data.searchMatches,
+          game: data.game,
+        });
       }
     }
     results.sort((a, b) => a.x - b.x);
@@ -222,7 +281,15 @@ function aggregateLogs(payload: AggregatePayload): {
 
   for (const [bucketKey, data] of buckets) {
     if (data.messages >= effectiveThreshold) {
-      results.push({ x: bucketKey, y: data.messages });
+      results.push({
+        x: bucketKey,
+        y: data.messages,
+        subs: data.subs,
+        messages: data.messages,
+        emotes: data.emotes,
+        searchMatches: data.searchMatches,
+        game: data.game,
+      });
     }
   }
 
@@ -231,44 +298,46 @@ function aggregateLogs(payload: AggregatePayload): {
 }
 
 function buildGraphData(
-  rawBuckets: Array<{ x: number; y: number }>,
-  logs: readonly string[],
-  emotes: WorkerEmoteData,
-): Array<{ x: number; y: number; duration: string; subs?: number; emotes?: TopEmote[]; messages?: number }> {
-  const emoteLookup = buildEmoteLookup(emotes.bttv, emotes.ffz, emotes.seventv);
-
-  const emoteCounts = new Map<string, number>();
-  let subsTotal = 0;
-  let messagesTotal = 0;
-
-  for (const log of logs) {
-    if (!log || log.length < MIN_LOG_LINE_LENGTH) continue;
-    const parsed = parseLogLine(log);
-    if (!parsed) continue;
-
-    detectEmotesInMessage(parsed.message, emoteLookup, emoteCounts);
-
-    if (parsed.username === 'twitchnotify') {
-      subsTotal++;
-    }
-    messagesTotal++;
-  }
-
-  const topEmotes: TopEmote[] = [...emoteCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, TOP_EMOTES_COUNT)
-    .map(([name, count]) => ({ name, count }));
-
+  rawBuckets: Array<{
+    x: number;
+    y: number;
+    subs: number;
+    messages: number;
+    emotes: Map<string, number>;
+    searchMatches: number;
+    game?: string;
+  }>,
+): Array<{
+  x: number;
+  y: number;
+  duration: string;
+  subs?: number;
+  emotes?: TopEmote[];
+  messages?: number;
+  game?: string;
+}> {
   const simplified = ramerDouglasPeucker(rawBuckets, SIMPLIFICATION_TOLERANCE);
 
-  return simplified.map((point) => ({
-    x: point.x,
-    y: point.y,
-    duration: toHHMMSS(point.x),
-    subs: subsTotal,
-    messages: messagesTotal,
-    emotes: topEmotes.length > 0 ? topEmotes : undefined,
-  }));
+  return simplified.map((point) => {
+    const bucket = rawBuckets.find((b) => b.x === point.x);
+    const emoteMap = bucket?.emotes;
+    const topEmotes: TopEmote[] = emoteMap
+      ? [...emoteMap.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, TOP_EMOTES_COUNT)
+          .map(([name, count]) => ({ name, count }))
+      : [];
+
+    return {
+      x: point.x,
+      y: point.y,
+      duration: toHHMMSS(point.x),
+      subs: bucket && bucket.subs > 0 ? bucket.subs : undefined,
+      messages: bucket ? bucket.messages : point.y,
+      emotes: topEmotes.length > 0 ? topEmotes : undefined,
+      game: bucket?.game,
+    };
+  });
 }
 
 function aggregateClips(payload: AggregateClipsPayload): Array<{
@@ -343,7 +412,7 @@ self.onmessage = (e: MessageEvent<IncomingWorkerMessage>) => {
   if (msg.type === 'aggregate') {
     try {
       const { results: rawBuckets, threshold, percentile } = aggregateLogs(msg.payload);
-      const data = buildGraphData(rawBuckets, msg.payload.logs, msg.payload.emotes);
+      const data = buildGraphData(rawBuckets);
 
       self.postMessage({
         type: 'aggregateResult',

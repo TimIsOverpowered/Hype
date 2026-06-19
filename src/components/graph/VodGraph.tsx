@@ -1,7 +1,7 @@
 import ReactECharts from 'echarts-for-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ZSTDDecoder } from 'zstddec';
-import { getChapters } from '../../api/twitch';
+import { getChaptersWithFallback } from '../../api/twitch';
 import { getToken } from '../../auth';
 import { ECharts } from '../../constants/echarts';
 import { DEFAULT_INTERVAL_SECONDS } from '../../constants/ui';
@@ -9,6 +9,7 @@ import { HYPE_API_BASE } from '../../constants/urls';
 import { useGraphSettings } from '../../hooks/useGraphSettings';
 import type { ClipDataPoint, GraphDataPoint, GraphType, TopEmote, WorkerEmoteData } from '../../types/graph';
 import type { ChapterEdge } from '../../types/twitch';
+import { toHHMMSS } from '../../utils/time';
 
 const TABS: Array<{ key: GraphType; label: string }> = [
   { key: 'messages', label: 'Messages' },
@@ -75,40 +76,40 @@ function buildEChartsOption(
   const yData = data.map((d) => (graphType === 'clips' ? (d.views ?? 0) : (d as GraphDataPoint).y));
 
   const tooltipFormatter = (params: unknown) => {
-    const p = params as Record<string, unknown>;
-    if (!p.dataIndex) return '';
-    const idx = typeof p.dataIndex === 'number' ? p.dataIndex : 0;
+    const arr = params as Array<Record<string, unknown>>;
+    if (!arr?.[0]?.dataIndex) return '';
+    const idx = typeof arr[0].dataIndex === 'number' ? arr[0].dataIndex : 0;
     const point = data[idx];
     if (!point) return '';
 
+    const sep = '<span style="color:#adadb8"> : </span>';
+    const bold = (v: number | string) => `<b>${v}</b>`;
     let html = `<div style="font-weight:600;margin-bottom:4px">${point.duration}</div>`;
-    html += `<div>${seriesName}: <b>${point.y}</b></div>`;
+    if (point.game) {
+      html += `<div style="color:#adadb8">Game${sep}${point.game}</div>`;
+    }
+    html += `<div>${seriesName}${sep}${bold(point.y)}</div>`;
 
-    if (graphType !== 'clips') {
+    if (graphType === 'clips') {
+      const cp = point as ClipDataPoint;
+      if (cp.title) {
+        html += `<div style="margin-top:4px;color:#adadb8">Title${sep}${cp.title}</div>`;
+      }
+      if (cp.slug) {
+        html += `<div style="color:#adadb8">Clip${sep}${cp.slug}</div>`;
+      }
+      if (cp.clipDuration) {
+        html += `<div style="color:#adadb8">Duration${sep}${toHHMMSS(cp.clipDuration)}</div>`;
+      }
+    } else {
       const gp = point as GraphDataPoint;
       if (gp.subs && gp.subs > 0) {
-        html += `<div>Subs: <b>${gp.subs}</b></div>`;
+        html += `<div style="margin-top:4px">Subs${sep}${bold(gp.subs)}</div>`;
       }
-      if (gp.messages && gp.messages > 0) {
-        html += `<div>Total messages: <b>${gp.messages}</b></div>`;
-      }
+
       if (gp.emotes && gp.emotes.length > 0) {
         html += `<div style="margin-top:4px;color:#008080;font-size:12px">${formatEmoteTooltip(gp.emotes)}</div>`;
       }
-    }
-    if (point.game) {
-      html += `<div style="margin-top:4px;color:#adadb8">Game: ${point.game}</div>`;
-    }
-    if (point.title && graphType !== 'clips') {
-      html += `<div style="margin-top:2px;color:#adadb8">${point.title}</div>`;
-    }
-    if (point.slug) {
-      html += `<div style="margin-top:2px;color:#adadb8">${point.slug}</div>`;
-    }
-    if (point.clipDuration) {
-      const mins = Math.floor(point.clipDuration / 60);
-      const secs = point.clipDuration % 60;
-      html += `<div style="margin-top:2px;color:#adadb8">${mins}:${secs.toString().padStart(2, '0')}</div>`;
     }
 
     return html;
@@ -287,9 +288,9 @@ const VodGraph = memo(function VodGraph({
     }
   }, []);
 
-  const fetchChapters = useCallback(async (id: string) => {
+  const fetchChapters = useCallback(async (id: string, lengthSeconds: number) => {
     try {
-      const edges = await getChapters(id);
+      const edges = await getChaptersWithFallback(id, lengthSeconds);
       if (edges) {
         chaptersRef.current = edges;
       }
@@ -331,6 +332,11 @@ const VodGraph = memo(function VodGraph({
       setError(null);
       setGraphData([]);
       setEffectiveThreshold(null);
+
+      if (type === 'clips') {
+        await fetchClips(id);
+      }
+      await fetchChapters(id, dur || 0);
 
       if (type === 'clips') {
         if (!clipsRef.current || clipsRef.current.length === 0) {
@@ -389,23 +395,14 @@ const VodGraph = memo(function VodGraph({
           threshold,
           searchType: type,
           searchTerm: type === 'search' ? searchTerm : undefined,
+          chapters: chaptersRef.current ?? [],
         },
       });
 
       fetchedRef.current = true;
     },
-    [fetchZstdLogs, emoteData, searchTerm],
+    [fetchZstdLogs, emoteData, searchTerm, fetchChapters, fetchClips],
   );
-
-  useEffect(() => {
-    fetchClips(vodId);
-    fetchChapters(vodId);
-  }, [vodId, fetchClips, fetchChapters]);
-
-  useEffect(() => {
-    if (!vodId || fetchedRef.current) return;
-    runAggregate(vodId, activeTab, propDuration || 0, userMessageThreshold, userSearchThreshold, interval);
-  }, [vodId, activeTab, runAggregate, propDuration, userMessageThreshold, userSearchThreshold, interval]);
 
   useEffect(() => {
     if (!vodId) return;

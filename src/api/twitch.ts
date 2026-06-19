@@ -26,10 +26,13 @@ function buildHeaders(clientId: string): Record<string, string> {
 }
 
 async function gqlPost<T>(clientId: string, body: Record<string, unknown>): Promise<T> {
+  const bodyStr = JSON.stringify(body);
+  console.log('[gqlPost]', body.operationName || '(no opName)', 'body:', bodyStr);
+  console.log('[gqlPost] headers:', JSON.stringify(buildHeaders(clientId)));
   const response = await fetch(GQL_URL, {
     method: 'POST',
     headers: buildHeaders(clientId),
-    body: JSON.stringify(body),
+    body: bodyStr,
   });
 
   const json: GqlResponse<T> = await response.json();
@@ -377,6 +380,53 @@ export async function getChapters(vodId: string): Promise<ReadonlyArray<ChapterE
   });
 
   return data.video?.moments?.edges ?? [];
+}
+
+export async function getChapter(vodId: string, lengthSeconds: number): Promise<ChapterEdge | null> {
+  const data = await gqlPost<{ video: { game?: { id: string; displayName: string } | null } }>(BACKUP_CLIENT_ID, {
+    operationName: 'NielsenContentMetadata',
+    variables: {
+      isCollectionContent: false,
+      isLiveContent: false,
+      isVODContent: true,
+      collectionID: '',
+      login: '',
+      vodID: vodId,
+    },
+    extensions: {
+      persistedQuery: {
+        version: 1,
+        sha256Hash: '2dbf505ee929438369e68e72319d1106bb3c142e295332fac157c90638968586',
+      },
+    },
+  });
+
+  const game = data.video?.game;
+  if (!game) return null;
+
+  return {
+    cursor: null,
+    node: {
+      positionMilliseconds: 0,
+      durationMilliseconds: lengthSeconds * 1000,
+      details: {
+        game: { id: game.id, displayName: game.displayName },
+      },
+    },
+  };
+}
+
+export async function getChaptersWithFallback(
+  vodId: string,
+  lengthSeconds: number,
+): Promise<ReadonlyArray<ChapterEdge>> {
+  const edges = await getChapters(vodId);
+  if (edges.length > 0) return edges;
+
+  const chapter = await getChapter(vodId, lengthSeconds);
+  if (chapter) return [chapter];
+
+  return [];
 }
 
 export async function fetchM3u8(vodId: string, token: string, sig: string): Promise<string> {
