@@ -770,7 +770,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           </div>
 
           {isBuffering && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <Loader2 className="h-10 w-10 animate-spin text-white/80" />
             </div>
           )}

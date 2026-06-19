@@ -64,8 +64,13 @@ export function useTooltipControls({ duration }: UseTooltipControlsOptions) {
       const time = percent * duration;
 
       tooltip.textContent = formatTime(time);
-      tooltip.style.left = `${percent * 100}%`;
       tooltip.style.opacity = '1';
+
+      const tooltipWidth = tooltip.offsetWidth;
+      const inputWidth = rect.width;
+      const halfTooltipPercent = (tooltipWidth / inputWidth) * 50;
+      const clampedPercent = Math.max(halfTooltipPercent, Math.min(100 - halfTooltipPercent, percent * 100));
+      tooltip.style.left = `${clampedPercent}%`;
     },
     [duration],
   );
@@ -82,8 +87,13 @@ export function useTooltipControls({ duration }: UseTooltipControlsOptions) {
       const time = percent * duration;
 
       tooltip.textContent = formatTime(time);
-      tooltip.style.left = `${percent * 100}%`;
       tooltip.style.opacity = '1';
+
+      const tooltipWidth = tooltip.offsetWidth;
+      const inputWidth = rect.width;
+      const halfTooltipPercent = (tooltipWidth / inputWidth) * 50;
+      const clampedPercent = Math.max(halfTooltipPercent, Math.min(100 - halfTooltipPercent, percent * 100));
+      tooltip.style.left = `${clampedPercent}%`;
     },
     [duration],
   );
