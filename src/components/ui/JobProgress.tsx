@@ -31,7 +31,7 @@ export default function JobProgress({
   const title = isRunning
     ? jobType === 'clip'
       ? 'Clipping VOD...'
-      : 'Downloading VOD...'
+      : 'Downloading...'
     : error
       ? 'Job Failed'
       : 'Complete!';

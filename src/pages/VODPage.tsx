@@ -39,7 +39,7 @@ export default function VODPage() {
   });
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
 
-  const { progress, isRunning, error: jobError, elapsed, startClip, startDownload, cancel } = useClipJob();
+  const { progress, isRunning, error: jobError, elapsed, jobType, startClip, startDownload, cancel } = useClipJob();
 
   const emoteDataRef = useRef({
     bttv: [] as BttvEmote[],
@@ -309,7 +309,7 @@ export default function VODPage() {
                   if (m3u8Url) startDownload(m3u8Url, duration);
                 }
               }}
-              jobType="download"
+              jobType={jobType}
             />
           </div>
         )}

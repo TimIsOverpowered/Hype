@@ -19,6 +19,7 @@ interface UseClipJobResult {
   isRunning: boolean;
   error: string | null;
   elapsed: number;
+  jobType: JobType;
   startClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => Promise<void>;
   startDownload: (m3u8Url: string, durationSeconds: number) => Promise<void>;
   cancel: () => void;
@@ -40,6 +41,7 @@ export function useClipJob(): UseClipJobResult {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [jobType, setJobType] = useState<JobType>('clip');
   const cancelledRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -67,6 +69,7 @@ export function useClipJob(): UseClipJobResult {
       setError(null);
       setProgress(0);
       setElapsed(0);
+      setJobType(jobType);
 
       clearTimer();
       timerRef.current = setInterval(() => {
@@ -97,7 +100,7 @@ export function useClipJob(): UseClipJobResult {
             const eta = p.elapsed / p.percent - p.elapsed;
             if (eta > durationSeconds * 3) {
               cancelledRef.current = true;
-              setError('Download appears stuck, aborting');
+              setError('Job appears stuck, aborting');
               setIsRunning(false);
               clearTimer();
               cancel();
@@ -172,5 +175,5 @@ export function useClipJob(): UseClipJobResult {
     [runJob],
   );
 
-  return { progress, isRunning, error, elapsed, startClip, startDownload, cancel };
+  return { progress, isRunning, error, elapsed, jobType, startClip, startDownload, cancel };
 }
