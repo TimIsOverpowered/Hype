@@ -209,6 +209,7 @@ const VodGraph = memo(function VodGraph({
 
   const [activeTab, setActiveTab] = useState<GraphType>('messages');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [graphData, setGraphData] = useState<GraphDataPoint[] | ClipDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -231,12 +232,19 @@ const VodGraph = memo(function VodGraph({
   const intervalRef = useRef(interval);
   const userMessageThresholdRef = useRef(userMessageThreshold);
   const userSearchThresholdRef = useRef(userSearchThreshold);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     intervalRef.current = interval;
     userMessageThresholdRef.current = userMessageThreshold;
     userSearchThresholdRef.current = userSearchThreshold;
   }, [interval, userMessageThreshold, userSearchThreshold]);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let worker: Worker | null = null;
@@ -445,7 +453,12 @@ const VodGraph = memo(function VodGraph({
   );
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+    const value = e.target.value;
+    setSearchInput(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchTerm(value);
+    }, 300);
   }, []);
 
   return (
@@ -491,7 +504,7 @@ const VodGraph = memo(function VodGraph({
               {tab.key === 'search' && activeTab === 'search' && (
                 <input
                   type="text"
-                  value={searchTerm}
+                  value={searchInput}
                   onChange={handleSearchChange}
                   placeholder="Search..."
                   className="w-32 rounded border border-border bg-background px-2 py-1 text-xs text-text-primary placeholder-text-secondary outline-none transition-colors focus:border-border/60"
