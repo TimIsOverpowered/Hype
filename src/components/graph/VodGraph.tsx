@@ -41,6 +41,8 @@ interface VodGraphProps {
   readonly emoteData: React.RefObject<WorkerEmoteData | null>;
   readonly duration?: number;
   readonly isWhitelisted?: boolean | undefined;
+  readonly onClipStart?: (time: number) => void;
+  readonly onClipEnd?: (time: number) => void;
 }
 
 function SkeletonGraph(): React.ReactNode {
@@ -180,6 +182,8 @@ const VodGraph = memo(function VodGraph({
   emoteData,
   duration: propDuration,
   isWhitelisted,
+  onClipStart,
+  onClipEnd,
 }: VodGraphProps) {
   const {
     interval,
@@ -206,6 +210,7 @@ const VodGraph = memo(function VodGraph({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const workerRef = useRef<Worker | null>(null);
+  const chartInstanceRef = useRef<unknown>(null);
   const clipsRef = useRef<Array<{
     vod_offset: number;
     title: string;
@@ -220,6 +225,12 @@ const VodGraph = memo(function VodGraph({
   const userMessageThresholdRef = useRef(userMessageThreshold);
   const userSearchThresholdRef = useRef(userSearchThreshold);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleChartClickRef = useRef<((idx: number) => void) | null>(null);
+  const graphDataRef = useRef<GraphDataPoint[] | ClipDataPoint[]>(graphData);
+
+  useEffect(() => {
+    graphDataRef.current = graphData;
+  }, [graphData]);
 
   useEffect(() => {
     intervalRef.current = interval;
@@ -410,24 +421,65 @@ const VodGraph = memo(function VodGraph({
   }, [vodId, activeTab, runAggregate, propDuration, userMessageThreshold, userSearchThreshold, interval]);
 
   const handleChartClick = useCallback(
-    (params: Record<string, unknown>) => {
-      if (!params.dataIndex || !playerRef.current) return;
-      const idx = typeof params.dataIndex === 'number' ? params.dataIndex : 0;
+    (idx: number) => {
       const point = graphData[idx];
-      if (!point) return;
+      if (!point || !playerRef.current) return;
 
       let seekTime: number;
+      let startTime: number;
+      let endTime: number;
       if (activeTab === 'clips') {
         seekTime = point.x - 5;
+        startTime = point.x - 5;
+        endTime = point.x + 30;
       } else {
         seekTime = point.x - intervalRef.current;
+        startTime = point.x - intervalRef.current;
+        endTime = point.x;
       }
 
       if (seekTime < 0) seekTime = 0;
+      if (startTime < 0) startTime = 0;
       playerRef.current.seek(seekTime);
+      if (onClipStart) onClipStart(startTime);
+      if (onClipEnd) onClipEnd(endTime);
     },
-    [graphData, playerRef, activeTab],
+    [graphData, playerRef, activeTab, onClipStart, onClipEnd],
   );
+
+  useEffect(() => {
+    handleChartClickRef.current = handleChartClick;
+  }, [handleChartClick]);
+
+  const handleChartReady = useCallback((echartsInstance: unknown) => {
+    chartInstanceRef.current = echartsInstance;
+
+    type EChartsEvent = { offsetX: number; offsetY: number };
+
+    const chart = echartsInstance as {
+      off: (event: string) => void;
+      getZr: () => {
+        off: (ev: string) => void;
+        on: (ev: string, fn: (e: EChartsEvent) => void) => void;
+      };
+      convertFromPixel: (finder: { seriesIndex?: number }, value: [number, number]) => number | number[] | undefined;
+    };
+
+    chart.off('click');
+    const zr = chart.getZr();
+    zr.off('click');
+
+    zr.on('click', (e: EChartsEvent) => {
+      const pointInGrid = chart.convertFromPixel({ seriesIndex: 0 }, [e.offsetX, e.offsetY]);
+      if (pointInGrid == null) return;
+
+      const idx = Array.isArray(pointInGrid) ? Math.round(pointInGrid[0]) : Math.round(pointInGrid);
+      const data = graphDataRef.current;
+      if (idx >= 0 && idx < data.length) {
+        handleChartClickRef.current?.(idx);
+      }
+    });
+  }, []);
 
   const option = useMemo(
     () => buildEChartsOption(graphData, activeTab, searchTerm),
@@ -542,7 +594,7 @@ const VodGraph = memo(function VodGraph({
             option={option}
             style={{ height: '100%', width: '100%' }}
             opts={{ renderer: 'canvas' }}
-            onEvents={{ click: handleChartClick }}
+            onChartReady={handleChartReady}
             notMerge={true}
             lazyUpdate={true}
           />

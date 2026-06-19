@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { hmsValid, toHHMMSS, toSeconds } from '../../utils/time';
 
 interface ClipBarProps {
@@ -6,13 +6,34 @@ interface ClipBarProps {
   readonly m3u8Url: string;
   readonly duration: number;
   readonly currentTime: number;
+  readonly clipStart: number;
+  readonly clipEnd: number;
   readonly onClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => void;
   readonly onDownload: () => void;
+  readonly onSetStart: (time: number) => void;
+  readonly onSetEnd: (time: number) => void;
 }
 
-export default function ClipBar({ currentTime, vodId, onClip, onDownload }: ClipBarProps) {
-  const [startStr, setStartStr] = useState('00:00:00');
-  const [endStr, setEndStr] = useState('00:00:00');
+export default function ClipBar({
+  currentTime,
+  vodId,
+  clipStart,
+  clipEnd,
+  onClip,
+  onDownload,
+  onSetStart,
+  onSetEnd,
+}: ClipBarProps) {
+  const [startStr, setStartStr] = useState(() => toHHMMSS(clipStart));
+  const [endStr, setEndStr] = useState(() => toHHMMSS(clipEnd));
+
+  useEffect(() => {
+    setStartStr(toHHMMSS(clipStart));
+  }, [clipStart]);
+
+  useEffect(() => {
+    setEndStr(toHHMMSS(clipEnd));
+  }, [clipEnd]);
 
   const handleClip = () => {
     if (!hmsValid(startStr) || !hmsValid(endStr)) return;
@@ -20,6 +41,20 @@ export default function ClipBar({ currentTime, vodId, onClip, onDownload }: Clip
     const endSec = toSeconds(endStr);
     if (startSec >= endSec) return;
     onClip(vodId, '', startSec, endSec - startSec);
+  };
+
+  const handleStartChange = (v: string) => {
+    setStartStr(v);
+    if (hmsValid(v)) {
+      onSetStart(toSeconds(v));
+    }
+  };
+
+  const handleEndChange = (v: string) => {
+    setEndStr(v);
+    if (hmsValid(v)) {
+      onSetEnd(toSeconds(v));
+    }
   };
 
   return (
@@ -31,12 +66,15 @@ export default function ClipBar({ currentTime, vodId, onClip, onDownload }: Clip
           <input
             type="text"
             value={startStr}
-            onChange={(e) => setStartStr(e.target.value)}
+            onChange={(e) => handleStartChange(e.target.value)}
             className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs text-text-primary outline-none transition-colors focus:border-primary"
           />
           <button
             type="button"
-            onClick={() => setStartStr(toHHMMSS(Math.floor(currentTime)))}
+            onClick={() => {
+              onSetStart(Math.floor(currentTime));
+              setStartStr(toHHMMSS(Math.floor(currentTime)));
+            }}
             className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
             title="Set from current player time"
           >
@@ -64,12 +102,15 @@ export default function ClipBar({ currentTime, vodId, onClip, onDownload }: Clip
           <input
             type="text"
             value={endStr}
-            onChange={(e) => setEndStr(e.target.value)}
+            onChange={(e) => handleEndChange(e.target.value)}
             className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs text-text-primary outline-none transition-colors focus:border-primary"
           />
           <button
             type="button"
-            onClick={() => setEndStr(toHHMMSS(Math.floor(currentTime)))}
+            onClick={() => {
+              onSetEnd(Math.floor(currentTime));
+              setEndStr(toHHMMSS(Math.floor(currentTime)));
+            }}
             className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
             title="Set from current player time"
           >

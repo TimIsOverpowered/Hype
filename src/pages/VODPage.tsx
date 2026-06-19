@@ -33,6 +33,8 @@ export default function VODPage() {
   const [playerState, setPlayerState] = useState<number>(-1);
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [clipStart, setClipStart] = useState(0);
+  const [clipEnd, setClipEnd] = useState(0);
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showChat, setShowChat] = useState(true);
@@ -278,8 +280,12 @@ export default function VODPage() {
           m3u8Url={m3u8Url || ''}
           duration={duration}
           currentTime={currentTime}
+          clipStart={clipStart}
+          clipEnd={clipEnd}
           onClip={handleClip}
           onDownload={() => setShowDownloadModal(true)}
+          onSetStart={setClipStart}
+          onSetEnd={setClipEnd}
         />
         <ChatSettingsModal
           open={showChatSettings}
@@ -309,6 +315,8 @@ export default function VODPage() {
             emoteData={emoteDataRef}
             duration={duration}
             isWhitelisted={isWhitelisted}
+            onClipStart={setClipStart}
+            onClipEnd={setClipEnd}
           />
         </div>
       </div>

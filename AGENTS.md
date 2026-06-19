@@ -53,4 +53,5 @@ Hype is a desktop application for visualizing Twitch chat data and clipping Twit
 
 - Run `npx tsc --noEmit` to typecheck
 - Run `npm run lint` to see any eslint issues
+- Run `cargo check` in src-tauri to see any rust issues
 - Do not move on to the next task until both pass
