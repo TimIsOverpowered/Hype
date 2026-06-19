@@ -1,5 +1,5 @@
 import { Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Loader2, XCircle } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Job, useJobQueue } from '../../contexts/JobQueueContext';
 
 export default function JobQueueDropdown() {
@@ -8,6 +8,22 @@ export default function JobQueueDropdown() {
   const [expanded, setExpanded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    setExpanded(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        handleClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open, handleClose]);
+
   const activeJobs = Array.from(jobs.values()).filter((j) => j.status === 'running');
   const completedJobs = Array.from(jobs.values()).filter((j) => j.status === 'completed');
   const failedJobs = Array.from(jobs.values()).filter((j) => j.status === 'failed');
@@ -15,19 +31,8 @@ export default function JobQueueDropdown() {
 
   const activeCount = activeJobs.length + failedJobs.length;
 
-  const handleClose = () => {
-    setOpen(false);
-    setExpanded(false);
-  };
-
   const handleToggle = () => {
     setOpen((prev) => !prev);
-  };
-
-  const handleOutsideClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (ref.current && !ref.current.contains(e.target as Node)) {
-      handleClose();
-    }
   };
 
   const handleCancel = async (id: string) => {
@@ -56,7 +61,7 @@ export default function JobQueueDropdown() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-80 rounded-lg border border-border bg-surface shadow-xl">
+        <div className="absolute right-0 top-10 z-50 w-[520px] max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface shadow-xl">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <span className="text-sm font-medium text-text-primary">Job Queue</span>
             <button
@@ -68,7 +73,7 @@ export default function JobQueueDropdown() {
             </button>
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[600px] overflow-y-auto">
             {activeJobs.length === 0 &&
               failedJobs.length === 0 &&
               completedJobs.length === 0 &&
@@ -163,8 +168,6 @@ export default function JobQueueDropdown() {
           </div>
         </div>
       )}
-
-      {open && <div className="fixed inset-0 z-40" onClick={handleOutsideClick} />}
     </div>
   );
 }
@@ -173,7 +176,7 @@ function JobItem({ job, onCancel, showRemove = false }: { job: Job; onCancel: ()
   const typeLabel = job.job_type === 'clip' ? 'Clip' : 'Download';
   const typeColor = job.job_type === 'clip' ? 'text-primary' : 'text-text-secondary';
 
-  const name = job.name.length > 30 ? `${job.name.slice(0, 27)}...` : job.name;
+  const name = job.name.length > 60 ? `${job.name.slice(0, 57)}...` : job.name;
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-b-0">

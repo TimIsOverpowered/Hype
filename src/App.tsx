@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import DeepLinkHandler from './components/DeepLinkHandler';
 import AppLayout from './components/layout/AppLayout';
 import SettingsPage from './components/settings/SettingsPage';
@@ -33,6 +34,23 @@ function App() {
           </Routes>
         </JobQueueProvider>
       </HashRouter>
+      <Toaster
+        theme="dark"
+        position="bottom-right"
+        offset={80}
+        gap={8}
+        expand={false}
+        visibleToasts={10}
+        closeButton
+        toastOptions={{
+          style: {
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-primary)',
+          },
+        }}
+        duration={4000}
+      />
     </QueryClientProvider>
   );
 }

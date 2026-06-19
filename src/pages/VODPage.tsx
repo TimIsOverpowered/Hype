@@ -20,7 +20,12 @@ export default function VODPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [m3u8Url, setM3u8Url] = useState('');
-  const [vodInfo, setVodInfo] = useState<{ id: string; title: string; lengthSeconds: number } | null>(null);
+  const [vodInfo, setVodInfo] = useState<{
+    id: string;
+    title: string;
+    lengthSeconds: number;
+    broadcasterName: string;
+  } | null>(null);
   const [broadcasterId, setBroadcasterId] = useState<string | undefined>();
 
   const playerRef = useRef<VideoPlayerHandle>(null);
@@ -150,7 +155,12 @@ export default function VODPage() {
         token.signature,
         vod.previewThumbnailURL,
       );
-      setVodInfo({ id: vod.id, title: vod.title, lengthSeconds: vod.lengthSeconds });
+      setVodInfo({
+        id: vod.id,
+        title: vod.title,
+        lengthSeconds: vod.lengthSeconds,
+        broadcasterName: vod.creator.login ?? '',
+      });
       setM3u8Url(m3u8);
       setVariants(m3u8Variants);
       setBroadcasterId(vod.creator.id);
@@ -176,17 +186,17 @@ export default function VODPage() {
 
   const handleClip = useCallback(
     (vodId: string, _m3u8Url: string, startSeconds: number, durationSeconds: number) => {
-      startClip(vodId, m3u8Url, startSeconds, durationSeconds);
+      startClip(vodId, m3u8Url, startSeconds, durationSeconds, vodInfo?.broadcasterName ?? '');
     },
-    [startClip, m3u8Url],
+    [startClip, m3u8Url, vodInfo],
   );
 
   const handleDownload = useCallback(
     (selectedM3u8Url: string) => {
       setShowDownloadModal(false);
-      startDownload(selectedM3u8Url, duration);
+      startDownload(vodId, selectedM3u8Url, duration, vodInfo?.broadcasterName ?? '');
     },
-    [startDownload, duration],
+    [startDownload, duration, vodId, vodInfo],
   );
 
   const toggleTheatreMode = useCallback(() => {

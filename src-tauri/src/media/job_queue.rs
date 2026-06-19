@@ -112,8 +112,10 @@ impl JobQueue {
             if *status == JobStatus::Running {
                 *status = JobStatus::Cancelled;
                 job.cancel_flag.store(true, Ordering::SeqCst);
-                if let Some(mut child) = job.child_handle.lock().ok().and_then(|mut c| c.take()) {
-                    let _ = child.kill();
+                if let Ok(mut child_opt) = job.child_handle.lock() {
+                    if let Some(ref mut child) = *child_opt {
+                        let _ = child.kill();
+                    }
                 }
             }
             true
@@ -178,7 +180,10 @@ impl JobQueue {
         }
 
         if success {
-            let _ = app.emit(&format!("{}-completed", event_prefix), id);
+            let summary = self.list().into_iter().find(|j| j.id == id);
+            if let Some(s) = summary {
+                let _ = app.emit(&format!("{}-completed", event_prefix), s);
+            }
         } else {
             let summary = self.list().into_iter().find(|j| j.id == id);
             if let Some(s) = summary {
@@ -204,7 +209,6 @@ impl JobQueue {
         }
     }
 
-    #[allow(dead_code)]
     pub fn remove(&self, id: &str) {
         self.jobs.write().unwrap().remove(id);
     }

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 export type JobType = 'clip' | 'download';
 export type JobStatus = 'running' | 'completed' | 'failed' | 'cancelled';
@@ -34,6 +35,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobs] = useState<Map<string, Job>>(new Map());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unlistenRef = useRef<(() => void)[] | null>(null);
+  const toastedRef = useRef(new Set<string>());
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -59,7 +61,13 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           error: j.error,
         });
       }
-      setJobs(map);
+      setJobs((prev) => {
+        const next = new Map(prev);
+        for (const [id, job] of map) {
+          next.set(id, job);
+        }
+        return next;
+      });
     } catch {
       // ignore
     }
@@ -83,6 +91,16 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, []);
+
+  const showToast = useCallback(
+    (id: string, message: string, description: string, variant: 'success' | 'error' | 'info') => {
+      if (toastedRef.current.has(id)) return;
+      toastedRef.current.add(id);
+      setTimeout(() => toastedRef.current.delete(id), 10000);
+      toast[variant](message, { description });
+    },
+    [],
+  );
 
   useEffect(() => {
     const setupListeners = async () => {
@@ -129,10 +147,11 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           const next = new Map(prev);
           const existing = next.get(job.id);
           if (existing) {
-            next.set(job.id, { ...existing, status: job.status, progress: 100 });
+            next.set(job.id, { ...existing, status: 'completed', progress: 100 });
           }
           return next;
         });
+        showToast(job.id, 'Clip completed', job.name, 'success');
       });
 
       await listenFor('clip-failed', (job) => {
@@ -144,6 +163,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           }
           return next;
         });
+        showToast(job.id, 'Clip failed', job.error ?? 'Unknown error', 'error');
       });
 
       await listenFor('download-progress', (job) => {
@@ -162,10 +182,11 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           const next = new Map(prev);
           const existing = next.get(job.id);
           if (existing) {
-            next.set(job.id, { ...existing, status: job.status, progress: 100 });
+            next.set(job.id, { ...existing, status: 'completed', progress: 100 });
           }
           return next;
         });
+        showToast(job.id, 'Download completed', job.name, 'success');
       });
 
       await listenFor('download-failed', (job) => {
@@ -177,13 +198,14 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           }
           return next;
         });
+        showToast(job.id, 'Download failed', job.error ?? 'Unknown error', 'error');
       });
 
       unlistenRef.current = unlistens;
     };
 
     setupListeners();
-  }, []);
+  }, [showToast]);
 
   const submitJob = async (
     type: JobType,
@@ -208,21 +230,24 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
 
+    const typeLabel = type === 'clip' ? 'Clip' : 'Download';
+    showToast(newJob.id, `${typeLabel} started`, newJob.name, 'info');
+
     const { job_id } = await invoke<SubmitJobResponse>(
       type === 'clip' ? 'submit_clip' : 'submit_download',
       type === 'clip'
         ? {
-            m3u8_url: m3u8Url,
+            m3u8Url,
             start: start ?? 0,
             duration,
-            output_path: outputPath,
-            is_fmp4: isFmp4,
+            outputPath,
+            isFmp4: isFmp4,
           }
         : {
-            m3u8_url: m3u8Url,
+            m3u8Url,
             duration,
-            output_path: outputPath,
-            is_fmp4: isFmp4,
+            outputPath,
+            isFmp4: isFmp4,
           },
     );
 
@@ -240,15 +265,25 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cancelJob = async (id: string) => {
+    setJobs((prev) => {
+      const next = new Map(prev);
+      const job = next.get(id);
+      if (job && job.status === 'running') {
+        next.set(id, { ...job, status: 'cancelled' as const });
+        showToast(id, 'Job cancelled', job.name, 'info');
+      }
+      return next;
+    });
     await invoke('cancel_job', { id });
   };
 
-  const removeJob = (id: string) => {
+  const removeJob = async (id: string) => {
     setJobs((prev) => {
       const next = new Map(prev);
       next.delete(id);
       return next;
     });
+    await invoke('remove_job', { id });
   };
 
   return (

@@ -48,6 +48,7 @@ pub fn run() {
             media::clipper::submit_download,
             media::clipper::cancel_job,
             media::clipper::list_jobs,
+            media::clipper::remove_job,
         ]);
 
     #[cfg(desktop)]

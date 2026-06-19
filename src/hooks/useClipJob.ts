@@ -8,8 +8,14 @@ type JobType = 'clip' | 'download';
 
 interface UseClipJobResult {
   jobType: JobType;
-  startClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => Promise<void>;
-  startDownload: (m3u8Url: string, durationSeconds: number) => Promise<void>;
+  startClip: (
+    vodId: string,
+    m3u8Url: string,
+    startSeconds: number,
+    durationSeconds: number,
+    streamerName: string,
+  ) => Promise<void>;
+  startDownload: (vodId: string, m3u8Url: string, durationSeconds: number, streamerName: string) => Promise<void>;
 }
 
 async function detectFmp4(m3u8Url: string): Promise<boolean> {
@@ -50,18 +56,18 @@ export function useClipJob(): UseClipJobResult {
   );
 
   const startClip = useCallback(
-    (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => {
+    (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number, streamerName: string) => {
       const startHMS = toHHMMSS(Math.floor(startSeconds)).replace(/:/g, '-');
       const endHMS = toHHMMSS(Math.floor(startSeconds + durationSeconds)).replace(/:/g, '-');
-      const defaultName = `${vodId}-clip-${startHMS}-${endHMS}.mp4`;
+      const defaultName = `${streamerName}-${vodId}-clip-${startHMS}-${endHMS}.mp4`;
       return runJob(m3u8Url, startSeconds, durationSeconds, 'clip', defaultName);
     },
     [runJob],
   );
 
   const startDownload = useCallback(
-    (m3u8Url: string, durationSeconds: number) => {
-      const defaultName = `vod-${toHHMMSS(Math.floor(durationSeconds)).replace(/:/g, '-')}.mp4`;
+    (vodId: string, m3u8Url: string, durationSeconds: number, streamerName: string) => {
+      const defaultName = `${streamerName}-${vodId}.mp4`;
       return runJob(m3u8Url, 0, durationSeconds, 'download', defaultName);
     },
     [runJob],

@@ -35,7 +35,12 @@ fn run_ffmpeg(
 
     // Download FFmpeg if not already present
     if let Err(e) = ffmpeg_sidecar::download::auto_download() {
-        queue.fail(&job_id, format!("FFmpeg download failed: {}", e), &app, event_prefix);
+        queue.fail(
+            &job_id,
+            format!("FFmpeg download failed: {}", e),
+            &app,
+            event_prefix,
+        );
         return;
     }
 
@@ -49,7 +54,12 @@ fn run_ffmpeg(
     {
         Ok(c) => c,
         Err(e) => {
-            queue.fail(&job_id, format!("Failed to spawn ffmpeg: {}", e), &app, event_prefix);
+            queue.fail(
+                &job_id,
+                format!("Failed to spawn ffmpeg: {}", e),
+                &app,
+                event_prefix,
+            );
             return;
         }
     };
@@ -57,7 +67,12 @@ fn run_ffmpeg(
     let stderr = match child.stderr.take() {
         Some(s) => s,
         None => {
-            queue.fail(&job_id, "Failed to capture stderr".into(), &app, event_prefix);
+            queue.fail(
+                &job_id,
+                "Failed to capture stderr".into(),
+                &app,
+                event_prefix,
+            );
             return;
         }
     };
@@ -117,30 +132,18 @@ fn run_ffmpeg(
                 let now = std::time::Instant::now();
                 if now.duration_since(last_emit) >= throttle {
                     last_emit = now;
-                    let eta = if clamped > 0 {
-                        (elapsed / clamped as f64) * (100.0 - clamped as f64)
-                    } else {
-                        total - elapsed
-                    };
-
                     queue.update_progress(&job_id_clone, clamped);
 
-                    let payload = ProgressPayload {
-                        percent: clamped,
-                        elapsed,
-                        eta,
-                    };
-                    let _ = app_clone.emit(&format!("{}-progress", event_prefix_clone), payload);
+                    let summary = queue.list().into_iter().find(|s| s.id == job_id_clone);
+                    if let Some(s) = summary {
+                        let _ = app_clone.emit(&format!("{}-progress", event_prefix_clone), s);
+                    }
                 }
             }
         }
 
         total_duration
     });
-
-    let _cancelled = queue.get_job(&job_id)
-        .map(|j| j.cancel_flag.load(Ordering::SeqCst))
-        .unwrap_or(false);
 
     let status = if let Some(job_ref) = queue.get_job(&job_id) {
         let mut child_opt = job_ref.child_handle.lock().unwrap();
@@ -154,17 +157,15 @@ fn run_ffmpeg(
     };
 
     if let Some(status) = status {
-        let td = total_duration.join().unwrap_or(None);
-        let elapsed = td.unwrap_or(duration_hint);
+        let _td = total_duration.join().unwrap_or(None);
+        let is_cancelled = queue
+            .get_job(&job_id)
+            .map(|j| j.cancel_flag.load(Ordering::SeqCst))
+            .unwrap_or(false);
+        if is_cancelled {
+            return;
+        }
         let is_success = status.success();
-        let _ = app.emit(
-            &format!("{}-progress", event_prefix),
-            ProgressPayload {
-                percent: 100,
-                elapsed,
-                eta: 0.0,
-            },
-        );
         if !is_success {
             if let Some(j) = queue.get_job(&job_id) {
                 let mut err = j.error.lock().unwrap();
@@ -173,13 +174,6 @@ fn run_ffmpeg(
         }
         queue.complete(&job_id, is_success, &app, event_prefix);
     }
-}
-
-#[derive(Serialize, Clone)]
-pub struct ProgressPayload {
-    pub percent: u8,
-    pub elapsed: f64,
-    pub eta: f64,
 }
 
 #[tauri::command]
@@ -193,20 +187,36 @@ pub async fn submit_clip(
 ) -> Result<SubmitJobResponse, String> {
     let job_id = job_queue::get_queue().submit(
         job_queue::JobType::Clip,
-        output_path.split('/').last().unwrap_or("clip.mp4").to_string(),
+        output_path
+            .split('/')
+            .last()
+            .unwrap_or("clip.mp4")
+            .to_string(),
     );
 
     let args: Vec<String> = vec![
-        "-v".into(), "info".into(),
-        "-threads".into(), "0".into(),
-        "-thread_queue_size".into(), "1024".into(),
-        "-i".into(), m3u8_url,
-        "-ss".into(), start.to_string(),
-        "-t".into(), duration.to_string(),
-        "-c".into(), "copy".into(),
-        "-copyts".into(),
-        "-start_at_zero".into(),
-        "-avoid_negative_ts".into(), "make_zero".into(),
+        "-v".into(),
+        "info".into(),
+        "-threads".into(),
+        "0".into(),
+        "-thread_queue_size".into(),
+        "1024".into(),
+        "-ss".into(),
+        start.to_string(),
+        "-i".into(),
+        m3u8_url,
+        "-t".into(),
+        duration.to_string(),
+        "-c".into(),
+        "copy".into(),
+        "-avoid_negative_ts".into(),
+        "make_zero".into(),
+        "-map_metadata".into(),
+        "0".into(),
+        "-bsf:a".into(),
+        "aac_adtstoasc".into(),
+        "-movflags".into(),
+        "+faststart".into(),
         "-y".into(),
         output_path,
     ];
@@ -230,17 +240,28 @@ pub async fn submit_download(
 ) -> Result<SubmitJobResponse, String> {
     let job_id = job_queue::get_queue().submit(
         job_queue::JobType::Download,
-        output_path.split('/').last().unwrap_or("vod.mp4").to_string(),
+        output_path
+            .split('/')
+            .last()
+            .unwrap_or("vod.mp4")
+            .to_string(),
     );
 
     let args: Vec<String> = vec![
-        "-v".into(), "info".into(),
-        "-threads".into(), "0".into(),
-        "-thread_queue_size".into(), "1024".into(),
-        "-i".into(), m3u8_url,
-        "-c".into(), "copy".into(),
-        "-bsf:a".into(), "aac_adtstoasc".into(),
-        "-movflags".into(), "+faststart".into(),
+        "-v".into(),
+        "info".into(),
+        "-threads".into(),
+        "0".into(),
+        "-thread_queue_size".into(),
+        "1024".into(),
+        "-i".into(),
+        m3u8_url,
+        "-c".into(),
+        "copy".into(),
+        "-bsf:a".into(),
+        "aac_adtstoasc".into(),
+        "-movflags".into(),
+        "+faststart".into(),
         "-y".into(),
         output_path,
     ];
@@ -266,4 +287,10 @@ pub async fn cancel_job(id: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn list_jobs() -> Vec<job_queue::JobSummary> {
     job_queue::get_queue().list()
+}
+
+#[tauri::command]
+pub async fn remove_job(id: String) -> Result<(), String> {
+    job_queue::get_queue().remove(&id);
+    Ok(())
 }
