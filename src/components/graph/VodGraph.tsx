@@ -4,14 +4,10 @@ import { ZSTDDecoder } from 'zstddec';
 import { getChapters } from '../../api/twitch';
 import { getToken } from '../../auth';
 import { ECharts } from '../../constants/echarts';
-import {
-  DEFAULT_INTERVAL_SECONDS,
-  DEFAULT_MESSAGE_THRESHOLD,
-  DEFAULT_SEARCH_TERM,
-  DEFAULT_SEARCH_THRESHOLD,
-} from '../../constants/ui';
+import { DEFAULT_INTERVAL_SECONDS } from '../../constants/ui';
 import { HYPE_API_BASE } from '../../constants/urls';
-import type { GraphDataPoint, GraphType, TopEmote, WorkerEmoteData } from '../../types/graph';
+import { useGraphSettings } from '../../hooks/useGraphSettings';
+import type { ClipDataPoint, GraphDataPoint, GraphType, TopEmote, WorkerEmoteData } from '../../types/graph';
 import type { ChapterEdge } from '../../types/twitch';
 
 const TABS: Array<{ key: GraphType; label: string }> = [
@@ -20,16 +16,30 @@ const TABS: Array<{ key: GraphType; label: string }> = [
   { key: 'search', label: 'Search' },
 ];
 
+const RotateCcwIcon = () => (
+  // biome-ignore lint/a11y/noSvgWithoutTitle: icon button has title prop on parent button
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+
 interface VodGraphProps {
   readonly vodId: string;
   readonly playerRef: React.RefObject<{ seek: (time: number) => void; play: () => void; pause: () => void } | null>;
   readonly emoteData: React.RefObject<WorkerEmoteData | null>;
-  readonly interval?: number;
-  readonly messageThreshold?: number;
-  readonly searchThreshold?: number;
-  readonly volumeThreshold?: number;
-  readonly searchTerm?: string;
   readonly duration?: number;
+  readonly isWhitelisted?: boolean | undefined;
 }
 
 function SkeletonGraph(): React.ReactNode {
@@ -47,9 +57,9 @@ function formatEmoteTooltip(emotes: readonly TopEmote[] | undefined): string {
 }
 
 function buildEChartsOption(
-  data: GraphDataPoint[],
+  data: GraphDataPoint[] | ClipDataPoint[],
   graphType: GraphType,
-  searchTerm: string | undefined,
+  searchTerm: string,
 ): Record<string, unknown> {
   const xData = data.map((d) => d.duration);
   let seriesName: string;
@@ -57,12 +67,12 @@ function buildEChartsOption(
   if (graphType === 'clips') {
     seriesName = 'Views';
   } else if (graphType === 'search') {
-    seriesName = searchTerm ?? 'Search';
+    seriesName = searchTerm || 'Search';
   } else {
     seriesName = 'Messages';
   }
 
-  const yData = data.map((d) => (graphType === 'clips' ? (d.views ?? 0) : d.y));
+  const yData = data.map((d) => (graphType === 'clips' ? (d.views ?? 0) : (d as GraphDataPoint).y));
 
   const tooltipFormatter = (params: unknown) => {
     const p = params as Record<string, unknown>;
@@ -74,20 +84,31 @@ function buildEChartsOption(
     let html = `<div style="font-weight:600;margin-bottom:4px">${point.duration}</div>`;
     html += `<div>${seriesName}: <b>${point.y}</b></div>`;
 
-    if (point.subs && point.subs > 0) {
-      html += `<div>Subs: <b>${point.subs}</b></div>`;
-    }
-    if (point.messages && point.messages > 0) {
-      html += `<div>Total messages: <b>${point.messages}</b></div>`;
+    if (graphType !== 'clips') {
+      const gp = point as GraphDataPoint;
+      if (gp.subs && gp.subs > 0) {
+        html += `<div>Subs: <b>${gp.subs}</b></div>`;
+      }
+      if (gp.messages && gp.messages > 0) {
+        html += `<div>Total messages: <b>${gp.messages}</b></div>`;
+      }
+      if (gp.emotes && gp.emotes.length > 0) {
+        html += `<div style="margin-top:4px;color:#008080;font-size:12px">${formatEmoteTooltip(gp.emotes)}</div>`;
+      }
     }
     if (point.game) {
       html += `<div style="margin-top:4px;color:#adadb8">Game: ${point.game}</div>`;
     }
-    if (point.title) {
+    if (point.title && graphType !== 'clips') {
       html += `<div style="margin-top:2px;color:#adadb8">${point.title}</div>`;
     }
-    if (point.emotes && point.emotes.length > 0) {
-      html += `<div style="margin-top:4px;color:#008080;font-size:12px">${formatEmoteTooltip(point.emotes)}</div>`;
+    if (point.slug) {
+      html += `<div style="margin-top:2px;color:#adadb8">${point.slug}</div>`;
+    }
+    if (point.clipDuration) {
+      const mins = Math.floor(point.clipDuration / 60);
+      const secs = point.clipDuration % 60;
+      html += `<div style="margin-top:2px;color:#adadb8">${mins}:${secs.toString().padStart(2, '0')}</div>`;
     }
 
     return html;
@@ -170,16 +191,31 @@ const VodGraph = memo(function VodGraph({
   vodId,
   playerRef,
   emoteData,
-  interval = DEFAULT_INTERVAL_SECONDS,
-  messageThreshold = DEFAULT_MESSAGE_THRESHOLD,
-  searchThreshold = DEFAULT_SEARCH_THRESHOLD,
-  searchTerm = DEFAULT_SEARCH_TERM,
   duration: propDuration,
+  isWhitelisted,
 }: VodGraphProps) {
+  const {
+    interval,
+    setInterval,
+    messageThreshold: userMessageThreshold,
+    setMessageThreshold,
+    searchThreshold: userSearchThreshold,
+    setSearchThreshold,
+    resetInterval,
+    resetMessageThreshold,
+    resetSearchThreshold,
+    resetAll,
+  } = useGraphSettings();
+
   const [activeTab, setActiveTab] = useState<GraphType>('messages');
-  const [graphData, setGraphData] = useState<GraphDataPoint[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [graphData, setGraphData] = useState<GraphDataPoint[] | ClipDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [effectiveThreshold, setEffectiveThreshold] = useState<number | null>(null);
+  const [totalViews, setTotalViews] = useState<number>(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const workerRef = useRef<Worker | null>(null);
   const clipsRef = useRef<Array<{
@@ -192,6 +228,15 @@ const VodGraph = memo(function VodGraph({
   const chaptersRef = useRef<readonly ChapterEdge[] | null>(null);
   const durationRef = useRef<number>(0);
   const fetchedRef = useRef(false);
+  const intervalRef = useRef(interval);
+  const userMessageThresholdRef = useRef(userMessageThreshold);
+  const userSearchThresholdRef = useRef(userSearchThreshold);
+
+  useEffect(() => {
+    intervalRef.current = interval;
+    userMessageThresholdRef.current = userMessageThreshold;
+    userSearchThresholdRef.current = userSearchThreshold;
+  }, [interval, userMessageThreshold, userSearchThreshold]);
 
   useEffect(() => {
     let worker: Worker | null = null;
@@ -202,6 +247,13 @@ const VodGraph = memo(function VodGraph({
       worker.onmessage = (e: MessageEvent) => {
         if (e.data.type === 'aggregateResult') {
           setGraphData(e.data.payload.data);
+          setEffectiveThreshold(e.data.payload.computedThreshold);
+          setIsLoading(false);
+        }
+        if (e.data.type === 'aggregateClipsResult') {
+          setGraphData(e.data.payload.data);
+          setEffectiveThreshold(null);
+          setTotalViews(e.data.payload.totalViews);
           setIsLoading(false);
         }
       };
@@ -271,13 +323,40 @@ const VodGraph = memo(function VodGraph({
   }, []);
 
   const runAggregate = useCallback(
-    async (id: string, type: GraphType, dur: number) => {
+    async (
+      id: string,
+      type: GraphType,
+      dur: number,
+      msgThresh: number | null,
+      searchThresh: number | null,
+      intv: number,
+    ) => {
       const worker = workerRef.current;
       if (!worker) return;
 
       setIsLoading(true);
       setError(null);
       setGraphData([]);
+      setEffectiveThreshold(null);
+
+      if (type === 'clips') {
+        if (!clipsRef.current || clipsRef.current.length === 0) {
+          setError('No clips available');
+          setIsLoading(false);
+          fetchedRef.current = true;
+          return;
+        }
+
+        worker.postMessage({
+          type: 'aggregateClips',
+          payload: {
+            clips: clipsRef.current,
+            chapters: chaptersRef.current ?? [],
+          },
+        });
+        fetchedRef.current = true;
+        return;
+      }
 
       const logs = await fetchZstdLogs(id);
       if (!logs || logs.length === 0) {
@@ -305,14 +384,16 @@ const VodGraph = memo(function VodGraph({
           dur,
         );
 
+      const threshold = type === 'search' ? (searchThresh ?? 0) : (msgThresh ?? 0);
+
       worker.postMessage({
         type: 'aggregate',
         payload: {
           logs,
           duration: durationRef.current,
-          interval,
+          interval: intv,
           emotes: emoteData.current,
-          threshold: type === 'search' ? searchThreshold : messageThreshold,
+          threshold,
           searchType: type,
           searchTerm: type === 'search' ? searchTerm : undefined,
         },
@@ -320,7 +401,7 @@ const VodGraph = memo(function VodGraph({
 
       fetchedRef.current = true;
     },
-    [fetchZstdLogs, emoteData, interval, messageThreshold, searchThreshold, searchTerm],
+    [fetchZstdLogs, emoteData, searchTerm],
   );
 
   useEffect(() => {
@@ -330,8 +411,13 @@ const VodGraph = memo(function VodGraph({
 
   useEffect(() => {
     if (!vodId || fetchedRef.current) return;
-    runAggregate(vodId, activeTab, propDuration || 0);
-  }, [vodId, activeTab, runAggregate, propDuration]);
+    runAggregate(vodId, activeTab, propDuration || 0, userMessageThreshold, userSearchThreshold, interval);
+  }, [vodId, activeTab, runAggregate, propDuration, userMessageThreshold, userSearchThreshold, interval]);
+
+  useEffect(() => {
+    if (!vodId) return;
+    runAggregate(vodId, activeTab, propDuration || 0, userMessageThreshold, userSearchThreshold, interval);
+  }, [vodId, activeTab, runAggregate, propDuration, userMessageThreshold, userSearchThreshold, interval]);
 
   const handleChartClick = useCallback(
     (params: Record<string, unknown>) => {
@@ -344,13 +430,13 @@ const VodGraph = memo(function VodGraph({
       if (activeTab === 'clips') {
         seekTime = point.x - 5;
       } else {
-        seekTime = point.x - interval;
+        seekTime = point.x - intervalRef.current;
       }
 
       if (seekTime < 0) seekTime = 0;
       playerRef.current.seek(seekTime);
     },
-    [graphData, playerRef, activeTab, interval],
+    [graphData, playerRef, activeTab],
   );
 
   const option = useMemo(
@@ -358,25 +444,97 @@ const VodGraph = memo(function VodGraph({
     [graphData, activeTab, searchTerm],
   );
 
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
+
   return (
     <div className="flex w-full flex-1 flex-col min-h-0 rounded-lg border border-border bg-surface p-3">
       {/* Tab bar */}
-      <div className="flex items-center gap-1 overflow-x-auto">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActiveTab(tab.key)}
-            className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'bg-white/10 text-text-primary'
-                : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
-            }`}
+      <div className="mb-2 flex items-center justify-between">
+        {isWhitelisted === false && (
+          <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-3 py-1.5">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-yellow-500"
+            >
+              <title>Warning</title>
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span className="text-xs text-yellow-400">This streamer is not whitelisted</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {TABS.map((tab) => (
+            <span key={tab.key} className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-white/10 text-text-primary'
+                    : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+                }`}
+              >
+                {tab.label}
+              </button>
+              {tab.key === 'search' && activeTab === 'search' && (
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  placeholder="Search..."
+                  className="w-32 rounded border border-border bg-background px-2 py-1 text-xs text-text-primary placeholder-text-secondary outline-none transition-colors focus:border-border/60"
+                />
+              )}
+            </span>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowSettings(true)}
+          className="text-text-secondary transition-colors hover:text-text-primary"
+          title="Graph settings"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            {tab.label}
-          </button>
-        ))}
+            <title>Settings</title>
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
       </div>
+
+      {/* Hype threshold label */}
+      {effectiveThreshold != null && effectiveThreshold > 0 && activeTab !== 'search' && (
+        <div className="mb-2 text-center text-xs text-text-secondary">
+          {effectiveThreshold} msgs / {interval}s
+        </div>
+      )}
+      {activeTab === 'clips' && graphData.length > 0 && (
+        <div className="mb-2 text-center text-xs text-text-secondary">
+          {totalViews} views / {interval}s
+        </div>
+      )}
 
       {/* Chart area */}
       <div className="relative flex min-h-[200px] w-full flex-1 flex-col">
@@ -401,6 +559,233 @@ const VodGraph = memo(function VodGraph({
           />
         )}
       </div>
+
+      {/* Settings modal */}
+      {showSettings && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="w-80 max-h-[85vh] rounded-lg border border-border bg-surface text-text-primary"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  resetAll();
+                  setShowResetConfirm(true);
+                }}
+                className="text-text-secondary transition-colors hover:text-text-primary"
+                title="Reset all settings to defaults"
+              >
+                <RotateCcwIcon />
+              </button>
+
+              <h3 className="text-sm font-medium">Graph Settings</h3>
+
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                className="text-text-secondary transition-colors hover:text-text-primary"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <title>Close settings</title>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-4 py-4" style={{ maxHeight: 'calc(85vh - 52px)' }}>
+              <div className="space-y-4">
+                <div className="rounded border border-border px-3 py-2">
+                  <div className="mb-2 text-xs font-medium text-text-secondary">Interval</div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={5}
+                      max={60}
+                      step={5}
+                      value={interval}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setInterval(v);
+                      }}
+                      className="min-w-0 flex-1 accent-primary"
+                    />
+                    <span className="shrink-0 text-sm text-text-secondary">{interval}s</span>
+                    <button
+                      type="button"
+                      onClick={resetInterval}
+                      disabled={interval === DEFAULT_INTERVAL_SECONDS}
+                      className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-colors ${
+                        interval === DEFAULT_INTERVAL_SECONDS
+                          ? 'cursor-not-allowed opacity-40'
+                          : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                      title="Reset interval"
+                    >
+                      <RotateCcwIcon />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded border border-border px-3 py-2">
+                  <div className="mb-2 text-xs font-medium text-text-secondary">Message Threshold</div>
+                  <div className="flex items-center gap-1">
+                    <span className="shrink-0 text-xs text-text-secondary">every</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={userMessageThreshold ?? effectiveThreshold ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '') {
+                          setMessageThreshold(null);
+                          return;
+                        }
+                        const num = Number(v);
+                        if (!Number.isFinite(num) || num <= 0) return;
+                        setMessageThreshold(num);
+                      }}
+                      className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1.5 text-sm text-text-primary"
+                    />
+                    <span className="shrink-0 text-xs text-text-secondary">msgs</span>
+                    <button
+                      type="button"
+                      onClick={resetMessageThreshold}
+                      disabled={userMessageThreshold == null}
+                      className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-colors ${
+                        userMessageThreshold == null
+                          ? 'cursor-not-allowed opacity-40'
+                          : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                      title="Reset to auto"
+                    >
+                      <RotateCcwIcon />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded border border-border px-3 py-2">
+                  <div className="mb-2 text-xs font-medium text-text-secondary">Search Threshold</div>
+                  <div className="flex items-center gap-1">
+                    <span className="shrink-0 text-xs text-text-secondary">every</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={userSearchThreshold ?? 1}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '') {
+                          setSearchThreshold(null);
+                          return;
+                        }
+                        const num = Number(v);
+                        if (!Number.isFinite(num) || num <= 0) return;
+                        setSearchThreshold(num);
+                      }}
+                      className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1.5 text-sm text-text-primary"
+                    />
+                    <span className="shrink-0 text-xs text-text-secondary">msgs</span>
+                    <button
+                      type="button"
+                      onClick={resetSearchThreshold}
+                      disabled={userSearchThreshold == null}
+                      className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-colors ${
+                        userSearchThreshold == null
+                          ? 'cursor-not-allowed opacity-40'
+                          : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                      title="Reset to auto"
+                    >
+                      <RotateCcwIcon />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset confirmation dialog */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowResetConfirm(false);
+            }}
+          />
+          <div
+            className="relative z-[61] w-full max-w-[340px] rounded-lg border border-border bg-surface p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                {/* biome-ignore lint/a11y/noSvgWithoutTitle: decorative icon in confirmation dialog */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="mb-2 text-center text-lg font-semibold text-text-primary">Reset All Settings?</h3>
+            <p className="mb-6 text-center text-sm text-text-secondary">
+              This will reset your graph settings back to their default values.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 rounded border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-background/80"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetAll();
+                  setShowResetConfirm(false);
+                  setShowSettings(false);
+                }}
+                className="flex-1 rounded bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-500"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

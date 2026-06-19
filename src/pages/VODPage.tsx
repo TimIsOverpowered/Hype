@@ -27,6 +27,7 @@ export default function VODPage() {
     broadcasterName: string;
   } | null>(null);
   const [broadcasterId, setBroadcasterId] = useState<string | undefined>();
+  const [isWhitelisted, setIsWhitelisted] = useState<boolean | undefined>(undefined);
 
   const playerRef = useRef<VideoPlayerHandle>(null);
   const [playerState, setPlayerState] = useState<number>(-1);
@@ -164,6 +165,14 @@ export default function VODPage() {
       setM3u8Url(m3u8);
       setVariants(m3u8Variants);
       setBroadcasterId(vod.creator.id);
+
+      const wlRes = await fetch(`https://api.hype.lol/v1/whitelist?twitchId=${vod.creator.id}`);
+      if (wlRes.ok) {
+        const wlData = await wlRes.json();
+        setIsWhitelisted(!!(wlData.data && wlData.data.length > 0));
+      } else {
+        setIsWhitelisted(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load VOD');
     }
@@ -299,9 +308,7 @@ export default function VODPage() {
             }
             emoteData={emoteDataRef}
             duration={duration}
-            messageThreshold={25}
-            searchThreshold={10}
-            searchTerm=""
+            isWhitelisted={isWhitelisted}
           />
         </div>
       </div>

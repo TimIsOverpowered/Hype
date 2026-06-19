@@ -60,13 +60,59 @@ export interface SetSearchTermMessage {
   readonly payload: SetSearchTermPayload;
 }
 
-export type IncomingWorkerMessage = AggregateMessage | SetEmotesMessage | SetSearchTermMessage;
+export type IncomingWorkerMessage = AggregateMessage | SetEmotesMessage | SetSearchTermMessage | AggregateClipsMessage;
 
 export interface AggregateResult {
   readonly type: 'aggregateResult';
   readonly payload: {
     readonly data: readonly GraphDataPoint[];
+    readonly computedThreshold: number;
+    readonly percentile: number;
   };
 }
 
-export type OutgoingWorkerMessage = AggregateResult;
+export interface ClipDataPoint {
+  readonly x: number;
+  readonly y: number;
+  readonly duration: string;
+  readonly title?: string;
+  readonly slug?: string;
+  readonly clipDuration?: number;
+  readonly views?: number;
+  readonly game?: string;
+}
+
+export interface AggregateClipsPayload {
+  clips: Array<{
+    vod_offset: number;
+    title: string;
+    views: number;
+    slug: string;
+    duration: number;
+  }>;
+  chapters: Array<{
+    node: {
+      positionMilliseconds: number;
+      durationMilliseconds: number;
+      details: {
+        game?: { displayName?: string };
+        title?: string;
+      };
+    };
+  }>;
+}
+
+export interface AggregateClipsMessage {
+  readonly type: 'aggregateClips';
+  readonly payload: AggregateClipsPayload;
+}
+
+export interface AggregateClipsResult {
+  readonly type: 'aggregateClipsResult';
+  readonly payload: {
+    readonly data: readonly ClipDataPoint[];
+    readonly totalViews: number;
+  };
+}
+
+export type OutgoingWorkerMessage = AggregateResult | AggregateClipsResult;

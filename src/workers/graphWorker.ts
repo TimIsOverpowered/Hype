@@ -6,6 +6,7 @@ import {
   TOP_EMOTES_COUNT,
 } from '../constants/ui';
 import type {
+  AggregateClipsPayload,
   AggregatePayload,
   IncomingWorkerMessage,
   OutgoingWorkerMessage,
@@ -140,8 +141,23 @@ function toHHMMSS(seconds: number): string {
   return [hours, minutes, secs].map((a: number) => a.toString().padStart(2, '0')).join(':');
 }
 
-function aggregateLogs(payload: AggregatePayload): Array<{ x: number; y: number }> {
-  const { logs, duration, interval, emotes, threshold, searchType, searchTerm } = payload;
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  if (sorted.length === 1) return sorted[0];
+  const index = (p / 100) * (sorted.length - 1);
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower];
+  const weight = index - lower;
+  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+}
+
+function aggregateLogs(payload: AggregatePayload): {
+  results: Array<{ x: number; y: number }>;
+  threshold: number;
+  percentile: number;
+} {
+  const { logs, duration, interval, emotes, searchType, searchTerm, threshold: userThreshold } = payload;
 
   const emoteLookup = buildEmoteLookup(emotes.bttv, emotes.ffz, emotes.seventv);
 
@@ -185,21 +201,34 @@ function aggregateLogs(payload: AggregatePayload): Array<{ x: number; y: number 
 
   const results: Array<{ x: number; y: number }> = [];
 
-  for (const [bucketKey, data] of buckets) {
-    let y: number;
-    if (searchType === 'search') {
-      y = data.searchMatches;
-    } else {
-      y = data.messages;
+  if (searchType === 'search') {
+    const searchThreshold = userThreshold > 0 ? userThreshold : 1;
+    for (const [bucketKey, data] of buckets) {
+      if (data.searchMatches >= searchThreshold) {
+        results.push({ x: bucketKey, y: data.searchMatches });
+      }
     }
+    results.sort((a, b) => a.x - b.x);
+    return { results, threshold: searchThreshold, percentile: 0 };
+  }
 
-    if (y >= threshold) {
-      results.push({ x: bucketKey, y });
+  const allCounts: number[] = [];
+  for (const [, data] of buckets) {
+    allCounts.push(data.messages);
+  }
+  allCounts.sort((a, b) => a - b);
+
+  const percentileValue = percentile(allCounts, 25);
+  const effectiveThreshold = userThreshold > 0 ? userThreshold : Math.max(1, Math.round(percentileValue));
+
+  for (const [bucketKey, data] of buckets) {
+    if (data.messages >= effectiveThreshold) {
+      results.push({ x: bucketKey, y: data.messages });
     }
   }
 
   results.sort((a, b) => a.x - b.x);
-  return results;
+  return { results, threshold: effectiveThreshold, percentile: Math.round(percentileValue) };
 }
 
 function buildGraphData(
@@ -243,17 +272,96 @@ function buildGraphData(
   }));
 }
 
+function aggregateClips(payload: AggregateClipsPayload): Array<{
+  x: number;
+  y: number;
+  duration: string;
+  title?: string;
+  slug?: string;
+  clipDuration?: number;
+  views?: number;
+  game?: string;
+}> {
+  const { clips, chapters } = payload;
+
+  const data: Array<{
+    x: number;
+    y: number;
+    title?: string;
+    slug?: string;
+    clipDuration?: number;
+    views?: number;
+    game?: string;
+  }> = [];
+
+  for (const clip of clips) {
+    const game = chapters.find((chapter) => chapter.node.positionMilliseconds <= clip.vod_offset * 1000);
+    if (game) {
+      data.push({
+        x: clip.vod_offset,
+        y: clip.views,
+        title: clip.title,
+        slug: clip.slug,
+        clipDuration: clip.duration,
+        views: clip.views,
+        game: game.node.details?.game?.displayName,
+      });
+    } else {
+      data.push({
+        x: clip.vod_offset,
+        y: clip.views,
+        title: clip.title,
+        slug: clip.slug,
+        clipDuration: clip.duration,
+        views: clip.views,
+      });
+    }
+  }
+
+  const simplified = ramerDouglasPeucker(
+    data.map((d) => ({ x: d.x, y: d.y })),
+    10,
+  );
+
+  return simplified.map((point) => {
+    const original = data.find((d) => d.x === point.x);
+    return {
+      x: point.x,
+      y: point.y,
+      duration: toHHMMSS(point.x),
+      title: original?.title,
+      slug: original?.slug,
+      clipDuration: original?.clipDuration,
+      views: original?.views,
+      game: original?.game,
+    };
+  });
+}
+
 self.onmessage = (e: MessageEvent<IncomingWorkerMessage>) => {
   const msg = e.data;
 
   if (msg.type === 'aggregate') {
     try {
-      const rawBuckets = aggregateLogs(msg.payload);
+      const { results: rawBuckets, threshold, percentile } = aggregateLogs(msg.payload);
       const data = buildGraphData(rawBuckets, msg.payload.logs, msg.payload.emotes);
 
-      self.postMessage({ type: 'aggregateResult', payload: { data } } as OutgoingWorkerMessage);
+      self.postMessage({
+        type: 'aggregateResult',
+        payload: { data, computedThreshold: threshold, percentile },
+      } as OutgoingWorkerMessage);
     } catch (err) {
       console.error('Worker aggregation failed:', err);
+    }
+  }
+
+  if (msg.type === 'aggregateClips') {
+    try {
+      const data = aggregateClips(msg.payload);
+      const totalViews = data.reduce((sum, d) => sum + d.y, 0);
+      self.postMessage({ type: 'aggregateClipsResult', payload: { data, totalViews } } as OutgoingWorkerMessage);
+    } catch (err) {
+      console.error('Worker clips aggregation failed:', err);
     }
   }
 };
