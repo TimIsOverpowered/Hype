@@ -27,8 +27,6 @@ function buildHeaders(clientId: string): Record<string, string> {
 
 async function gqlPost<T>(clientId: string, body: Record<string, unknown>): Promise<T> {
   const bodyStr = JSON.stringify(body);
-  console.log('[gqlPost]', body.operationName || '(no opName)', 'body:', bodyStr);
-  console.log('[gqlPost] headers:', JSON.stringify(buildHeaders(clientId)));
   const response = await fetch(GQL_URL, {
     method: 'POST',
     headers: buildHeaders(clientId),

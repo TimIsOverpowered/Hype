@@ -16,7 +16,7 @@ import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
   const { vodId: paramVodId } = useParams() as { vodId: string };
-  const [vodId, setVodId] = useState(paramVodId);
+  const [vodId] = useState(paramVodId);
   const [error, setError] = useState<string | null>(null);
 
   const [m3u8Url, setM3u8Url] = useState('');
@@ -31,7 +31,6 @@ export default function VODPage() {
 
   const playerRef = useRef<VideoPlayerHandle>(null);
   const [playerState, setPlayerState] = useState<number>(-1);
-  const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [clipStart, setClipStart] = useState(0);
   const [clipEnd, setClipEnd] = useState(0);
@@ -180,20 +179,15 @@ export default function VODPage() {
     }
   }, [vodId]);
 
-  const handleDuration = useCallback((dur: number) => {
-    setDuration(dur);
-  }, []);
+  useEffect(() => {
+    if (paramVodId) {
+      loadVod();
+    }
+  }, [paramVodId, loadVod]);
 
   const handleTimeUpdate = useCallback((time: number) => {
     setCurrentTime(time);
   }, []);
-
-  useEffect(() => {
-    if (paramVodId) {
-      setVodId(paramVodId);
-      loadVod();
-    }
-  }, [paramVodId, loadVod]);
 
   const handleClip = useCallback(
     (vodId: string, _m3u8Url: string, startSeconds: number, durationSeconds: number) => {
@@ -205,9 +199,9 @@ export default function VODPage() {
   const handleDownload = useCallback(
     (selectedM3u8Url: string) => {
       setShowDownloadModal(false);
-      startDownload(vodId, selectedM3u8Url, duration, vodInfo?.broadcasterName ?? '');
+      startDownload(vodId, selectedM3u8Url, vodInfo?.lengthSeconds ?? 0, vodInfo?.broadcasterName ?? '');
     },
-    [startDownload, duration, vodId, vodInfo],
+    [startDownload, vodId, vodInfo],
   );
 
   const toggleTheatreMode = useCallback(() => {
@@ -236,7 +230,6 @@ export default function VODPage() {
             ref={playerRef}
             autoPlay
             onTimeUpdate={handleTimeUpdate}
-            onDuration={handleDuration}
             onPause={() => setPlayerState(2)}
             onEnded={() => setPlayerState(0)}
             onWaiting={() => setPlayerState(3)}
@@ -278,7 +271,7 @@ export default function VODPage() {
         <ClipBar
           vodId={vodId || ''}
           m3u8Url={m3u8Url || ''}
-          duration={duration}
+          duration={vodInfo?.lengthSeconds ?? 0}
           currentTime={currentTime}
           clipStart={clipStart}
           clipEnd={clipEnd}
@@ -298,7 +291,7 @@ export default function VODPage() {
           onDownload={handleDownload}
           vodId={vodId || ''}
           vodTitle={vodInfo?.title ?? ''}
-          duration={duration}
+          duration={vodInfo?.lengthSeconds ?? 0}
           variants={variants}
           isLoading={false}
         />
@@ -313,7 +306,7 @@ export default function VODPage() {
               } | null>
             }
             emoteData={emoteDataRef}
-            duration={duration}
+            duration={vodInfo?.lengthSeconds ?? 0}
             isWhitelisted={isWhitelisted}
             onClipStart={setClipStart}
             onClipEnd={setClipEnd}

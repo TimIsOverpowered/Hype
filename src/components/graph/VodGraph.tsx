@@ -205,6 +205,7 @@ const VodGraph = memo(function VodGraph({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [effectiveThreshold, setEffectiveThreshold] = useState<number | null>(null);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -220,6 +221,7 @@ const VodGraph = memo(function VodGraph({
   }> | null>(null);
   const chaptersRef = useRef<readonly ChapterEdge[] | null>(null);
   const durationRef = useRef<number>(0);
+  const propDurationRef = useRef<number>(0);
   const fetchedRef = useRef(false);
   const intervalRef = useRef(interval);
   const userMessageThresholdRef = useRef(userMessageThreshold);
@@ -236,7 +238,8 @@ const VodGraph = memo(function VodGraph({
     intervalRef.current = interval;
     userMessageThresholdRef.current = userMessageThreshold;
     userSearchThresholdRef.current = userSearchThreshold;
-  }, [interval, userMessageThreshold, userSearchThreshold]);
+    propDurationRef.current = propDuration ?? 0;
+  }, [interval, userMessageThreshold, userSearchThreshold, propDuration]);
 
   useEffect(() => {
     return () => {
@@ -339,6 +342,7 @@ const VodGraph = memo(function VodGraph({
       const worker = workerRef.current;
       if (!worker) return;
 
+      setHasStarted(true);
       setIsLoading(true);
       setError(null);
       setGraphData([]);
@@ -416,9 +420,20 @@ const VodGraph = memo(function VodGraph({
   );
 
   useEffect(() => {
-    if (!vodId) return;
-    runAggregate(vodId, activeTab, propDuration || 0, userMessageThreshold, userSearchThreshold, interval);
-  }, [vodId, activeTab, runAggregate, propDuration, userMessageThreshold, userSearchThreshold, interval]);
+    if (!vodId || propDurationRef.current <= 0 || isWhitelisted !== true) return;
+    runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
+  }, [vodId, activeTab, runAggregate, userMessageThreshold, userSearchThreshold, interval, isWhitelisted]);
+
+  useEffect(() => {
+    if (
+      vodId &&
+      propDurationRef.current > 0 &&
+      !fetchedRef.current &&
+      isWhitelisted === true
+    ) {
+      runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
+    }
+  }, [propDuration, isWhitelisted]);
 
   const handleChartClick = useCallback(
     (idx: number) => {
@@ -500,28 +515,6 @@ const VodGraph = memo(function VodGraph({
       {/* Tab bar */}
       <div className="relative mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {isWhitelisted === false && (
-            <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-3 py-1.5">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-yellow-500"
-              >
-                <title>Warning</title>
-                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              <span className="text-xs text-yellow-400">This streamer is not whitelisted</span>
-            </div>
-          )}
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -579,12 +572,35 @@ const VodGraph = memo(function VodGraph({
 
       {/* Chart area */}
       <div className="relative flex min-h-[200px] w-full flex-1 flex-col">
-        {isLoading && !error ? (
-          <SkeletonGraph />
-        ) : error ? (
+        {error ? (
           <div className="flex h-full w-full flex-col items-center justify-center">
             <p className="text-sm text-text-muted">{error}</p>
           </div>
+        ) : isWhitelisted === false ? (
+          <div className="flex h-full w-full flex-col items-center justify-center">
+            <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-4 py-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-yellow-500"
+              >
+                <title>Warning</title>
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <p className="text-sm text-yellow-400">This streamer is not whitelisted</p>
+            </div>
+          </div>
+        ) : !hasStarted || (isLoading && !error) ? (
+          <SkeletonGraph />
         ) : graphData.length === 0 ? (
           <div className="flex h-full w-full flex-col items-center justify-center">
             <p className="text-sm text-text-muted">No data to display</p>

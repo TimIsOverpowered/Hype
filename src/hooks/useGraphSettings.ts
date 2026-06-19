@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { DEFAULT_MESSAGE_THRESHOLD, DEFAULT_SEARCH_THRESHOLD } from '../constants/ui';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
@@ -17,34 +17,46 @@ interface StoredSettings {
   searchThreshold?: number | null;
 }
 
+function loadStoredInterval(): number {
+  const saved = safeLocalStorage.getItem(STORAGE_KEY);
+  if (!saved) return DEFAULT_SETTINGS.interval;
+  try {
+    const settings: StoredSettings = JSON.parse(saved);
+    if (settings.interval != null && typeof settings.interval === 'number') return settings.interval;
+  } catch {
+    console.error('Failed to parse graph settings from localStorage');
+  }
+  return DEFAULT_SETTINGS.interval;
+}
+
+function loadStoredMessageThreshold(): number | null {
+  const saved = safeLocalStorage.getItem(STORAGE_KEY);
+  if (!saved) return null;
+  try {
+    const settings: StoredSettings = JSON.parse(saved);
+    return settings.messageThreshold ?? null;
+  } catch {
+    console.error('Failed to parse graph settings from localStorage');
+  }
+  return null;
+}
+
+function loadStoredSearchThreshold(): number | null {
+  const saved = safeLocalStorage.getItem(STORAGE_KEY);
+  if (!saved) return null;
+  try {
+    const settings: StoredSettings = JSON.parse(saved);
+    return settings.searchThreshold ?? null;
+  } catch {
+    console.error('Failed to parse graph settings from localStorage');
+  }
+  return null;
+}
+
 export function useGraphSettings() {
-  const [interval, setIntervalState] = useState(DEFAULT_SETTINGS.interval);
-  const [messageThreshold, setMessageThresholdState] = useState<number | null>(null);
-  const [searchThreshold, setSearchThresholdState] = useState<number | null>(null);
-
-  const loadSettings = useCallback(() => {
-    const saved = safeLocalStorage.getItem(STORAGE_KEY);
-    if (!saved) return;
-
-    try {
-      const settings: StoredSettings = JSON.parse(saved);
-      if (settings.interval != null && typeof settings.interval === 'number') {
-        setIntervalState(settings.interval);
-      }
-      if (settings.messageThreshold != null) {
-        setMessageThresholdState(settings.messageThreshold);
-      }
-      if (settings.searchThreshold != null) {
-        setSearchThresholdState(settings.searchThreshold);
-      }
-    } catch {
-      console.error('Failed to parse graph settings from localStorage');
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+  const [interval, setIntervalState] = useState(loadStoredInterval);
+  const [messageThreshold, setMessageThresholdState] = useState(loadStoredMessageThreshold);
+  const [searchThreshold, setSearchThresholdState] = useState(loadStoredSearchThreshold);
 
   const persistSettings = useCallback((updates: Partial<StoredSettings>) => {
     const saved = safeLocalStorage.getItem(STORAGE_KEY);

@@ -46,8 +46,6 @@ export class TauriHlsLoader {
 
     this.stats.loading.start = performance.now();
 
-    console.log(`[Tauri Loader] Fetching: ${context.url}`);
-
     tauriFetch(context.url, {
       method: 'GET',
       signal: this.controller.signal,
@@ -62,7 +60,6 @@ export class TauriHlsLoader {
         const buffer = await response.arrayBuffer();
 
         if (this.stats.aborted) {
-          console.log(`[Tauri Loader] Dropped aborted chunk: ${context.url}`);
           return;
         }
 
@@ -75,8 +72,6 @@ export class TauriHlsLoader {
         const isText = context.url.includes('.m3u8') || context.responseType === 'text';
         const data = isText ? new TextDecoder().decode(buffer) : buffer;
 
-        console.log(`[Tauri Loader] Success (${buffer.byteLength} bytes)`);
-
         setTimeout(() => {
           if (this.callbacks?.onSuccess) {
             this.callbacks.onSuccess({ url: response.url || context.url, data }, this.stats, context);
@@ -85,14 +80,12 @@ export class TauriHlsLoader {
       })
       .catch((error: unknown) => {
         if (this.stats.aborted || (error instanceof Error && error.name === 'AbortError')) {
-          console.log(`[Tauri Loader] Aborted manually: ${context.url}`);
           return;
         }
 
         const message = error instanceof Error ? error.message : String(error);
 
         if (message.includes('resource id') || message.includes('invalid')) {
-          console.log(`[Tauri Loader] Aborted (Resource Dropped): ${context.url}`);
           return;
         }
 
