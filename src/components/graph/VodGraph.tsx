@@ -54,7 +54,7 @@ function SkeletonGraph(): React.ReactNode {
 
 function formatEmoteTooltip(emotes: readonly TopEmote[] | undefined): string {
   if (!emotes || emotes.length === 0) return '';
-  return emotes.map((e) => `${e.name}: ${e.count}`).join('  ·  ');
+  return emotes.map((e) => `<div>${e.name}: ${e.count}</div>`).join('');
 }
 
 function buildEChartsOption(
@@ -77,7 +77,7 @@ function buildEChartsOption(
 
   const tooltipFormatter = (params: unknown) => {
     const arr = params as Array<Record<string, unknown>>;
-    if (!arr?.[0]?.dataIndex) return '';
+    if (arr[0]?.dataIndex == null) return '';
     const idx = typeof arr[0].dataIndex === 'number' ? arr[0].dataIndex : 0;
     const point = data[idx];
     if (!point) return '';
@@ -108,7 +108,7 @@ function buildEChartsOption(
       }
 
       if (gp.emotes && gp.emotes.length > 0) {
-        html += `<div style="margin-top:4px;color:#008080;font-size:12px">${formatEmoteTooltip(gp.emotes)}</div>`;
+        html += `<div style="margin-top:4px;color:#008080;font-size:14px">${formatEmoteTooltip(gp.emotes)}</div>`;
       }
     }
 
@@ -137,7 +137,7 @@ function buildEChartsOption(
       backgroundColor: ECharts.TOOLTIP_BG,
       borderColor: ECharts.BORDER_COLOR,
       borderWidth: 1,
-      textStyle: { color: ECharts.TEXT_COLOR, fontSize: 12 },
+      textStyle: { color: ECharts.TEXT_COLOR, fontSize: 14 },
       extraCssText: ECharts.TOOLTIP_CSS,
       formatter: tooltipFormatter,
     },
