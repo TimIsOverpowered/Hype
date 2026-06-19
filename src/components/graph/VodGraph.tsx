@@ -122,7 +122,7 @@ function buildEChartsOption(
       data: xData,
       boundaryGap: false,
       axisLine: { lineStyle: { color: ECharts.AXIS_COLOR } },
-      axisLabel: { color: ECharts.LABEL_COLOR, fontSize: 11, interval: 'auto', rotate: 0 },
+      axisLabel: { color: ECharts.LABEL_COLOR, fontSize: 11, interval: 'auto' },
       splitLine: { show: false },
     },
     yAxis: {
@@ -168,20 +168,6 @@ function buildEChartsOption(
         type: 'inside' as const,
         xAxisIndex: 0,
         filterMode: 'none' as const,
-      },
-      {
-        type: 'slider' as const,
-        bottom: 8,
-        height: 18,
-        borderColor: 'transparent',
-        backgroundColor: ECharts.TOOLTIP_BG,
-        fillerColor: ECharts.SLIDER_FILL,
-        handleStyle: { color: ECharts.SERIES_COLOR },
-        textStyle: { color: '#adadb8', fontSize: 10 },
-        dataBackground: {
-          lineStyle: { color: ECharts.AXIS_COLOR },
-          areaStyle: { color: ECharts.SPLIT_COLOR },
-        },
       },
     ],
   };
@@ -464,55 +450,61 @@ const VodGraph = memo(function VodGraph({
   return (
     <div className="flex w-full flex-1 flex-col min-h-0 rounded-lg border border-border bg-surface p-3">
       {/* Tab bar */}
-      <div className="mb-2 flex items-center justify-between">
-        {isWhitelisted === false && (
-          <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-3 py-1.5">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-yellow-500"
-            >
-              <title>Warning</title>
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <span className="text-xs text-yellow-400">This streamer is not whitelisted</span>
-          </div>
-        )}
+      <div className="relative mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {TABS.map((tab) => (
-            <span key={tab.key} className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-                  activeTab === tab.key
-                    ? 'bg-white/10 text-text-primary'
-                    : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
-                }`}
+          {isWhitelisted === false && (
+            <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-3 py-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-yellow-500"
               >
-                {tab.label}
-              </button>
-              {tab.key === 'search' && activeTab === 'search' && (
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={handleSearchChange}
-                  placeholder="Search..."
-                  className="w-32 rounded border border-border bg-background px-2 py-1 text-xs text-text-primary placeholder-text-secondary outline-none transition-colors focus:border-border/60"
-                />
-              )}
-            </span>
+                <title>Warning</title>
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span className="text-xs text-yellow-400">This streamer is not whitelisted</span>
+            </div>
+          )}
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-white/10 text-text-primary'
+                  : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+              }`}
+            >
+              {tab.label}
+            </button>
           ))}
+          {activeTab === 'search' && (
+            <input
+              type="text"
+              value={searchInput}
+              onChange={handleSearchChange}
+              placeholder="Search..."
+              className="w-32 rounded border border-border bg-background px-2 py-1 text-xs text-text-primary placeholder-text-secondary outline-none transition-colors focus:border-border/60"
+            />
+          )}
         </div>
+        <span className="absolute left-1/2 -translate-x-1/2 text-xs tabular-nums text-text-secondary">
+          {activeTab === 'clips' && graphData.length > 0
+            ? `${totalViews} views / ${interval}s`
+            : effectiveThreshold != null && effectiveThreshold > 0
+              ? `${effectiveThreshold} msgs / ${interval}s`
+              : ''}
+        </span>
         <button
           type="button"
           onClick={() => setShowSettings(true)}
@@ -536,18 +528,6 @@ const VodGraph = memo(function VodGraph({
           </svg>
         </button>
       </div>
-
-      {/* Hype threshold label */}
-      {effectiveThreshold != null && effectiveThreshold > 0 && activeTab !== 'search' && (
-        <div className="mb-2 text-center text-xs text-text-secondary">
-          {effectiveThreshold} msgs / {interval}s
-        </div>
-      )}
-      {activeTab === 'clips' && graphData.length > 0 && (
-        <div className="mb-2 text-center text-xs text-text-secondary">
-          {totalViews} views / {interval}s
-        </div>
-      )}
 
       {/* Chart area */}
       <div className="relative flex min-h-[200px] w-full flex-1 flex-col">

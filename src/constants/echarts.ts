@@ -1,5 +1,5 @@
 export const ECharts = {
-  GRID_PADDING: { top: 20, right: 20, bottom: 40, left: 50, containLabel: false } as const,
+  GRID_PADDING: { top: 15, right: 5, bottom: 15, left: 25, containLabel: false } as const,
   AXIS_COLOR: '#222230',
   LABEL_COLOR: '#adadb8',
   SPLIT_COLOR: '#1a1a28',
