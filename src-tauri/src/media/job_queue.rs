@@ -105,7 +105,7 @@ impl JobQueue {
         id
     }
 
-    pub fn cancel(&self, id: &str) -> bool {
+    pub fn cancel(&self, id: &str, app: &AppHandle) -> bool {
         let jobs = self.jobs.read().unwrap();
         if let Some(job) = jobs.get(id) {
             let mut status = job.status.lock().unwrap();
@@ -117,8 +117,14 @@ impl JobQueue {
                         let _ = child.kill();
                     }
                 }
+                let summary = self.get_summary(id);
+                if let Some(s) = summary {
+                    let _ = app.emit("job-state-changed", &s);
+                }
+                true
+            } else {
+                false
             }
-            true
         } else {
             false
         }
@@ -144,13 +150,17 @@ impl JobQueue {
             .collect()
     }
 
-    pub fn update_progress(&self, id: &str, percent: u8) {
+    pub fn update_progress(&self, id: &str, percent: u8, app: &AppHandle) {
         let jobs = self.jobs.read().unwrap();
         if let Some(job) = jobs.get(id) {
             let status = job.status.lock().unwrap();
             if *status == JobStatus::Running {
                 job.progress.store(percent.min(100), Ordering::SeqCst);
             }
+        }
+        let summary = self.get_summary(id);
+        if let Some(s) = summary {
+            let _ = app.emit("job-state-changed", &s);
         }
     }
 
@@ -194,14 +204,12 @@ impl JobQueue {
             }
         }
 
-        if success {
-            let summary = self.get_summary(id);
-            if let Some(s) = summary {
+        let summary = self.get_summary(id);
+        if let Some(s) = summary {
+            let _ = app.emit("job-state-changed", &s);
+            if success {
                 let _ = app.emit(&format!("{}-completed", event_prefix), s);
-            }
-        } else {
-            let summary = self.get_summary(id);
-            if let Some(s) = summary {
+            } else {
                 let _ = app.emit(&format!("{}-failed", event_prefix), s);
             }
         }
@@ -220,6 +228,7 @@ impl JobQueue {
 
         let summary = self.get_summary(id);
         if let Some(s) = summary {
+            let _ = app.emit("job-state-changed", &s);
             let _ = app.emit(&format!("{}-failed", event_prefix), s);
         }
     }

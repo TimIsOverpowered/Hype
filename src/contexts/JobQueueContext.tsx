@@ -33,7 +33,6 @@ const JobQueueContext = createContext<JobQueueState | null>(null);
 
 export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobs] = useState<Map<string, Job>>(new Map());
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unlistenRef = useRef<(() => void)[] | null>(null);
   const toastedRef = useRef(new Set<string>());
 
@@ -73,16 +72,10 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchJobs uses only stable references
   useEffect(() => {
     fetchJobs();
-    pollRef.current = setInterval(fetchJobs, 1000);
 
     return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
       if (unlistenRef.current) {
         for (const unlisten of unlistenRef.current) {
           unlisten();
@@ -90,7 +83,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         unlistenRef.current = null;
       }
     };
-  }, []);
+  }, [fetchJobs]);
 
   const showToast = useCallback(
     (id: string, message: string, description: string, variant: 'success' | 'error' | 'info') => {
@@ -200,6 +193,18 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         });
         showToast(job.id, 'Download failed', job.error ?? 'Unknown error', 'error');
       });
+
+      const unlistenStateChange = await listen<{
+        id: string;
+        job_type: string;
+        name: string;
+        status: string;
+        progress: number;
+        error: string | null;
+      }>('job-state-changed', async () => {
+        await fetchJobs();
+      });
+      unlistens.push(unlistenStateChange);
 
       unlistenRef.current = unlistens;
     };

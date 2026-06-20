@@ -132,7 +132,7 @@ fn run_ffmpeg(
                 let now = std::time::Instant::now();
                 if now.duration_since(last_emit) >= throttle {
                     last_emit = now;
-                    queue.update_progress(&job_id_clone, clamped);
+                    queue.update_progress(&job_id_clone, clamped, &app_clone);
 
                     let summary = queue.list().into_iter().find(|s| s.id == job_id_clone);
                     if let Some(s) = summary {
@@ -276,8 +276,8 @@ pub async fn submit_download(
 }
 
 #[tauri::command]
-pub async fn cancel_job(id: String) -> Result<(), String> {
-    if job_queue::get_queue().cancel(&id) {
+pub fn cancel_job(id: String, app: tauri::AppHandle) -> Result<(), String> {
+    if job_queue::get_queue().cancel(&id, &app) {
         Ok(())
     } else {
         Err("Job not found".to_string())
