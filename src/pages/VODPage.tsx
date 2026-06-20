@@ -109,7 +109,16 @@ export default function VODPage() {
         const data = await response.json();
         if (!abortController.signal.aborted && data && typeof data === 'object') {
           const d = data as { emote_set?: { emotes: SevenTVEmote[] } };
-          emoteDataRef.current.seventv = d.emote_set?.emotes ?? [];
+          const emotes = d.emote_set?.emotes ?? [];
+          for (const emote of emotes) {
+            const file = (emote as { data?: { host?: { files?: Array<{ width?: number; height?: number }> } } })?.data
+              ?.host?.files?.[0];
+            if (file) {
+              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).width = file.width;
+              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).height = file.height;
+            }
+          }
+          emoteDataRef.current.seventv = emotes;
         }
       } catch {
         // ignore
@@ -125,7 +134,16 @@ export default function VODPage() {
         const data = await response.json();
         if (!abortController.signal.aborted && data && typeof data === 'object') {
           const d = data as { emotes: SevenTVEmote[] };
-          emoteDataRef.current.seventv = [...emoteDataRef.current.seventv, ...(d.emotes ?? [])];
+          const emotes = d.emotes ?? [];
+          for (const emote of emotes) {
+            const file = (emote as { data?: { host?: { files?: Array<{ width?: number; height?: number }> } } })?.data
+              ?.host?.files?.[0];
+            if (file) {
+              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).width = file.width;
+              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).height = file.height;
+            }
+          }
+          emoteDataRef.current.seventv = [...emoteDataRef.current.seventv, ...emotes];
         }
       } catch {
         // ignore

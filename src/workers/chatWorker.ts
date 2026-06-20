@@ -69,7 +69,18 @@ function extractEmojis(text: string): Array<{ text?: string; emoji?: string }> {
 
 function transformFragments(
   fragments: Array<{ text: string; emote: { emoteID: string } | null }>,
-  emoteLookup: Map<string, { id: string | number; code: string; name: string; provider: string; flags?: number }>,
+  emoteLookup: Map<
+    string,
+    {
+      id: string | number;
+      code: string;
+      name: string;
+      provider: string;
+      flags?: number;
+      width?: number;
+      height?: number;
+    }
+  >,
 ): Array<TextFragment | TwitchEmoteFragment | CustomEmoteFragment | EmojiFragment | UrlFragment> {
   const result: Array<TextFragment | TwitchEmoteFragment | CustomEmoteFragment | EmojiFragment | UrlFragment> = [];
 
@@ -85,7 +96,15 @@ function transformFragments(
 
     const words = fragment.text.split(' ');
     let pendingNormalEmote: {
-      entry: { id: string | number; code: string; name: string; provider: string; flags?: number };
+      entry: {
+        id: string | number;
+        code: string;
+        name: string;
+        provider: string;
+        flags?: number;
+        width?: number;
+        height?: number;
+      };
       index: number;
     } | null = null;
 
@@ -108,6 +127,8 @@ function transformFragments(
             name: emote.name,
             provider: emote.provider as '7TV' | 'BTTV' | 'FFZ',
             isZeroWidth: true,
+            width: emote.width,
+            height: emote.height,
           };
           result.push(zwFragment);
         } else {
@@ -117,6 +138,8 @@ function transformFragments(
             code: emote.code,
             name: emote.name,
             provider: emote.provider as '7TV' | 'BTTV' | 'FFZ',
+            width: emote.width,
+            height: emote.height,
           };
           pendingNormalEmote = { entry: emote, index: result.length };
           result.push(normalFragment);

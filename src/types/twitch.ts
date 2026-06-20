@@ -150,6 +150,8 @@ export type EmoteProvider = '7TV' | 'BTTV' | 'FFZ' | 'Twitch';
 export interface BttvEmote {
   readonly id: string;
   readonly code: string;
+  readonly width?: number;
+  readonly height?: number;
 }
 
 export interface FfzEmote {
@@ -157,6 +159,8 @@ export interface FfzEmote {
   readonly code?: string;
   readonly name?: string;
   readonly text?: string;
+  readonly width?: number;
+  readonly height?: number;
 }
 
 export interface SevenTVEmote {
@@ -164,6 +168,8 @@ export interface SevenTVEmote {
   readonly code: string;
   readonly name?: string;
   readonly flags: number;
+  readonly width?: number;
+  readonly height?: number;
 }
 
 export interface EmoteEntry {
@@ -196,6 +202,8 @@ export interface CustomEmoteFragment {
   readonly name?: string;
   readonly provider: EmoteProvider;
   readonly isZeroWidth?: boolean;
+  readonly width?: number;
+  readonly height?: number;
 }
 
 export interface EmojiFragment {

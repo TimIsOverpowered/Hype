@@ -156,8 +156,12 @@ function renderSingleEmote(
   let srcSet: string | undefined;
   let tooltipSrc = '';
   let alt = word;
+  let emoteWidth: number | undefined;
+  let emoteHeight: number | undefined;
 
   if (isCustom) {
+    emoteWidth = 'width' in emote ? emote.width : undefined;
+    emoteHeight = 'height' in emote ? emote.height : undefined;
     const result = getEmoteSrc(emote.id, provider, 'src');
     src = result.src ?? '';
     const setResult = getEmoteSrc(emote.id, provider, 'srcSet');
@@ -169,6 +173,8 @@ function renderSingleEmote(
     srcSet = `${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/1.0 1x, ${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/2.0 2x, ${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/3.0 4x`;
     tooltipSrc = `${TWITCH_CDN_BASE}/emoticons/v2/${emoteID}/default/dark/2.0`;
     alt = emote.text;
+    emoteWidth = 28;
+    emoteHeight = 28;
   }
 
   const imgStyle: React.CSSProperties = {
@@ -176,8 +182,8 @@ function renderSingleEmote(
     border: 'none',
     maxWidth: '100%',
     height: 'auto',
-    minWidth: isZW ? '0px' : '28px',
-    maxHeight: '32px',
+    width: isZW ? '0px' : `${emoteWidth ?? 28}px`,
+    minHeight: isZW ? '0px' : '28px',
   };
 
   if (isZW) {
@@ -196,7 +202,14 @@ function renderSingleEmote(
         position: isZW ? 'relative' : undefined,
       }}
     >
-      <img src={src} srcSet={srcSet} alt={alt} style={imgStyle} />{' '}
+      <img
+        src={src}
+        srcSet={srcSet}
+        alt={alt}
+        style={imgStyle}
+        width={isZW ? 0 : (emoteWidth ?? 28)}
+        height={isZW ? 0 : (emoteHeight ?? 28)}
+      />{' '}
     </span>
   );
 
@@ -245,13 +258,16 @@ function renderCombinedEmote(normalEmote: EmoteFragment, zwEmote: CustomEmoteFra
   const zwSrcSet = getEmoteSrc(zwID, zwProvider, 'srcSet').srcSet;
   const zwTooltipSrc = getEmoteSrc(zwID, zwProvider, 'tooltip').src;
 
+  const normalWidth = 'width' in normalEmote ? normalEmote.width : 28;
+  const normalHeight = 'height' in normalEmote ? normalEmote.height : 28;
+
   const normalImgStyle: React.CSSProperties = {
     verticalAlign: 'middle',
     border: 'none',
     maxWidth: '100%',
     height: 'auto',
-    minWidth: '28px',
-    maxHeight: '32px',
+    width: `${normalWidth}px`,
+    minHeight: '28px',
   };
 
   const zwImgStyle: React.CSSProperties & { pointerEvents: string } = {
@@ -260,6 +276,7 @@ function renderCombinedEmote(normalEmote: EmoteFragment, zwEmote: CustomEmoteFra
     maxWidth: '100%',
     height: 'auto',
     minWidth: '0px',
+    minHeight: '0px',
     maxHeight: '32px',
     pointerEvents: 'none',
     position: 'absolute' as const,
@@ -276,8 +293,15 @@ function renderCombinedEmote(normalEmote: EmoteFragment, zwEmote: CustomEmoteFra
         position: 'relative',
       }}
     >
-      <img src={normalSrc} srcSet={normalSrcSet} alt="" style={normalImgStyle} />
-      <img src={zwSrc} srcSet={zwSrcSet} alt="" style={zwImgStyle} />{' '}
+      <img
+        src={normalSrc}
+        srcSet={normalSrcSet}
+        alt=""
+        style={normalImgStyle}
+        width={normalWidth}
+        height={normalHeight}
+      />
+      <img src={zwSrc} srcSet={zwSrcSet} alt="" style={zwImgStyle} width={0} height={0} />{' '}
     </span>
   );
 
