@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
+import { useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import DeepLinkHandler from './components/DeepLinkHandler';
