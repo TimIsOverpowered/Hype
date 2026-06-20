@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Pause, Settings } from 'lucide-react';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBadges, getComments } from '../../api/twitch';
 import { BTTV_CDN_BASE, FFZ_CDN_BASE, SEVENTV_CDN_BASE, TWITCH_CDN_BASE } from '../../constants/emotes';
 import {
@@ -59,6 +59,7 @@ interface BadgeRef {
   readonly platform: 'twitch';
   readonly channelBadges: readonly TwitchBadge[] | null;
   readonly globalBadges: readonly TwitchBadge[] | null;
+  readonly badgeMap: ReadonlyMap<string, TwitchBadge>;
 }
 
 interface ChatEngineState {
@@ -405,16 +406,15 @@ function renderBadges(
 ): React.ReactNode {
   if (!textBadges || !badgeData) return null;
 
-  const { channelBadges, globalBadges } = badgeData;
+  const { badgeMap } = badgeData;
   const wrapper: React.ReactNode[] = [];
   let badgeIdx = 0;
 
   for (const textBadge of textBadges) {
     const badgeId = textBadge.setID;
     const version = textBadge.version;
-
-    const allBadges = [...(channelBadges ?? []), ...(globalBadges ?? [])];
-    const badge = allBadges.find((b) => b.setID === badgeId && b.version === version);
+    const key = `${badgeId}-${version}`;
+    const badge = badgeMap.get(key);
     if (!badge) continue;
 
     wrapper.push(
@@ -487,6 +487,7 @@ const MemoizedComment = memo(
     return (
       prev.message.id === next.message.id &&
       prev.showTimestamp === next.showTimestamp &&
+      prev.badgeData === next.badgeData &&
       prev.fontFamily === next.fontFamily &&
       prev.messageFontSize === next.messageFontSize
     );
@@ -519,14 +520,12 @@ function useChatEngine({
   userChatDelay,
   playerState,
   emoteData,
-  filterWords,
 }: {
   readonly vodId: string;
   readonly playerRef: React.RefObject<unknown>;
   readonly userChatDelay: number;
   readonly playerState: number;
   readonly emoteData: WorkerEmoteData;
-  readonly filterWords: readonly string[];
 }): ChatEngineState {
   const [messages, setMessages] = useState<FormattedMessage[]>([]);
   const [scrolling, setScrolling] = useState(false);
@@ -698,7 +697,7 @@ function useChatEngine({
       payload: {
         timestamp: time,
         rawComments: rawSlice,
-        filterWords: filterWords,
+        filterWords: [],
         emotes: emoteData,
       },
     };
@@ -711,7 +710,7 @@ function useChatEngine({
     if (commentsRef.current.length === lastIndex && !isFetchingNextRef.current) {
       fetchNextComments();
     }
-  }, [playerRef, isPlaying, getCurrentTime, filterWords, emoteData, fetchNextComments]);
+  }, [playerRef, isPlaying, getCurrentTime, emoteData, fetchNextComments]);
 
   const scrollToBottom = useCallback(() => {
     if (!chatRef.current) return;
@@ -938,14 +937,12 @@ export default function ChatReplay({
   const showChat = showChatProp ?? showChatInternal;
   const setShowChat = setShowChatProp ?? setShowChatInternal;
 
-  const [filterWords] = useState<string[]>([]);
-
   const chatWidth = chatWidthProp ?? chatSettings?.chatWidth;
   const showTimestamp = chatSettings?.showTimestamp ?? false;
   const fontFamily = chatSettings?.fontFamily ?? 'Inter, sans-serif';
   const messageFontSize = chatSettings?.messageFontSize ?? 14;
 
-  const badgesRef = useRef<BadgeRef | null>(null);
+  const [badgeState, setBadgeState] = useState<BadgeRef | null>(null);
 
   const { messages, scrolling, isLoading, commentsCount, chatRef, bottomAnchorRef, handleScroll, scrollToBottom } =
     useChatEngine({
@@ -954,10 +951,9 @@ export default function ChatReplay({
       userChatDelay,
       playerState,
       emoteData: emoteData ?? { bttv: [], ffz: [], seventv: [] },
-      filterWords,
     });
 
-  // Fetch badges
+  // Fetch badges — precompute Map for O(1) lookup
   useEffect(() => {
     const abortController = new AbortController();
 
@@ -965,19 +961,26 @@ export default function ChatReplay({
       try {
         const badgeData = await getBadges(vodId);
         if (!abortController.signal.aborted) {
-          badgesRef.current = {
+          const map = new Map<string, TwitchBadge>();
+          const all = [...(badgeData.channelBadges ?? []), ...(badgeData.globalBadges ?? [])];
+          for (const b of all) {
+            map.set(`${b.setID}-${b.version}`, b);
+          }
+          setBadgeState({
             platform: 'twitch',
             channelBadges: badgeData.channelBadges,
             globalBadges: badgeData.globalBadges,
-          };
+            badgeMap: map,
+          });
         }
       } catch {
         if (!abortController.signal.aborted) {
-          badgesRef.current = {
+          setBadgeState({
             platform: 'twitch',
             channelBadges: null,
             globalBadges: null,
-          };
+            badgeMap: new Map(),
+          });
         }
       }
     };
@@ -987,16 +990,20 @@ export default function ChatReplay({
     return () => abortController.abort();
   }, [vodId]);
 
-  const commentElements = messages.map((msg) => (
-    <MemoizedComment
-      key={msg.id}
-      message={msg}
-      showTimestamp={showTimestamp}
-      badgeData={badgesRef.current}
-      fontFamily={fontFamily}
-      messageFontSize={messageFontSize}
-    />
-  ));
+  const commentElements = useMemo(
+    () =>
+      messages.map((msg) => (
+        <MemoizedComment
+          key={msg.id}
+          message={msg}
+          showTimestamp={showTimestamp}
+          badgeData={badgeState}
+          fontFamily={fontFamily}
+          messageFontSize={messageFontSize}
+        />
+      )),
+    [messages, showTimestamp, badgeState, fontFamily, messageFontSize],
+  );
 
   return (
     <div
