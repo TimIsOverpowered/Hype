@@ -158,6 +158,21 @@ impl JobQueue {
         self.jobs.read().unwrap().get(id).cloned()
     }
 
+    pub fn get_summary(&self, id: &str) -> Option<JobSummary> {
+        let jobs = self.jobs.read().unwrap();
+        let job = jobs.get(id)?;
+        let status = job.status.lock().unwrap();
+        let error = job.error.lock().unwrap();
+        Some(JobSummary {
+            id: job.id.clone(),
+            job_type: job.job_type.as_str().to_string(),
+            name: job.name.clone(),
+            status: status.as_str().to_string(),
+            progress: job.progress.load(Ordering::SeqCst) as f32,
+            error: error.clone(),
+        })
+    }
+
     pub fn complete(&self, id: &str, success: bool, app: &AppHandle, event_prefix: &str) {
         {
             let mut jobs = self.jobs.write().unwrap();
@@ -180,12 +195,12 @@ impl JobQueue {
         }
 
         if success {
-            let summary = self.list().into_iter().find(|j| j.id == id);
+            let summary = self.get_summary(id);
             if let Some(s) = summary {
                 let _ = app.emit(&format!("{}-completed", event_prefix), s);
             }
         } else {
-            let summary = self.list().into_iter().find(|j| j.id == id);
+            let summary = self.get_summary(id);
             if let Some(s) = summary {
                 let _ = app.emit(&format!("{}-failed", event_prefix), s);
             }
@@ -203,7 +218,7 @@ impl JobQueue {
             }
         }
 
-        let summary = self.list().into_iter().find(|j| j.id == id);
+        let summary = self.get_summary(id);
         if let Some(s) = summary {
             let _ = app.emit(&format!("{}-failed", event_prefix), s);
         }

@@ -1,10 +1,4 @@
-import {
-  MIN_LOG_LINE_LENGTH,
-  SECONDS_PER_HOUR,
-  SECONDS_PER_MINUTE,
-  SIMPLIFICATION_TOLERANCE,
-  TOP_EMOTES_COUNT,
-} from '../constants/ui';
+import { MIN_LOG_LINE_LENGTH, SIMPLIFICATION_TOLERANCE, TOP_EMOTES_COUNT } from '../constants/ui';
 import type {
   AggregateClipsPayload,
   AggregatePayload,
@@ -12,6 +6,8 @@ import type {
   OutgoingWorkerMessage,
   TopEmote,
 } from '../types/graph';
+import { buildEmoteLookup, type EmoteLookupEntry } from '../utils/emoteLookup';
+import { toHHMMSS as toHHMMSSUtil } from '../utils/time';
 
 interface ChapterEntry {
   readonly positionMilliseconds: number;
@@ -29,60 +25,29 @@ function buildChapterLookup(chapters: AggregatePayload['chapters']): ChapterEntr
 }
 
 function getGameForTimestamp(timestampMs: number, chapterLookup: ChapterEntry[]): string | undefined {
-  for (const chapter of chapterLookup) {
-    if (
-      timestampMs >= chapter.positionMilliseconds &&
-      timestampMs < chapter.positionMilliseconds + chapter.durationMilliseconds
-    ) {
+  let lo = 0;
+  let hi = chapterLookup.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >>> 1;
+    const chapter = chapterLookup[mid];
+    if (timestampMs < chapter.positionMilliseconds) {
+      hi = mid - 1;
+    } else if (timestampMs >= chapter.positionMilliseconds + chapter.durationMilliseconds) {
+      lo = mid + 1;
+    } else {
       return chapter.game;
     }
   }
   return undefined;
 }
 
-import type { BttvEmote, FfzEmote, SevenTVEmote } from '../types/twitch';
-
-interface EmoteLookupEntry {
-  readonly id: string | number;
-  readonly code: string;
-  readonly name: string;
-  readonly provider: string;
-  readonly flags?: number;
-}
-
-function buildEmoteLookup(
-  bttv: readonly BttvEmote[],
-  ffz: readonly FfzEmote[],
-  seventv: readonly SevenTVEmote[],
-): Map<string, EmoteLookupEntry> {
-  const lookup = new Map<string, EmoteLookupEntry>();
-
-  for (const emote of bttv) {
-    lookup.set(emote.code, { id: emote.id, code: emote.code, name: emote.code, provider: 'BTTV' });
-  }
-
-  for (const emote of ffz) {
-    const code = emote.code || emote.text;
-    const name = emote.name || code || String(emote.id);
-    const key = code || name;
-    lookup.set(key, { id: emote.id, code: key, name, provider: 'FFZ' });
-  }
-
-  for (const emote of seventv) {
-    const name = emote.name ?? emote.code;
-    lookup.set(name, { id: emote.id, code: emote.code, name, provider: '7TV', flags: emote.flags });
-  }
-
-  return lookup;
-}
-
 function toSeconds(timeStr: string): number {
   const parts = timeStr.split(':').map(Number);
   if (parts.length === 3) {
-    return parts[0] * SECONDS_PER_HOUR + parts[1] * SECONDS_PER_MINUTE + parts[2];
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
   }
   if (parts.length === 2) {
-    return parts[0] * SECONDS_PER_MINUTE + parts[1];
+    return parts[0] * 60 + parts[1];
   }
   return parts[0] ?? 0;
 }
@@ -111,23 +76,42 @@ function ramerDouglasPeucker(
 ): Array<{ x: number; y: number }> {
   if (points.length <= 2) return points;
 
-  let maxDist = 0;
-  let maxIndex = 0;
-  const start = points[0];
-  const end = points[points.length - 1];
+  const result: Array<{ x: number; y: number }> = [];
+  _rdp(points, 0, points.length - 1, tolerance, result);
+  return result;
+}
 
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
+function _rdp(
+  points: Array<{ x: number; y: number }>,
+  start: number,
+  end: number,
+  tolerance: number,
+  output: Array<{ x: number; y: number }>,
+): void {
+  output.push(points[start]);
+
+  if (end - start <= 1) {
+    if (end > start) output.push(points[end]);
+    return;
+  }
+
+  let maxDist = 0;
+  let maxIndex = start;
+  const startPt = points[start];
+  const endPt = points[end];
+
+  const dx = endPt.x - startPt.x;
+  const dy = endPt.y - startPt.y;
   const lenSq = dx * dx + dy * dy;
 
-  for (let i = 1; i < points.length - 1; i++) {
+  for (let i = start + 1; i < end; i++) {
     let dist: number;
     if (lenSq === 0) {
-      dist = Math.hypot(points[i].x - start.x, points[i].y - start.y);
+      dist = Math.hypot(points[i].x - startPt.x, points[i].y - startPt.y);
     } else {
-      const t = Math.max(0, Math.min(1, ((points[i].x - start.x) * dx + (points[i].y - start.y) * dy) / lenSq));
-      const projX = start.x + t * dx;
-      const projY = start.y + t * dy;
+      const t = Math.max(0, Math.min(1, ((points[i].x - startPt.x) * dx + (points[i].y - startPt.y) * dy) / lenSq));
+      const projX = startPt.x + t * dx;
+      const projY = startPt.y + t * dy;
       dist = Math.hypot(points[i].x - projX, points[i].y - projY);
     }
     if (dist > maxDist) {
@@ -137,12 +121,9 @@ function ramerDouglasPeucker(
   }
 
   if (maxDist > tolerance) {
-    const left = ramerDouglasPeucker(points.slice(0, maxIndex + 1), tolerance);
-    const right = ramerDouglasPeucker(points.slice(maxIndex), tolerance);
-    return [...left.slice(0, -1), ...right];
+    _rdp(points, start, maxIndex, tolerance, output);
+    _rdp(points, maxIndex, end, tolerance, output);
   }
-
-  return [start, end];
 }
 
 function detectEmotesInMessage(
@@ -157,14 +138,6 @@ function detectEmotesInMessage(
       emoteCounts.set(word, (emoteCounts.get(word) ?? 0) + 1);
     }
   }
-}
-
-function toHHMMSS(seconds: number): string {
-  const totalSeconds = Math.floor(seconds);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-  return [hours, minutes, secs].map((a: number) => a.toString().padStart(2, '0')).join(':');
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -316,10 +289,11 @@ function buildGraphData(
   messages?: number;
   game?: string;
 }> {
+  const bucketMap = new Map(rawBuckets.map((b) => [b.x, b]));
   const simplified = ramerDouglasPeucker(rawBuckets, SIMPLIFICATION_TOLERANCE);
 
   return simplified.map((point) => {
-    const bucket = rawBuckets.find((b) => b.x === point.x);
+    const bucket = bucketMap.get(point.x);
     const emoteMap = bucket?.emotes;
     const topEmotes: TopEmote[] = emoteMap
       ? [...emoteMap.entries()]
@@ -331,7 +305,7 @@ function buildGraphData(
     return {
       x: point.x,
       y: point.y,
-      duration: toHHMMSS(point.x),
+      duration: toHHMMSSUtil(point.x),
       subs: bucket && bucket.subs > 0 ? bucket.subs : undefined,
       messages: bucket ? bucket.messages : point.y,
       emotes: topEmotes.length > 0 ? topEmotes : undefined,
@@ -386,17 +360,18 @@ function aggregateClips(payload: AggregateClipsPayload): Array<{
     }
   }
 
+  const dataMap = new Map(data.map((d) => [d.x, d]));
   const simplified = ramerDouglasPeucker(
     data.map((d) => ({ x: d.x, y: d.y })),
     10,
   );
 
   return simplified.map((point) => {
-    const original = data.find((d) => d.x === point.x);
+    const original = dataMap.get(point.x);
     return {
       x: point.x,
       y: point.y,
-      duration: toHHMMSS(point.x),
+      duration: toHHMMSSUtil(point.x),
       title: original?.title,
       slug: original?.slug,
       clipDuration: original?.clipDuration,

@@ -2,6 +2,7 @@ import Hls from 'hls.js';
 import { Check, ChevronLeft, Loader2, Maximize, Minimize, Pause, Play, Settings, Volume2, VolumeX } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { TheatreModeIcon } from '../../assets/icons';
+import { TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAutoHideControls, useTooltipControls } from '../../hooks/usePlayerControls';
 import { usePlayerSettings } from '../../hooks/usePlayerSettings';
@@ -109,6 +110,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isBuffering, setIsBuffering] = useState(false);
   const [source, setSource] = useState(m3u8Url);
+  const lastTimeUpdateRef = useRef(0);
 
   useEffect(() => {
     setVolume(playerSettings.volume);
@@ -175,8 +177,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     if (!video) return;
 
     const handleTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
-      onTimeUpdateProp?.(video.currentTime);
+      const now = performance.now();
+      if (now - lastTimeUpdateRef.current >= TIME_UPDATE_THROTTLE_MS) {
+        lastTimeUpdateRef.current = now;
+        setCurrentTime(video.currentTime);
+        onTimeUpdateProp?.(video.currentTime);
+      }
     };
     const handleDurationChange = () => {
       if (!Number.isNaN(video.duration)) setDuration(video.duration);

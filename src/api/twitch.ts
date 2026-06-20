@@ -481,9 +481,9 @@ export async function resolveM3u8(
   return { m3u8Url: result.variants[0]?.uri ?? '', variants: result.variants };
 }
 
-export async function checkM3u8(url: string): Promise<boolean> {
+export async function checkM3u8(url: string, signal?: AbortSignal): Promise<boolean> {
   try {
-    const response = await fetch(url, { method: 'HEAD' });
+    const response = await fetch(url, { method: 'HEAD', signal });
     return response.ok;
   } catch {
     return false;
@@ -491,31 +491,38 @@ export async function checkM3u8(url: string): Promise<boolean> {
 }
 
 export async function findM3u8(hash: string): Promise<{ domains: string[]; variants: M3u8Variant[] }> {
-  let foundDomain: string | null = null;
+  const controller = new AbortController();
+  const { signal } = controller;
 
-  for (const domain of M3U8_DOMAINS) {
-    const exists = await checkM3u8(`${domain}/${hash}/chunked/index-dvr.m3u8`);
-    if (exists) {
-      foundDomain = domain;
-      break;
-    }
-  }
+  const foundDomain = await Promise.any(
+    M3U8_DOMAINS.map((domain) =>
+      checkM3u8(`${domain}/${hash}/chunked/index-dvr.m3u8`, signal).then((exists) => {
+        if (exists) return domain;
+        throw new Error('not found');
+      }),
+    ),
+  ).catch(() => null);
 
   if (!foundDomain) {
     return { domains: [], variants: [] };
   }
 
   const knownVariants = ['chunked', '1080p60', '720p60', '480p30', 'audio_only', '360p30', '160p30'];
-  const variants: M3u8Variant[] = [];
+  const foundVariant = await Promise.any(
+    knownVariants.map((variant) =>
+      checkM3u8(`${foundDomain}/${hash}/${variant}/index-dvr.m3u8`, signal).then((exists) => {
+        if (exists) return variant;
+        throw new Error('not found');
+      }),
+    ),
+  ).catch(() => null);
 
-  for (const variant of knownVariants) {
-    const exists = await checkM3u8(`${foundDomain}/${hash}/${variant}/index-dvr.m3u8`);
-    if (exists) {
-      variants.push({
-        uri: `${foundDomain}/${hash}/${variant}/index-dvr.m3u8`,
-        name: variant === 'chunked' ? 'Source' : variant,
-      });
-    }
+  const variants: M3u8Variant[] = [];
+  if (foundVariant) {
+    variants.push({
+      uri: `${foundDomain}/${hash}/${foundVariant}/index-dvr.m3u8`,
+      name: foundVariant === 'chunked' ? 'Source' : foundVariant,
+    });
   }
 
   const domains = variants.map(() => foundDomain);

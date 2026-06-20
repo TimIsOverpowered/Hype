@@ -627,10 +627,7 @@ const VodGraph = memo(function VodGraph({
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <button
                 type="button"
-                onClick={() => {
-                  resetAll();
-                  setShowResetConfirm(true);
-                }}
+                onClick={() => setShowResetConfirm(true)}
                 className="text-text-secondary transition-colors hover:text-text-primary"
                 title="Reset all settings to defaults"
               >
@@ -827,7 +824,6 @@ const VodGraph = memo(function VodGraph({
                 type="button"
                 onClick={() => {
                   resetAll();
-                  setShowResetConfirm(false);
                   setShowSettings(false);
                 }}
                 className="flex-1 rounded bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-500"

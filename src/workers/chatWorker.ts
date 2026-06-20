@@ -1,49 +1,40 @@
 import { SEVENTV_ZERO_WIDTH_FLAG } from '../constants/ui';
 import type {
-  BttvEmote,
   CommentNode,
   CustomEmoteFragment,
   EmojiFragment,
-  FfzEmote,
   FormattedMessage,
   IncomingWorkerMessage,
-  SevenTVEmote,
   TextFragment,
   TwitchEmoteFragment,
   UrlFragment,
   WorkerEmoteData,
 } from '../types/twitch';
+import { buildEmoteLookup } from '../utils/emoteLookup';
 
 const URL_PATTERN = /^(https?:\/\/)?[\w.-]+\.[\w/.-]+$/i;
 const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
 
-function buildEmoteLookup(
-  bttv: readonly BttvEmote[],
-  ffz: readonly FfzEmote[],
-  seventv: readonly SevenTVEmote[],
-): Map<string, { id: string | number; code: string; name: string; provider: string; flags?: number }> {
-  const lookup = new Map<
-    string,
-    { id: string | number; code: string; name: string; provider: string; flags?: number }
-  >();
+let cachedBttvLength = 0;
+let cachedFfzLength = 0;
+let cachedSeventvLength = 0;
+let cachedLookup: ReturnType<typeof buildEmoteLookup> | null = null;
 
-  for (const emote of bttv) {
-    lookup.set(emote.code, { id: emote.id, code: emote.code, name: emote.code, provider: 'BTTV' });
+function getEmoteLookup(emoteData: WorkerEmoteData): ReturnType<typeof buildEmoteLookup> {
+  const { bttv, ffz, seventv } = emoteData;
+  if (
+    bttv.length === cachedBttvLength &&
+    ffz.length === cachedFfzLength &&
+    seventv.length === cachedSeventvLength &&
+    cachedLookup
+  ) {
+    return cachedLookup;
   }
-
-  for (const emote of ffz) {
-    const code = emote.code || emote.text;
-    const name = emote.name || code || String(emote.id);
-    const key = code || name;
-    lookup.set(key, { id: emote.id, code: key, name, provider: 'FFZ' });
-  }
-
-  for (const emote of seventv) {
-    const name = emote.name ?? emote.code;
-    lookup.set(name, { id: emote.id, code: emote.code, name, provider: '7TV', flags: emote.flags });
-  }
-
-  return lookup;
+  cachedLookup = buildEmoteLookup(bttv, ffz, seventv);
+  cachedBttvLength = bttv.length;
+  cachedFfzLength = ffz.length;
+  cachedSeventvLength = seventv.length;
+  return cachedLookup;
 }
 
 function isEmoji(char: string): boolean {
@@ -164,7 +155,7 @@ function processComments(
   filterWords: readonly string[],
   emoteData: WorkerEmoteData,
 ): FormattedMessage[] {
-  const emoteLookup = buildEmoteLookup(emoteData.bttv, emoteData.ffz, emoteData.seventv);
+  const emoteLookup = getEmoteLookup(emoteData);
 
   let filterRegex: RegExp | null = null;
   if (filterWords.length > 0) {
