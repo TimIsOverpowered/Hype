@@ -42,14 +42,7 @@ function App() {
         expand={false}
         visibleToasts={10}
         closeButton
-        toastOptions={{
-          style: {
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-primary)',
-          },
-        }}
-        duration={4000}
+        duration={2000}
       />
     </QueryClientProvider>
   );

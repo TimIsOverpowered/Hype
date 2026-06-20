@@ -270,16 +270,27 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cancelJob = async (id: string) => {
+    let shouldShowToast = false;
     setJobs((prev) => {
       const next = new Map(prev);
       const job = next.get(id);
       if (job && job.status === 'running') {
         next.set(id, { ...job, status: 'cancelled' as const });
-        showToast(id, 'Job cancelled', job.name, 'info');
+        shouldShowToast = true;
       }
       return next;
     });
-    await invoke('cancel_job', { id });
+    if (shouldShowToast) {
+      const job = jobs.get(id);
+      if (job) {
+        showToast(id, 'Job cancelled', job.name, 'info');
+      }
+    }
+    try {
+      await invoke('cancel_job', { id });
+    } catch {
+      // job may already be completed/failed — ignore
+    }
   };
 
   const removeJob = async (id: string) => {

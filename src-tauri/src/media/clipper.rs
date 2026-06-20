@@ -145,6 +145,8 @@ fn run_ffmpeg(
         total_duration
     });
 
+    let _td = total_duration.join().unwrap_or(None);
+
     let status = if let Some(job_ref) = queue.get_job(&job_id) {
         let mut child_opt = job_ref.child_handle.lock().unwrap();
         if let Some(mut c) = child_opt.take() {
@@ -157,7 +159,6 @@ fn run_ffmpeg(
     };
 
     if let Some(status) = status {
-        let _td = total_duration.join().unwrap_or(None);
         let is_cancelled = queue
             .get_job(&job_id)
             .map(|j| j.cancel_flag.load(Ordering::SeqCst))

@@ -106,28 +106,49 @@ impl JobQueue {
     }
 
     pub fn cancel(&self, id: &str, app: &AppHandle) -> bool {
-        let jobs = self.jobs.read().unwrap();
-        if let Some(job) = jobs.get(id) {
+        // Step 1: Check if job exists and is running, clone job Arc
+        let job = {
+            let jobs = self.jobs.read().unwrap();
+            jobs.get(id).cloned()
+        };
+
+        let job = match job {
+            Some(j) => j,
+            None => return false,
+        };
+
+        // Step 2: Check and update status
+        let was_running = {
             let mut status = job.status.lock().unwrap();
             if *status == JobStatus::Running {
                 *status = JobStatus::Cancelled;
-                job.cancel_flag.store(true, Ordering::SeqCst);
-                if let Ok(mut child_opt) = job.child_handle.lock() {
-                    if let Some(ref mut child) = *child_opt {
-                        let _ = child.kill();
-                    }
-                }
-                let summary = self.get_summary(id);
-                if let Some(s) = summary {
-                    let _ = app.emit("job-state-changed", &s);
-                }
                 true
             } else {
                 false
             }
-        } else {
-            false
+        };
+
+        if !was_running {
+            return false;
         }
+
+        // Step 3: Set cancel flag (atomic, no lock needed)
+        job.cancel_flag.store(true, Ordering::SeqCst);
+
+        // Step 4: Kill child process (no locks held)
+        if let Ok(mut child_opt) = job.child_handle.lock() {
+            if let Some(ref mut child) = *child_opt {
+                let _ = child.kill();
+            }
+        }
+
+        // Step 5: Emit event (acquires locks independently)
+        let summary = self.get_summary(id);
+        if let Some(s) = summary {
+            let _ = app.emit("job-state-changed", &s);
+        }
+
+        true
     }
 
     pub fn list(&self) -> Vec<JobSummary> {

@@ -13,6 +13,12 @@
   --color-text-hint: #6b6b7b;
 }
 
+[data-sonner-toaster][data-sonner-theme="dark"] {
+  --normal-bg: #16161e;
+  --normal-border: #222230;
+  --normal-text: #f0f0f5;
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
