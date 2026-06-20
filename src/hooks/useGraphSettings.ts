@@ -13,8 +13,6 @@ const DEFAULT_SETTINGS = {
 
 interface StoredSettings {
   interval?: number;
-  messageThreshold?: number | null;
-  searchThreshold?: number | null;
 }
 
 function loadStoredInterval(): number {
@@ -29,34 +27,10 @@ function loadStoredInterval(): number {
   return DEFAULT_SETTINGS.interval;
 }
 
-function loadStoredMessageThreshold(): number | null {
-  const saved = safeLocalStorage.getItem(STORAGE_KEY);
-  if (!saved) return null;
-  try {
-    const settings: StoredSettings = JSON.parse(saved);
-    return settings.messageThreshold ?? null;
-  } catch {
-    console.error('Failed to parse graph settings from localStorage');
-  }
-  return null;
-}
-
-function loadStoredSearchThreshold(): number | null {
-  const saved = safeLocalStorage.getItem(STORAGE_KEY);
-  if (!saved) return null;
-  try {
-    const settings: StoredSettings = JSON.parse(saved);
-    return settings.searchThreshold ?? null;
-  } catch {
-    console.error('Failed to parse graph settings from localStorage');
-  }
-  return null;
-}
-
 export function useGraphSettings() {
   const [interval, setIntervalState] = useState(loadStoredInterval);
-  const [messageThreshold, setMessageThresholdState] = useState(loadStoredMessageThreshold);
-  const [searchThreshold, setSearchThresholdState] = useState(loadStoredSearchThreshold);
+  const [messageThreshold, setMessageThresholdState] = useState<number | null>(null);
+  const [searchThreshold, setSearchThresholdState] = useState<number | null>(null);
 
   const persistSettings = useCallback((updates: Partial<StoredSettings>) => {
     const saved = safeLocalStorage.getItem(STORAGE_KEY);
@@ -85,37 +59,27 @@ export function useGraphSettings() {
     persistSettings({ interval: DEFAULT_SETTINGS.interval });
   }, [persistSettings]);
 
-  const handleSetMessageThreshold = useCallback(
-    (v: number | null) => {
-      setMessageThresholdState(v);
-      persistSettings({ messageThreshold: v });
-    },
-    [persistSettings],
-  );
+  const handleSetMessageThreshold = useCallback((v: number | null) => {
+    setMessageThresholdState(v);
+  }, []);
 
   const handleResetMessageThreshold = useCallback(() => {
     setMessageThresholdState(null);
-    persistSettings({ messageThreshold: null });
-  }, [persistSettings]);
+  }, []);
 
-  const handleSetSearchThreshold = useCallback(
-    (v: number | null) => {
-      setSearchThresholdState(v);
-      persistSettings({ searchThreshold: v });
-    },
-    [persistSettings],
-  );
+  const handleSetSearchThreshold = useCallback((v: number | null) => {
+    setSearchThresholdState(v);
+  }, []);
 
   const handleResetSearchThreshold = useCallback(() => {
     setSearchThresholdState(null);
-    persistSettings({ searchThreshold: null });
-  }, [persistSettings]);
+  }, []);
 
   const handleResetAll = useCallback(() => {
     setIntervalState(DEFAULT_SETTINGS.interval);
     setMessageThresholdState(null);
     setSearchThresholdState(null);
-    persistSettings({ interval: DEFAULT_SETTINGS.interval, messageThreshold: null, searchThreshold: null });
+    persistSettings({ interval: DEFAULT_SETTINGS.interval });
   }, [persistSettings]);
 
   return {

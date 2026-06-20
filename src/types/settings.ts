@@ -10,8 +10,3 @@ export interface ChatSettings {
   fontFamily: string;
   messageFontSize: number;
 }
-
-export interface GraphSettings {
-  messageThreshold: number | null;
-  searchThreshold: number | null;
-}
