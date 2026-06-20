@@ -150,6 +150,7 @@ function buildEChartsOption(
         data: yData,
         smooth: true,
         symbol: 'none',
+        sampling: 'lttb',
         lineStyle: { width: 2, color: ECharts.SERIES_COLOR },
         areaStyle: {
           color: {

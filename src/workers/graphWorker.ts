@@ -1,4 +1,4 @@
-import { MIN_LOG_LINE_LENGTH, SIMPLIFICATION_TOLERANCE, TOP_EMOTES_COUNT } from '../constants/ui';
+import { MIN_LOG_LINE_LENGTH, TOP_EMOTES_COUNT } from '../constants/ui';
 import type {
   AggregateClipsPayload,
   AggregatePayload,
@@ -68,62 +68,6 @@ function parseLogLine(line: string): { timestamp: number; username: string; mess
   const message = afterBracket.substring(colonIndex + 2).trim();
 
   return { timestamp, username, message };
-}
-
-function ramerDouglasPeucker(
-  points: Array<{ x: number; y: number }>,
-  tolerance: number,
-): Array<{ x: number; y: number }> {
-  if (points.length <= 2) return points;
-
-  const result: Array<{ x: number; y: number }> = [];
-  _rdp(points, 0, points.length - 1, tolerance, result);
-  return result;
-}
-
-function _rdp(
-  points: Array<{ x: number; y: number }>,
-  start: number,
-  end: number,
-  tolerance: number,
-  output: Array<{ x: number; y: number }>,
-): void {
-  output.push(points[start]);
-
-  if (end - start <= 1) {
-    if (end > start) output.push(points[end]);
-    return;
-  }
-
-  let maxDist = 0;
-  let maxIndex = start;
-  const startPt = points[start];
-  const endPt = points[end];
-
-  const dx = endPt.x - startPt.x;
-  const dy = endPt.y - startPt.y;
-  const lenSq = dx * dx + dy * dy;
-
-  for (let i = start + 1; i < end; i++) {
-    let dist: number;
-    if (lenSq === 0) {
-      dist = Math.hypot(points[i].x - startPt.x, points[i].y - startPt.y);
-    } else {
-      const t = Math.max(0, Math.min(1, ((points[i].x - startPt.x) * dx + (points[i].y - startPt.y) * dy) / lenSq));
-      const projX = startPt.x + t * dx;
-      const projY = startPt.y + t * dy;
-      dist = Math.hypot(points[i].x - projX, points[i].y - projY);
-    }
-    if (dist > maxDist) {
-      maxDist = dist;
-      maxIndex = i;
-    }
-  }
-
-  if (maxDist > tolerance) {
-    _rdp(points, start, maxIndex, tolerance, output);
-    _rdp(points, maxIndex, end, tolerance, output);
-  }
 }
 
 function detectEmotesInMessage(
@@ -289,12 +233,8 @@ function buildGraphData(
   messages?: number;
   game?: string;
 }> {
-  const bucketMap = new Map(rawBuckets.map((b) => [b.x, b]));
-  const simplified = ramerDouglasPeucker(rawBuckets, SIMPLIFICATION_TOLERANCE);
-
-  return simplified.map((point) => {
-    const bucket = bucketMap.get(point.x);
-    const emoteMap = bucket?.emotes;
+  return rawBuckets.map((bucket) => {
+    const emoteMap = bucket.emotes;
     const topEmotes: TopEmote[] = emoteMap
       ? [...emoteMap.entries()]
           .sort((a, b) => b[1] - a[1])
@@ -303,13 +243,13 @@ function buildGraphData(
       : [];
 
     return {
-      x: point.x,
-      y: point.y,
-      duration: toHHMMSSUtil(point.x),
-      subs: bucket && bucket.subs > 0 ? bucket.subs : undefined,
-      messages: bucket ? bucket.messages : point.y,
+      x: bucket.x,
+      y: bucket.y,
+      duration: toHHMMSSUtil(bucket.x),
+      subs: bucket.subs > 0 ? bucket.subs : undefined,
+      messages: bucket.messages,
       emotes: topEmotes.length > 0 ? topEmotes : undefined,
-      game: bucket?.game,
+      game: bucket.game,
     };
   });
 }
@@ -325,6 +265,27 @@ function aggregateClips(payload: AggregateClipsPayload): Array<{
   game?: string;
 }> {
   const { clips, chapters } = payload;
+  const chapterLookup = buildChapterLookup(chapters);
+
+  const clipMap = new Map<
+    number,
+    {
+      vod_offset: number;
+      title: string;
+      views: number;
+      slug: string;
+      duration: number;
+    }
+  >();
+
+  for (const clip of clips) {
+    const existing = clipMap.get(clip.vod_offset);
+    if (!existing || clip.views > existing.views) {
+      clipMap.set(clip.vod_offset, clip);
+    }
+  }
+
+  const uniqueClips = Array.from(clipMap.values()).sort((a, b) => a.vod_offset - b.vod_offset);
 
   const data: Array<{
     x: number;
@@ -336,49 +297,23 @@ function aggregateClips(payload: AggregateClipsPayload): Array<{
     game?: string;
   }> = [];
 
-  for (const clip of clips) {
-    const game = chapters.find((chapter) => chapter.node.positionMilliseconds <= clip.vod_offset * 1000);
-    if (game) {
-      data.push({
-        x: clip.vod_offset,
-        y: clip.views,
-        title: clip.title,
-        slug: clip.slug,
-        clipDuration: clip.duration,
-        views: clip.views,
-        game: game.node.details?.game?.displayName,
-      });
-    } else {
-      data.push({
-        x: clip.vod_offset,
-        y: clip.views,
-        title: clip.title,
-        slug: clip.slug,
-        clipDuration: clip.duration,
-        views: clip.views,
-      });
-    }
+  for (const clip of uniqueClips) {
+    const game = getGameForTimestamp(clip.vod_offset * 1000, chapterLookup);
+    data.push({
+      x: clip.vod_offset,
+      y: clip.views,
+      title: clip.title,
+      slug: clip.slug,
+      clipDuration: clip.duration,
+      views: clip.views,
+      game,
+    });
   }
 
-  const dataMap = new Map(data.map((d) => [d.x, d]));
-  const simplified = ramerDouglasPeucker(
-    data.map((d) => ({ x: d.x, y: d.y })),
-    10,
-  );
-
-  return simplified.map((point) => {
-    const original = dataMap.get(point.x);
-    return {
-      x: point.x,
-      y: point.y,
-      duration: toHHMMSSUtil(point.x),
-      title: original?.title,
-      slug: original?.slug,
-      clipDuration: original?.clipDuration,
-      views: original?.views,
-      game: original?.game,
-    };
-  });
+  return data.map((d) => ({
+    ...d,
+    duration: toHHMMSSUtil(d.x),
+  }));
 }
 
 self.onmessage = (e: MessageEvent<IncomingWorkerMessage>) => {
