@@ -9,4 +9,4 @@ writeFileSync('src-tauri/Cargo.toml', cargo);
 
 const conf = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf-8'));
 conf.version = version;
-writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+writeFileSync('src-tauri/tauri.conf.json', `${JSON.stringify(conf, null, 2)}\n`);
