@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Pause, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getBadges, getComments } from '../../api/twitch';
+import { getBadges, getComments, getNextComments } from '../../api/twitch';
 import { BTTV_CDN_BASE, FFZ_CDN_BASE, SEVENTV_CDN_BASE, TWITCH_CDN_BASE } from '../../constants/emotes';
 import {
   CHAT_BOTTOM_THRESHOLD,
@@ -621,11 +621,7 @@ function useChatEngine({
     paginationAbortRef.current = new AbortController();
     lastFetchedCursorRef.current = cursorRef.current;
 
-    fetchWithRetry(
-      () => getComments(vodId, parseFloat(cursorRef.current ?? '0')),
-      CHAT_FETCH_RETRIES,
-      CHAT_RETRY_DELAY_MS,
-    )
+    fetchWithRetry(() => getNextComments(vodId, cursorRef.current), CHAT_FETCH_RETRIES, CHAT_RETRY_DELAY_MS)
       .then((res) => {
         if (!res) return;
         stoppedAtIndexRef.current = 0;

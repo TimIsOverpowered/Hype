@@ -308,6 +308,74 @@ export async function getComments(vodId: string, offset: number): Promise<Commen
   };
 }
 
+export async function getNextComments(vodId: string, cursor: string | null): Promise<CommentsConnection> {
+  type CommentEdgeRaw = {
+    cursor: string;
+    node: {
+      id: string;
+      commenter: { displayName: string } | null;
+      contentOffsetSeconds: number;
+      message: {
+        fragments: Array<{
+          text: string;
+          emote: { emoteID: string } | null;
+        }>;
+        userBadges: Array<{ setID: string; version: string }> | null;
+        userColor: string;
+      };
+    };
+  };
+
+  if (!cursor) {
+    return { edges: [], pageInfo: { hasNextPage: false } };
+  }
+
+  const data = await gqlPost<{
+    video: { comments: { edges: CommentEdgeRaw[] | null; pageInfo: { hasNextPage: boolean } } };
+  }>(BACKUP_CLIENT_ID, {
+    operationName: 'VideoCommentsByOffsetOrCursor',
+    variables: {
+      videoID: vodId,
+      cursor: cursor,
+    },
+    extensions: {
+      persistedQuery: {
+        version: 1,
+        sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a',
+      },
+    },
+  });
+
+  const comments = data.video?.comments;
+  if (!comments) {
+    return { edges: [], pageInfo: { hasNextPage: false } };
+  }
+
+  const edges = comments.edges?.filter((e): e is CommentEdgeRaw => e != null) ?? [];
+
+  return {
+    edges: edges.map((e) => ({
+      cursor: e.cursor,
+      node: {
+        id: e.node.id,
+        commenter: e.node.commenter,
+        contentOffsetSeconds: e.node.contentOffsetSeconds,
+        message: {
+          fragments: e.node.message.fragments.map((f) => ({
+            text: f.text ?? '',
+            emote: f.emote ? { emoteID: f.emote.emoteID } : null,
+          })),
+          userBadges: e.node.message.userBadges
+            ? e.node.message.userBadges.map((b) => ({ setID: b.setID, version: b.version }))
+            : null,
+          userColor: e.node.message.userColor ?? '',
+        },
+      },
+    })),
+    pageInfo: comments.pageInfo ?? { hasNextPage: false },
+  };
+}
+
 // ─── Helper functions ──────────────────────────────────────────────────────
 
 export async function getVodToken(vodId: string): Promise<{ value: string; signature: string }> {
