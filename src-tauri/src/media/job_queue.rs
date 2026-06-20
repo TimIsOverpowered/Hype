@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::process::Child;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
+
+use tokio::process::Child;
 
 use serde::Serialize;
 use tauri::AppHandle;
@@ -105,7 +106,7 @@ impl JobQueue {
         id
     }
 
-    pub fn cancel(&self, id: &str, app: &AppHandle) -> bool {
+    pub async fn cancel(&self, id: &str, app: &AppHandle) -> bool {
         // Step 1: Check if job exists and is running, clone job Arc
         let job = {
             let jobs = self.jobs.read().unwrap();
@@ -138,7 +139,7 @@ impl JobQueue {
         // Step 4: Kill child process (no locks held)
         if let Ok(mut child_opt) = job.child_handle.lock() {
             if let Some(ref mut child) = *child_opt {
-                let _ = child.kill();
+                let _ = child.start_kill();
             }
         }
 
