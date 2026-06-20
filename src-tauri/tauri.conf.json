@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "hype",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "identifier": "com.overpowered.hype",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "node ../scripts/sync-version.mjs && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -43,17 +43,25 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "createUpdaterArtifacts": true
   },
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["hype"]
+        "schemes": [
+          "hype"
+        ]
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc4RUIyRDVCMTQ3MzcyMkQKUldRdGNuTVVXeTNyZUFsMFdmMy9BaTF1Z1FmZW5vOEhHVlhqZVBlU01QZU9lYXA0QTJpV1ZsakUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUwNkYwODE3RENDRDdCMzUKUldRMWU4M2NGd2h2NEpMTkhnRjFIaTltclI1Y1dBZVpTZkhlTG03bHVtUnA1cHFqSW1JbytrZEYK",
       "windows": {
         "installMode": "passive"
       }

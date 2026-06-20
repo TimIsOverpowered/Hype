@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "biome check --write ./src",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build": "node scripts/sync-version.mjs && tauri build"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.1",
