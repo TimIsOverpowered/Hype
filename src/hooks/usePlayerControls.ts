@@ -29,15 +29,22 @@ export function useAutoHideControls({ isPlaying, isMenuOpen, playerContainerRef 
       }, AUTO_HIDE_DELAY);
     };
 
+    const handleMouseLeave = () => {
+      setShowControls(false);
+      clearTimeout(hideTimerRef.current);
+    };
+
     const container = playerContainerRef.current;
     if (!container) return;
 
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseenter', handleMouseMove);
+    container.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseenter', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
       clearTimeout(hideTimerRef.current);
     };
   }, [isPlaying, isMenuOpen, playerContainerRef]);
