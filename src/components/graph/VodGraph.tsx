@@ -41,8 +41,8 @@ interface VodGraphProps {
   readonly emoteData: React.RefObject<WorkerEmoteData | null>;
   readonly duration?: number;
   readonly isWhitelisted?: boolean | undefined;
-  readonly onClipStart?: (time: number) => void;
-  readonly onClipEnd?: (time: number) => void;
+  readonly onClipStart?: (hms: string) => void;
+  readonly onClipEnd?: (hms: string) => void;
 }
 
 function SkeletonGraph(): React.ReactNode {
@@ -451,8 +451,8 @@ const VodGraph = memo(function VodGraph({
       if (seekTime < 0) seekTime = 0;
       if (startTime < 0) startTime = 0;
       playerRef.current.seek(seekTime);
-      if (onClipStart) onClipStart(startTime);
-      if (onClipEnd) onClipEnd(endTime);
+      if (onClipStart) onClipStart(toHHMMSS(startTime));
+      if (onClipEnd) onClipEnd(toHHMMSS(endTime));
     },
     [graphData, playerRef, activeTab, onClipStart, onClipEnd],
   );

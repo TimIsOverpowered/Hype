@@ -210,7 +210,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
     };
 
     setupListeners();
-  }, [showToast]);
+  }, [showToast, fetchJobs]);
 
   const submitJob = async (
     type: JobType,

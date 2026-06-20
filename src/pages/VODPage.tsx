@@ -12,6 +12,7 @@ import { BTTV_API_BASE, FFZ_API_BASE, SEVENTV_API_BASE } from '../constants/emot
 import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
 import type { BttvEmote, FfzEmote, M3u8Variant, SevenTVEmote } from '../types/twitch';
+
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
@@ -32,8 +33,8 @@ export default function VODPage() {
   const playerRef = useRef<VideoPlayerHandle>(null);
   const [playerState, setPlayerState] = useState<number>(-1);
   const [currentTime, setCurrentTime] = useState(0);
-  const [clipStart, setClipStart] = useState(0);
-  const [clipEnd, setClipEnd] = useState(0);
+  const [clipStart, setClipStart] = useState('00:00:00');
+  const [clipEnd, setClipEnd] = useState('00:00:00');
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showChat, setShowChat] = useState(true);
@@ -308,8 +309,8 @@ export default function VODPage() {
             emoteData={emoteDataRef}
             duration={vodInfo?.lengthSeconds ?? 0}
             isWhitelisted={isWhitelisted}
-            onClipStart={setClipStart}
-            onClipEnd={setClipEnd}
+            onClipStart={(hms: string) => setClipStart(hms)}
+            onClipEnd={(hms: string) => setClipEnd(hms)}
           />
         </div>
       </div>

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { toast } from 'sonner';
 import { hmsValid, toHHMMSS, toSeconds } from '../../utils/time';
 
 interface ClipBarProps {
@@ -6,12 +7,12 @@ interface ClipBarProps {
   readonly m3u8Url: string;
   readonly duration: number;
   readonly currentTime: number;
-  readonly clipStart: number;
-  readonly clipEnd: number;
+  readonly clipStart: string;
+  readonly clipEnd: string;
   readonly onClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => void;
   readonly onDownload: () => void;
-  readonly onSetStart: (time: number) => void;
-  readonly onSetEnd: (time: number) => void;
+  readonly onSetStart: (hms: string) => void;
+  readonly onSetEnd: (hms: string) => void;
 }
 
 export default function ClipBar({
@@ -24,38 +25,31 @@ export default function ClipBar({
   onSetStart,
   onSetEnd,
 }: ClipBarProps) {
-  const [startStr, setStartStr] = useState(() => toHHMMSS(clipStart));
-  const [endStr, setEndStr] = useState(() => toHHMMSS(clipEnd));
-
-  useEffect(() => {
-    setStartStr(toHHMMSS(clipStart));
-  }, [clipStart]);
-
-  useEffect(() => {
-    setEndStr(toHHMMSS(clipEnd));
-  }, [clipEnd]);
-
-  const handleClip = () => {
-    if (!hmsValid(startStr) || !hmsValid(endStr)) return;
-    const startSec = toSeconds(startStr);
-    const endSec = toSeconds(endStr);
-    if (startSec >= endSec) return;
+  const handleClip = useCallback(() => {
+    if (!hmsValid(clipStart)) {
+      toast.error('Invalid start time', { description: 'Use HH:MM:SS format.' });
+      return;
+    }
+    if (!hmsValid(clipEnd)) {
+      toast.error('Invalid end time', { description: 'Use HH:MM:SS format.' });
+      return;
+    }
+    const startSec = toSeconds(clipStart);
+    const endSec = toSeconds(clipEnd);
+    if (startSec >= endSec) {
+      toast.error('Invalid range', { description: 'Start time must be before end time.' });
+      return;
+    }
     onClip(vodId, '', startSec, endSec - startSec);
-  };
+  }, [clipStart, clipEnd, onClip, vodId]);
 
-  const handleStartChange = (v: string) => {
-    setStartStr(v);
-    if (hmsValid(v)) {
-      onSetStart(toSeconds(v));
-    }
-  };
+  const handleSetStart = useCallback(() => {
+    onSetStart(toHHMMSS(Math.floor(currentTime)));
+  }, [currentTime, onSetStart]);
 
-  const handleEndChange = (v: string) => {
-    setEndStr(v);
-    if (hmsValid(v)) {
-      onSetEnd(toSeconds(v));
-    }
-  };
+  const handleSetEnd = useCallback(() => {
+    onSetEnd(toHHMMSS(Math.floor(currentTime)));
+  }, [currentTime, onSetEnd]);
 
   return (
     <div className="flex w-full flex-col gap-2 rounded-lg border border-border bg-surface p-3">
@@ -65,16 +59,14 @@ export default function ClipBar({
           <span className="text-xs font-medium text-text-hint">Start</span>
           <input
             type="text"
-            value={startStr}
-            onChange={(e) => handleStartChange(e.target.value)}
+            value={clipStart}
+            onChange={(e) => onSetStart(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
             className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs text-text-primary outline-none transition-colors focus:border-primary"
           />
           <button
             type="button"
-            onClick={() => {
-              onSetStart(Math.floor(currentTime));
-              setStartStr(toHHMMSS(Math.floor(currentTime)));
-            }}
+            onClick={handleSetStart}
             className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
             title="Set from current player time"
           >
@@ -101,16 +93,14 @@ export default function ClipBar({
           <span className="text-xs font-medium text-text-hint">End</span>
           <input
             type="text"
-            value={endStr}
-            onChange={(e) => handleEndChange(e.target.value)}
+            value={clipEnd}
+            onChange={(e) => onSetEnd(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
             className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs text-text-primary outline-none transition-colors focus:border-primary"
           />
           <button
             type="button"
-            onClick={() => {
-              onSetEnd(Math.floor(currentTime));
-              setEndStr(toHHMMSS(Math.floor(currentTime)));
-            }}
+            onClick={handleSetEnd}
             className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
             title="Set from current player time"
           >
@@ -138,7 +128,6 @@ export default function ClipBar({
         <button
           type="button"
           onClick={handleClip}
-          disabled={!hmsValid(startStr) || !hmsValid(endStr) || toSeconds(startStr) >= toSeconds(endStr)}
           className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           <svg
