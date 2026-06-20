@@ -1,4 +1,11 @@
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { invoke } from '@tauri-apps/api/core';
+import { nativeFetch } from '../interceptor';
+
+const PROXY_PORT: Promise<number> = invoke('get_proxy_port')
+  .then((port: unknown) => (typeof port === 'number' ? port : 0))
+  .catch(() => Promise.resolve(0));
+
+const proxied = (port: number, url: string) => `http://127.0.0.1:${port}/proxy?url=${encodeURIComponent(url)}`;
 
 const createStats = () => ({
   aborted: false,
@@ -46,11 +53,14 @@ export class TauriHlsLoader {
 
     this.stats.loading.start = performance.now();
 
-    tauriFetch(context.url, {
-      method: 'GET',
-      signal: this.controller.signal,
+    PROXY_PORT.then((port) => {
+      if (this.stats.aborted) return null;
+      const url = port ? proxied(port, context.url) : context.url;
+      return nativeFetch(url, { method: 'GET', signal: this.controller?.signal });
     })
       .then(async (response) => {
+        if (!response) return;
+
         this.stats.loading.first = Math.max(this.stats.loading.start, performance.now());
 
         if (!response.ok) {
@@ -59,9 +69,7 @@ export class TauriHlsLoader {
 
         const buffer = await response.arrayBuffer();
 
-        if (this.stats.aborted) {
-          return;
-        }
+        if (this.stats.aborted) return;
 
         this.isFinished = true;
 
@@ -74,20 +82,17 @@ export class TauriHlsLoader {
 
         setTimeout(() => {
           if (this.callbacks?.onSuccess) {
-            this.callbacks.onSuccess({ url: response.url || context.url, data }, this.stats, context);
+            const finalUrl = response.headers.get('x-final-url') || context.url;
+            this.callbacks.onSuccess({ url: finalUrl, data }, this.stats, context);
           }
         }, 0);
       })
       .catch((error: unknown) => {
-        if (this.stats.aborted || (error instanceof Error && error.name === 'AbortError')) {
-          return;
-        }
+        if (this.stats.aborted || (error instanceof Error && error.name === 'AbortError')) return;
 
         const message = error instanceof Error ? error.message : String(error);
 
-        if (message.includes('resource id') || message.includes('invalid')) {
-          return;
-        }
+        if (message.includes('resource id') || message.includes('invalid')) return;
 
         console.error(`[Tauri Loader] Error:`, message);
 

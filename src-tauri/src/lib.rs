@@ -5,6 +5,7 @@ use tauri::{Emitter, Manager, WebviewWindow};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 mod media;
+mod proxy;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -44,6 +45,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             greet,
+            proxy::get_proxy_port,
             media::clipper::submit_clip,
             media::clipper::submit_download,
             media::clipper::cancel_job,
@@ -73,6 +75,8 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            proxy::init();
+
             let window = app.get_webview_window("main").unwrap();
             set_window_title(&window);
 
