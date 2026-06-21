@@ -9,7 +9,6 @@
     "preview": "vite preview",
     "lint": "biome check --write ./src",
     "tauri": "tauri",
-    "tauri:build": "tauri build",
     "sync": "node scripts/sync-version.mjs"
   },
   "dependencies": {

@@ -134,9 +134,14 @@ function UserMenu() {
 
   const handleLogout = () => {
     logout();
-    queryClient.invalidateQueries({ queryKey: ['user'] });
+    queryClient.invalidateQueries({ 
+      predicate: (q) => 
+        q.queryKey[0] === 'user' || 
+        q.queryKey[0] === 'whitelisted-channels' || 
+        q.queryKey[0] === 'search',
+      refetchType: 'all'
+    });
     navigate('/');
-    setOpen(false);
   };
 
   return (

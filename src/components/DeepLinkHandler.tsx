@@ -1,5 +1,5 @@
-import { listen } from '@tauri-apps/api/event';
-import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, useUser } from '../auth';
@@ -31,10 +31,10 @@ function parseDeepLink(url: string): { type: string; value: string } | null {
 
 function DeepLinkHandler() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { refetch } = useUser();
-  const lastUrlRef = useRef<string | null>(null);
-  const navigateRef = useRef(navigate);
   const refetchRef = useRef(refetch);
+  const navigateRef = useRef(navigate);
 
   useEffect(() => {
     navigateRef.current = navigate;
@@ -46,19 +46,22 @@ function DeepLinkHandler() {
 
   useEffect(() => {
     const handleDeepLink = async (url: string) => {
-      if (lastUrlRef.current === url) return;
-      lastUrlRef.current = url;
-
       const parsed = parseDeepLink(url);
       if (!parsed) return;
 
       if (parsed.type === 'oauth') {
         try {
           await login(parsed.value);
-          await refetchRef.current();
+          queryClient.invalidateQueries({ 
+            predicate: (q) => 
+              q.queryKey[0] === 'user' || 
+              q.queryKey[0] === 'whitelisted-channels' || 
+              q.queryKey[0] === 'search',
+            refetchType: 'all'
+          });
           navigateRef.current('/', { replace: true });
-        } catch {
-          // silent
+        } catch (e) {
+          console.error('Deep link login failed:', e);
         }
       } else if (parsed.type === 'channel') {
         navigateRef.current(`/channel/${parsed.value}`, { replace: true });
@@ -67,33 +70,33 @@ function DeepLinkHandler() {
       }
     };
 
-    let cleanupListen: (() => void) | undefined;
-
     const init = async () => {
+      // Check if app was launched via deep link (cold start)
+      try {
+        const startUrls = await getCurrent();
+        if (startUrls) {
+          for (const url of startUrls) {
+            console.log('Processing launch deep link:', url);
+            await handleDeepLink(url);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to get current deep links:', e);
+      }
+
+      // Listen for deep links while app is running
       try {
         await onOpenUrl((urls) => {
           for (const url of urls) {
             handleDeepLink(url);
           }
         });
-
-        const unlisten = await listen('protocol-uri', (event: { payload: string }) => {
-          handleDeepLink(event.payload);
-        });
-
-        cleanupListen = () => {
-          unlisten();
-        };
-      } catch {
-        // silent
+      } catch (e) {
+        console.error('Failed to register deep link listener:', e);
       }
     };
 
     init();
-
-    return () => {
-      cleanupListen?.();
-    };
   }, []);
 
   return null;

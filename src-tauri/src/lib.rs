@@ -3,8 +3,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use tauri::async_runtime::spawn;
-use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
-use tauri_plugin_deep_link::DeepLinkExt;
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 
 mod media;
 mod proxy;
@@ -58,12 +57,6 @@ fn set_window_title(window: &WebviewWindow) {
     }
 }
 
-fn emit_protocol_event(app: &tauri::AppHandle, url: &tauri::Url) {
-    if let Err(e) = app.emit("protocol-uri", url.as_str()) {
-        eprintln!("Failed to emit protocol event: {}", e);
-    }
-}
-
 async fn setup_backend(app: AppHandle) -> Result<(), ()> {
     println!("Backend setup complete!");
     set_complete(
@@ -76,8 +69,22 @@ async fn setup_backend(app: AppHandle) -> Result<(), ()> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    let mut builder = tauri::Builder::default()
+pub fn run(debug: bool) {
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    {
+        // single-instance MUST be registered first
+        builder = builder.plugin(
+            tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_focus();
+                }
+            }),
+        );
+    }
+
+    builder
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
@@ -105,54 +112,24 @@ pub fn run() {
             media::clipper::cancel_job,
             media::clipper::list_jobs,
             media::clipper::remove_job,
-        ]);
-
-    #[cfg(desktop)]
-    {
-        builder = builder.plugin(
-            tauri_plugin_single_instance::init(|app, args, _cwd| {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.set_focus();
-                }
-
-                for arg in args {
-                    if arg.starts_with("hype://") {
-                        let url = tauri::Url::parse(&arg).ok();
-                        if let Some(url) = url {
-                            emit_protocol_event(app, &url);
-                        }
-                    }
-                }
-            }),
-        );
-    }
-
-    builder
-        .setup(|app| {
+        ])
+        .setup(move |app| {
             proxy::init();
 
             let window = app.get_webview_window("main").unwrap();
             set_window_title(&window);
 
+            if debug {
+                window.open_devtools();
+            }
+
             spawn(setup_backend(app.handle().clone()));
 
-            #[cfg(any(windows, target_os = "linux"))]
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {
+                use tauri_plugin_deep_link::DeepLinkExt;
                 app.deep_link().register_all()?;
             }
-
-            if let Some(urls) = app.deep_link().get_current()? {
-                if let Some(first_url) = urls.first() {
-                    emit_protocol_event(app.handle(), first_url);
-                }
-            }
-
-            let app_handle = app.handle().clone();
-            app.deep_link().on_open_url(move |event| {
-                for url in event.urls() {
-                    emit_protocol_event(&app_handle, &url);
-                }
-            });
 
             Ok(())
         })

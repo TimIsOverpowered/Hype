@@ -80,7 +80,7 @@ export async function searchWhitelistedChannels(query: string): Promise<SearchRe
 
 export async function fetchWhitelistedChannels(page: number, limit: number): Promise<PaginatedWhitelistResponse> {
   const token = getToken();
-  if (!token) throw new Error('No auth token');
+  if (!token) throw new Error('Not logged in');
 
   const res = await fetch(`${API_BASE}/v1/whitelist?page=${page}&limit=${limit}&sort=channel`, {
     headers: { Authorization: `Bearer ${token}` },
