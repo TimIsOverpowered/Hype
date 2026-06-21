@@ -4,6 +4,12 @@ import { useCallback, useRef, useState } from 'react';
 import { useJobQueue } from '../contexts/JobQueueContext';
 import { toHHMMSS } from '../utils/time';
 
+interface ChatOptions {
+  includeChat: boolean;
+  broadcasterId: string;
+  vodId: string;
+}
+
 interface UseClipJobResult {
   jobType: 'clip' | 'download' | 'chat-render';
   startClip: (
@@ -12,14 +18,14 @@ interface UseClipJobResult {
     startSeconds: number,
     durationSeconds: number,
     streamerName: string,
+    chatOptions?: ChatOptions,
   ) => Promise<void>;
-  startDownload: (vodId: string, m3u8Url: string, durationSeconds: number, streamerName: string) => Promise<void>;
-  startChatRender: (
+  startDownload: (
     vodId: string,
-    broadcasterId: string,
-    startSeconds: number,
+    m3u8Url: string,
     durationSeconds: number,
     streamerName: string,
+    chatOptions?: ChatOptions,
   ) => Promise<void>;
 }
 
@@ -40,7 +46,14 @@ export function useClipJob(): UseClipJobResult {
   const cancelledRef = useRef(false);
 
   const runJob = useCallback(
-    async (m3u8Url: string, startSeconds: number, durationSeconds: number, type: 'clip' | 'download', defaultName: string) => {
+    async (
+      m3u8Url: string,
+      startSeconds: number,
+      durationSeconds: number,
+      type: 'clip' | 'download',
+      defaultName: string,
+      chatOptions?: ChatOptions,
+    ) => {
       cancelledRef.current = false;
       setJobType(type);
 
@@ -56,50 +69,52 @@ export function useClipJob(): UseClipJobResult {
       }
 
       await submitJob(type, m3u8Url, durationSeconds, outputPath, isFmp4, startSeconds);
+
+      if (chatOptions?.includeChat) {
+        const chatPath = outputPath.replace(/\.[^/.]+$/, '') + '_chat.webm';
+        await renderChatOverlay(
+          chatOptions.vodId,
+          chatOptions.broadcasterId,
+          startSeconds,
+          durationSeconds,
+          chatPath,
+          60,
+        );
+      }
     },
-    [submitJob],
+    [submitJob, renderChatOverlay],
   );
 
   const startClip = useCallback(
-    (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number, streamerName: string) => {
+    (
+      vodId: string,
+      m3u8Url: string,
+      startSeconds: number,
+      durationSeconds: number,
+      streamerName: string,
+      chatOptions?: ChatOptions,
+    ) => {
       const startHMS = toHHMMSS(Math.floor(startSeconds)).replace(/:/g, '-');
       const endHMS = toHHMMSS(Math.floor(startSeconds + durationSeconds)).replace(/:/g, '-');
       const defaultName = `${streamerName}-${vodId}-clip-${startHMS}-${endHMS}.mp4`;
-      return runJob(m3u8Url, startSeconds, durationSeconds, 'clip', defaultName);
+      return runJob(m3u8Url, startSeconds, durationSeconds, 'clip', defaultName, chatOptions);
     },
     [runJob],
   );
 
   const startDownload = useCallback(
-    (vodId: string, m3u8Url: string, durationSeconds: number, streamerName: string) => {
+    (
+      vodId: string,
+      m3u8Url: string,
+      durationSeconds: number,
+      streamerName: string,
+      chatOptions?: ChatOptions,
+    ) => {
       const defaultName = `${streamerName}-${vodId}.mp4`;
-      return runJob(m3u8Url, 0, durationSeconds, 'download', defaultName);
+      return runJob(m3u8Url, 0, durationSeconds, 'download', defaultName, chatOptions);
     },
     [runJob],
   );
 
-  const startChatRender = useCallback(
-    async (vodId: string, broadcasterId: string, startSeconds: number, durationSeconds: number, streamerName: string) => {
-      cancelledRef.current = false;
-      setJobType('chat-render');
-
-      const startHMS = toHHMMSS(Math.floor(startSeconds)).replace(/:/g, '-');
-      const endHMS = toHHMMSS(Math.floor(startSeconds + durationSeconds)).replace(/:/g, '-');
-      const defaultName = `${streamerName}-${vodId}-chat-render-${startHMS}-${endHMS}.webm`;
-
-      const outputPath = await save({
-        defaultPath: defaultName,
-        filters: [{ name: 'Video', extensions: ['webm'] }],
-      });
-
-      if (!outputPath) {
-        return;
-      }
-
-      await renderChatOverlay(vodId, broadcasterId, startSeconds, durationSeconds, outputPath, 60);
-    },
-    [renderChatOverlay],
-  );
-
-  return { jobType, startClip, startDownload, startChatRender };
+  return { jobType, startClip, startDownload };
 }

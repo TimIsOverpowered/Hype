@@ -304,10 +304,15 @@ pub fn render_chat_video(
             "-pixel_format", "bgra",
             "-video_size", &format!("{}x{}", CHAT_WIDTH, CHAT_HEIGHT),
             "-framerate", &fps.to_string(),
+            "-thread_queue_size", "1024",
             "-i", "-",
             "-c:v", "libvpx-vp9",
             "-pix_fmt", "yuva420p",
             "-b:v", "2M",
+            "-cpu-used", "8",
+            "-deadline", "realtime",
+            "-row-mt", "1",
+            "-threads", "0",
             output_path,
         ])
         .stdin(std::process::Stdio::piped())
@@ -373,6 +378,7 @@ pub fn render_chat_video(
             if frame_idx % 30 == 0 || frame_idx == total_frames - 1 {
                 let render_fraction = (frame_idx + 1) as f64 / total_frames as f64;
                 let progress = (20.0 + (80.0 * render_fraction)).min(100.0) as u8;
+                crate::media::job_queue::get_queue().update_progress(job_id_ref, progress, app_ref);
                 let payload = RenderProgressPayload {
                     job_id: job_id_ref.clone(),
                     progress,
@@ -515,10 +521,16 @@ pub async fn render_chat_video_orchestrator_cmd(
     output_path: String,
     fps: i32,
     app: AppHandle,
-) -> Result<String, String> {
-    let job_id = uuid::Uuid::new_v4().to_string();
+) -> Result<crate::media::clipper::SubmitJobResponse, String> {
     let queue = crate::media::job_queue::get_queue();
-    queue.submit(crate::media::job_queue::JobType::ChatRender, format!("chat-render-{}", job_id));
+    let job_id = queue.submit(
+        crate::media::job_queue::JobType::ChatRender,
+        output_path
+            .split('/')
+            .last()
+            .unwrap_or("chat-render.webm")
+            .to_string(),
+    );
 
     let app_clone = app.clone();
     let job_id_clone = job_id.clone();
@@ -538,8 +550,6 @@ pub async fn render_chat_video_orchestrator_cmd(
             queue.fail(&job_id_clone, "No chat messages found for the selected timeframe".to_string(), &app_clone, "chat-render");
             return;
         }
-
-        queue.update_progress(&job_id_clone, 5, &app_clone);
 
         let preload_result = crate::media::chat::assets::run_internal_preload(&job_id_clone, &broadcaster_id_clone, &vod_id_clone, &messages, &app_clone).await;
         match preload_result {
@@ -596,5 +606,5 @@ pub async fn render_chat_video_orchestrator_cmd(
         }
     });
 
-    Ok(job_id)
+    Ok(crate::media::clipper::SubmitJobResponse { job_id })
 }

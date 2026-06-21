@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { hmsValid, toHHMMSS, toSeconds } from '../../utils/time';
 
@@ -9,9 +9,14 @@ interface ClipBarProps {
   readonly currentTime: number;
   readonly clipStart: string;
   readonly clipEnd: string;
-  readonly onClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => void;
+  readonly onClip: (
+    vodId: string,
+    m3u8Url: string,
+    startSeconds: number,
+    durationSeconds: number,
+    includeChat: boolean,
+  ) => void;
   readonly onDownload: () => void;
-  readonly onRenderChat?: (startSec: number, durationSec: number) => void;
   readonly onSetStart: (hms: string) => void;
   readonly onSetEnd: (hms: string) => void;
 }
@@ -23,10 +28,11 @@ export default function ClipBar({
   clipEnd,
   onClip,
   onDownload,
-  onRenderChat,
   onSetStart,
   onSetEnd,
 }: ClipBarProps) {
+  const [includeChat, setIncludeChat] = useState(false);
+
   const handleClip = useCallback(() => {
     if (!hmsValid(clipStart)) {
       toast.error('Invalid start time', { description: 'Use HH:MM:SS format.' });
@@ -42,8 +48,8 @@ export default function ClipBar({
       toast.error('Invalid range', { description: 'Start time must be before end time.' });
       return;
     }
-    onClip(vodId, '', startSec, endSec - startSec);
-  }, [clipStart, clipEnd, onClip, vodId]);
+    onClip(vodId, '', startSec, endSec - startSec, includeChat);
+  }, [clipStart, clipEnd, onClip, vodId, includeChat]);
 
   const handleSetStart = useCallback(() => {
     onSetStart(toHHMMSS(Math.floor(currentTime)));
@@ -153,11 +159,24 @@ export default function ClipBar({
           Clip
         </button>
 
+        {/* Chat Toggle */}
+        <label className="flex items-center gap-1.5 text-xs font-medium text-text-secondary cursor-pointer hover:text-text-primary transition-colors">
+          <input
+            type="checkbox"
+            checked={includeChat}
+            onChange={(e) => setIncludeChat(e.target.checked)}
+            className="accent-primary h-3.5 w-3.5 cursor-pointer rounded border-border bg-background"
+          />
+          Chat Render
+        </label>
+
+        <div className="flex-1" />
+
         {/* Download VOD button */}
         <button
           type="button"
           onClick={onDownload}
-          className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
+          className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary ml-auto"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -177,49 +196,6 @@ export default function ClipBar({
           </svg>
           Download VOD
         </button>
-
-        {/* Render Chat Overlay button */}
-        {onRenderChat && (
-          <button
-            type="button"
-            onClick={() => {
-              if (!hmsValid(clipStart)) {
-                toast.error('Invalid start time', { description: 'Use HH:MM:SS format.' });
-                return;
-              }
-              if (!hmsValid(clipEnd)) {
-                toast.error('Invalid end time', { description: 'Use HH:MM:SS format.' });
-                return;
-              }
-              const startSec = toSeconds(clipStart);
-              const endSec = toSeconds(clipEnd);
-              if (startSec >= endSec) {
-                toast.error('Invalid range', { description: 'Start time must be before end time.' });
-                return;
-              }
-              onRenderChat(startSec, endSec - startSec);
-            }}
-            className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Render Chat Overlay</title>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 15 6 21 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Chat Render
-          </button>
-        )}
       </div>
     </div>
   );

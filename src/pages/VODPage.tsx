@@ -48,7 +48,7 @@ export default function VODPage() {
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
   const [emotesLoaded, setEmotesLoaded] = useState(false);
 
-  const { startClip, startDownload, startChatRender } = useClipJob();
+  const { startClip, startDownload } = useClipJob();
 
   const emoteDataRef = useRef<SerializedEmoteSet>({
     bttv: [],
@@ -128,25 +128,26 @@ export default function VODPage() {
   }, []);
 
   const handleClip = useCallback(
-    (vodId: string, _m3u8Url: string, startSeconds: number, durationSeconds: number) => {
-      startClip(vodId, m3u8Url, startSeconds, durationSeconds, vodInfo?.broadcasterName ?? '');
+    (vodId: string, _m3u8Url: string, startSeconds: number, durationSeconds: number, includeChat: boolean) => {
+      startClip(vodId, m3u8Url, startSeconds, durationSeconds, vodInfo?.broadcasterName ?? '', {
+        includeChat,
+        broadcasterId: broadcasterId ?? '',
+        vodId: vodId,
+      });
     },
-    [startClip, m3u8Url, vodInfo],
+    [startClip, m3u8Url, vodInfo, broadcasterId],
   );
 
   const handleDownload = useCallback(
-    (selectedM3u8Url: string) => {
+    (selectedM3u8Url: string, includeChat: boolean) => {
       setShowDownloadModal(false);
-      startDownload(vodId, selectedM3u8Url, vodInfo?.lengthSeconds ?? 0, vodInfo?.broadcasterName ?? '');
+      startDownload(vodId, selectedM3u8Url, vodInfo?.lengthSeconds ?? 0, vodInfo?.broadcasterName ?? '', {
+        includeChat,
+        broadcasterId: broadcasterId ?? '',
+        vodId: vodId,
+      });
     },
-    [startDownload, vodId, vodInfo],
-  );
-
-  const handleRenderChat = useCallback(
-    (startSec: number, durationSec: number) => {
-      startChatRender(vodId, broadcasterId ?? '', startSec, durationSec, vodInfo?.broadcasterName ?? '');
-    },
-    [startChatRender, vodId, broadcasterId, vodInfo],
+    [startDownload, vodId, vodInfo, broadcasterId],
   );
 
   const toggleTheatreMode = useCallback(() => {
@@ -230,7 +231,6 @@ export default function VODPage() {
           clipEnd={clipEnd}
           onClip={handleClip}
           onDownload={() => setShowDownloadModal(true)}
-          onRenderChat={handleRenderChat}
           onSetStart={setClipStart}
           onSetEnd={setClipEnd}
         />

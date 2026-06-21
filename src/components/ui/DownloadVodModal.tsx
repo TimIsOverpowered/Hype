@@ -5,7 +5,7 @@ import { toHHMMSS } from '../../utils/time';
 interface DownloadVodModalProps {
   readonly open: boolean;
   readonly onClose: () => void;
-  readonly onDownload: (m3u8Url: string) => void;
+  readonly onDownload: (m3u8Url: string, includeChat: boolean) => void;
   readonly vodId: string;
   readonly vodTitle: string;
   readonly duration: number;
@@ -24,6 +24,7 @@ export default function DownloadVodModal({
   isLoading,
 }: DownloadVodModalProps) {
   const [selectedVariantName, setSelectedVariantName] = useState('');
+  const [includeChat, setIncludeChat] = useState(false);
 
   useEffect(() => {
     if (open && variants.length > 0) {
@@ -34,7 +35,7 @@ export default function DownloadVodModal({
   const handleDownload = () => {
     const variant = variants.find((v) => v.name === selectedVariantName);
     if (!variant) return;
-    onDownload(variant.uri);
+    onDownload(variant.uri, includeChat);
   };
 
   if (!open) return null;
@@ -122,6 +123,20 @@ export default function DownloadVodModal({
               ))}
             </select>
           )}
+        </div>
+
+        {/* Chat Toggle */}
+        <div className="mb-6 flex items-center justify-between rounded-lg border border-border bg-black/20 p-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-text-primary">Include Chat Render</span>
+            <span className="text-xs text-text-hint">Generates an additional chat overlay video</span>
+          </div>
+          <input
+            type="checkbox"
+            checked={includeChat}
+            onChange={(e) => setIncludeChat(e.target.checked)}
+            className="accent-primary h-4 w-4 cursor-pointer rounded border-border bg-background"
+          />
         </div>
 
         {/* Download button */}

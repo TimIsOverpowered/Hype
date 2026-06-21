@@ -417,7 +417,6 @@ async fn run_preload(
 ) -> Result<(), String> {
     use std::collections::{HashMap, HashSet};
 
-    let queue = job_queue::get_queue();
     let throttle = std::time::Duration::from_millis(200);
     let mut last_emit = std::time::Instant::now();
     let timeout_start = std::time::Instant::now();
@@ -564,8 +563,6 @@ async fn run_preload(
         let _ = app.emit("asset-preload-complete", &result_payload);
     }
 
-    queue.complete(job_id, loaded > 0, app, "asset-preload");
-
     Ok(())
 }
 
@@ -580,6 +577,8 @@ fn emit_progress_if_needed(
     let now = std::time::Instant::now();
     if now.duration_since(*last_emit) >= throttle {
         *last_emit = now;
+        let progress = (5.0 + (completed as f32 / total.max(1) as f32) * 15.0).min(20.0) as u8;
+        crate::media::job_queue::get_queue().update_progress(job_id, progress, app);
         let payload = AssetProgressPayload {
             job_id: job_id.to_string(),
             loaded: completed,
