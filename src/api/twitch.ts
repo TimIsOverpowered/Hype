@@ -449,23 +449,26 @@ export async function getChapters(vodId: string): Promise<ReadonlyArray<ChapterE
 }
 
 export async function getChapter(vodId: string, lengthSeconds: number): Promise<ChapterEdge | null> {
-  const data = await gqlPost<{ video: { game?: { id: string; displayName: string } | null } }>(BACKUP_CLIENT_ID, {
-    operationName: 'NielsenContentMetadata',
-    variables: {
-      isCollectionContent: false,
-      isLiveContent: false,
-      isVODContent: true,
-      collectionID: '',
-      login: '',
-      vodID: vodId,
-    },
-    extensions: {
-      persistedQuery: {
-        version: 1,
-        sha256Hash: '2dbf505ee929438369e68e72319d1106bb3c142e295332fac157c90638968586',
+  const data = await gqlPost<{ video: { game?: { id: string; displayName: string; boxArtURL?: string } | null } }>(
+    BACKUP_CLIENT_ID,
+    {
+      operationName: 'NielsenContentMetadata',
+      variables: {
+        isCollectionContent: false,
+        isLiveContent: false,
+        isVODContent: true,
+        collectionID: '',
+        login: '',
+        vodID: vodId,
+      },
+      extensions: {
+        persistedQuery: {
+          version: 1,
+          sha256Hash: '2dbf505ee929438369e68e72319d1106bb3c142e295332fac157c90638968586',
+        },
       },
     },
-  });
+  );
 
   const game = data.video?.game;
   if (!game) return null;
@@ -476,7 +479,7 @@ export async function getChapter(vodId: string, lengthSeconds: number): Promise<
       positionMilliseconds: 0,
       durationMilliseconds: lengthSeconds * 1000,
       details: {
-        game: { id: game.id, displayName: game.displayName },
+        game: { id: game.id, displayName: game.displayName, boxArtURL: game.boxArtURL },
       },
     },
   };

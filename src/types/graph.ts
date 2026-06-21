@@ -40,7 +40,7 @@ export interface AggregatePayload {
       positionMilliseconds: number;
       durationMilliseconds: number;
       details: {
-        game?: { displayName?: string };
+        game?: { displayName?: string; boxArtURL?: string };
       };
     };
   }>;
@@ -77,6 +77,12 @@ export interface AggregateResult {
     readonly data: readonly GraphDataPoint[];
     readonly computedThreshold: number;
     readonly percentile: number;
+    readonly chapters?: Array<{
+      positionMilliseconds: number;
+      durationMilliseconds: number;
+      game?: string;
+      boxArtURL?: string;
+    }>;
   };
 }
 
@@ -104,7 +110,7 @@ export interface AggregateClipsPayload {
       positionMilliseconds: number;
       durationMilliseconds: number;
       details: {
-        game?: { displayName?: string };
+        game?: { displayName?: string; boxArtURL?: string };
         title?: string;
       };
     };
@@ -121,6 +127,12 @@ export interface AggregateClipsResult {
   readonly payload: {
     readonly data: readonly ClipDataPoint[];
     readonly totalViews: number;
+    readonly chapters?: Array<{
+      positionMilliseconds: number;
+      durationMilliseconds: number;
+      game?: string;
+      boxArtURL?: string;
+    }>;
   };
 }
 

@@ -13,6 +13,7 @@ interface ChapterEntry {
   readonly positionMilliseconds: number;
   readonly durationMilliseconds: number;
   readonly game?: string;
+  readonly boxArtURL?: string;
 }
 
 function buildChapterLookup(chapters: AggregatePayload['chapters']): ChapterEntry[] {
@@ -21,6 +22,7 @@ function buildChapterLookup(chapters: AggregatePayload['chapters']): ChapterEntr
     positionMilliseconds: c.node.positionMilliseconds,
     durationMilliseconds: c.node.durationMilliseconds,
     game: c.node.details?.game?.displayName,
+    boxArtURL: c.node.details?.game?.boxArtURL,
   }));
 }
 
@@ -107,6 +109,7 @@ function aggregateLogs(payload: AggregatePayload): {
   }>;
   threshold: number;
   percentile: number;
+  chapters?: ChapterEntry[];
 } {
   const { logs, duration, interval, emotes, searchType, searchTerm, threshold: userThreshold, chapters } = payload;
 
@@ -184,7 +187,7 @@ function aggregateLogs(payload: AggregatePayload): {
       }
     }
     results.sort((a, b) => a.x - b.x);
-    return { results, threshold: searchThreshold, percentile: 0 };
+    return { results, threshold: searchThreshold, percentile: 0, chapters: chapterLookup };
   }
 
   const allCounts: number[] = [];
@@ -211,7 +214,7 @@ function aggregateLogs(payload: AggregatePayload): {
   }
 
   results.sort((a, b) => a.x - b.x);
-  return { results, threshold: effectiveThreshold, percentile: Math.round(percentileValue) };
+  return { results, threshold: effectiveThreshold, percentile: Math.round(percentileValue), chapters: chapterLookup };
 }
 
 function buildGraphData(
@@ -300,7 +303,7 @@ function aggregateClips(payload: AggregateClipsPayload): Array<{
   for (const clip of uniqueClips) {
     const game = getGameForTimestamp(clip.vod_offset * 1000, chapterLookup);
     data.push({
-      x: clip.vod_offset,
+      x: clip.vod_offset - clip.duration,
       y: clip.views,
       title: clip.title,
       slug: clip.slug,
@@ -321,12 +324,19 @@ self.onmessage = (e: MessageEvent<IncomingWorkerMessage>) => {
 
   if (msg.type === 'aggregate') {
     try {
-      const { results: rawBuckets, threshold, percentile } = aggregateLogs(msg.payload);
+      const { results: rawBuckets, threshold, percentile, chapters: aggChapters } = aggregateLogs(msg.payload);
       const data = buildGraphData(rawBuckets);
+
+      const chapterOutput = aggChapters?.map((c) => ({
+        positionMilliseconds: c.positionMilliseconds,
+        durationMilliseconds: c.durationMilliseconds,
+        game: c.game,
+        boxArtURL: c.boxArtURL,
+      }));
 
       self.postMessage({
         type: 'aggregateResult',
-        payload: { data, computedThreshold: threshold, percentile },
+        payload: { data, computedThreshold: threshold, percentile, chapters: chapterOutput },
       } as OutgoingWorkerMessage);
     } catch (err) {
       console.error('Worker aggregation failed:', err);
@@ -337,7 +347,18 @@ self.onmessage = (e: MessageEvent<IncomingWorkerMessage>) => {
     try {
       const data = aggregateClips(msg.payload);
       const totalViews = data.reduce((sum, d) => sum + d.y, 0);
-      self.postMessage({ type: 'aggregateClipsResult', payload: { data, totalViews } } as OutgoingWorkerMessage);
+      const { chapters } = msg.payload;
+      const chapterOutput = chapters?.length ? buildChapterLookup(chapters) : undefined;
+      const chapterOutputMapped = chapterOutput?.map((c) => ({
+        positionMilliseconds: c.positionMilliseconds,
+        durationMilliseconds: c.durationMilliseconds,
+        game: c.game,
+        boxArtURL: c.boxArtURL,
+      }));
+      self.postMessage({
+        type: 'aggregateClipsResult',
+        payload: { data, totalViews, chapters: chapterOutputMapped },
+      } as OutgoingWorkerMessage);
     } catch (err) {
       console.error('Worker clips aggregation failed:', err);
     }

@@ -9,6 +9,14 @@ import { HYPE_API_BASE } from '../../constants/urls';
 import { useGraphSettings } from '../../hooks/useGraphSettings';
 import type { ClipDataPoint, GraphDataPoint, GraphType, TopEmote, WorkerEmoteData } from '../../types/graph';
 import type { ChapterEdge } from '../../types/twitch';
+
+interface GameChapter {
+  readonly positionMilliseconds: number;
+  readonly durationMilliseconds: number;
+  readonly game?: string;
+  readonly boxArtURL?: string;
+}
+
 import { toHHMMSS } from '../../utils/time';
 
 const TABS: Array<{ key: GraphType; label: string }> = [
@@ -16,6 +24,33 @@ const TABS: Array<{ key: GraphType; label: string }> = [
   { key: 'clips', label: 'Clips' },
   { key: 'search', label: 'Search' },
 ];
+
+const GAME_COLORS = [
+  'rgba(239, 68, 68, 0.15)',
+  'rgba(59, 130, 246, 0.15)',
+  'rgba(16, 185, 129, 0.15)',
+  'rgba(245, 158, 11, 0.15)',
+  'rgba(139, 92, 246, 0.15)',
+  'rgba(236, 72, 153, 0.15)',
+  'rgba(14, 165, 233, 0.15)',
+  'rgba(249, 115, 22, 0.15)',
+  'rgba(168, 85, 247, 0.15)',
+  'rgba(20, 184, 166, 0.15)',
+];
+
+function findNearestIndex(targetSec: number, xDataSeconds: number[]): number {
+  if (xDataSeconds.length === 0) return 0;
+  let closest = 0;
+  let minDiff = Math.abs(xDataSeconds[0] - targetSec);
+  for (let i = 1; i < xDataSeconds.length; i++) {
+    const diff = Math.abs(xDataSeconds[i] - targetSec);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = i;
+    }
+  }
+  return closest;
+}
 
 const RotateCcwIcon = () => (
   // biome-ignore lint/a11y/noSvgWithoutTitle: icon button has title prop on parent button
@@ -64,8 +99,10 @@ function buildEChartsOption(
   data: GraphDataPoint[] | ClipDataPoint[],
   graphType: GraphType,
   searchTerm: string,
+  gameChapters: readonly GameChapter[] | null,
 ): Record<string, unknown> {
   const xData = data.map((d) => d.duration);
+  const xDataSeconds = data.map((d) => (d as GraphDataPoint | ClipDataPoint).x);
   let seriesName: string;
 
   if (graphType === 'clips') {
@@ -117,6 +154,79 @@ function buildEChartsOption(
 
     return html;
   };
+
+  const markAreaData: unknown[][] = [];
+  const gameColorsMap = new Map<string, number>();
+  const richStyles: Record<string, unknown> = {};
+  let colorIndex = 0;
+
+  if (gameChapters && gameChapters.length > 0 && xDataSeconds.length > 0) {
+    for (let i = 0; i < gameChapters.length; i++) {
+      const chapter = gameChapters[i];
+      const gameName = chapter.game || 'Unknown';
+      const boxArtURL = chapter.boxArtURL;
+
+      if (!gameColorsMap.has(gameName)) {
+        gameColorsMap.set(gameName, colorIndex);
+
+        if (boxArtURL) {
+          const url = boxArtURL.replace('{width}', '40').replace('{height}', '53');
+          richStyles[`gameIcon_${colorIndex}`] = {
+            backgroundColor: { image: url },
+            height: 26,
+            width: 20,
+            align: 'center',
+          };
+        }
+
+        colorIndex++;
+      }
+
+      const gameColorIdx = gameColorsMap.get(gameName) ?? 0;
+      const startSec = chapter.positionMilliseconds / 1000;
+      const endSec = (chapter.positionMilliseconds + chapter.durationMilliseconds) / 1000;
+
+      const startIndex = findNearestIndex(startSec, xDataSeconds);
+      const endIndex = findNearestIndex(endSec, xDataSeconds);
+
+      if (startIndex === endIndex && startIndex === 0 && endSec < xDataSeconds[0]) {
+        continue;
+      }
+
+      const hasImage = !!boxArtURL && !!richStyles[`gameIcon_${gameColorIdx}`];
+      const formatterStr = hasImage ? `{gameIcon_${gameColorIdx}|}\n{name|${gameName}}` : `{name|${gameName}}`;
+
+      markAreaData.push([
+        {
+          name: gameName,
+          xAxis: xData[startIndex],
+          itemStyle: { color: GAME_COLORS[gameColorIdx % GAME_COLORS.length] },
+          label: {
+            show: true,
+            position: 'insideTop',
+            offset: [0, (i % 2) * 26],
+            color: '#adadb8',
+            fontSize: 10,
+            formatter: formatterStr,
+            rich: {
+              name: {
+                color: '#f0f0f5',
+                fontSize: 10,
+                fontWeight: 'bold',
+                padding: [4, 0, 0, 0],
+                textBorderColor: '#000',
+                textBorderWidth: 2,
+              },
+              ...richStyles,
+            },
+          },
+        },
+        {
+          xAxis: xData[endIndex],
+        },
+      ]);
+    }
+  }
 
   return {
     backgroundColor: 'transparent',
@@ -178,6 +288,10 @@ function buildEChartsOption(
           },
           data: [{ xAxis: 0 }],
         },
+        markArea: {
+          silent: true,
+          data: markAreaData,
+        },
       },
     ],
     dataZoom: [
@@ -217,6 +331,7 @@ const VodGraph = memo(function VodGraph({
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [graphData, setGraphData] = useState<GraphDataPoint[] | ClipDataPoint[]>([]);
+  const [gameChapters, setGameChapters] = useState<readonly GameChapter[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [effectiveThreshold, setEffectiveThreshold] = useState<number | null>(null);
@@ -236,6 +351,7 @@ const VodGraph = memo(function VodGraph({
     duration: number;
   }> | null>(null);
   const chaptersRef = useRef<readonly ChapterEdge[] | null>(null);
+  const gameChaptersRef = useRef<readonly GameChapter[] | null>(null);
   const durationRef = useRef<number>(0);
   const propDurationRef = useRef<number>(0);
   const fetchedRef = useRef(false);
@@ -275,11 +391,19 @@ const VodGraph = memo(function VodGraph({
         if (e.data.type === 'aggregateResult') {
           setGraphData(e.data.payload.data);
           setEffectiveThreshold(e.data.payload.computedThreshold);
+          if (e.data.payload.chapters) {
+            setGameChapters(e.data.payload.chapters);
+            gameChaptersRef.current = e.data.payload.chapters;
+          }
           setIsLoading(false);
         }
         if (e.data.type === 'aggregateClipsResult') {
           setGraphData(e.data.payload.data);
           setEffectiveThreshold(null);
+          if (e.data.payload.chapters) {
+            setGameChapters(e.data.payload.chapters);
+            gameChaptersRef.current = e.data.payload.chapters;
+          }
           setIsLoading(false);
         }
       };
@@ -358,6 +482,7 @@ const VodGraph = memo(function VodGraph({
       setIsLoading(true);
       setError(null);
       setGraphData([]);
+      setGameChapters(null);
       setEffectiveThreshold(null);
 
       if (type === 'clips') {
@@ -451,9 +576,10 @@ const VodGraph = memo(function VodGraph({
       let startTime: number;
       let endTime: number;
       if (activeTab === 'clips') {
-        seekTime = point.x - 5;
-        startTime = point.x - 5;
-        endTime = point.x + 30;
+        seekTime = point.x;
+        startTime = point.x;
+        const clipDuration = (point as ClipDataPoint).clipDuration ?? 0;
+        endTime = point.x + clipDuration;
       } else {
         seekTime = point.x - intervalRef.current;
         startTime = point.x - intervalRef.current;
@@ -607,8 +733,8 @@ const VodGraph = memo(function VodGraph({
   }, []);
 
   const option = useMemo(
-    () => buildEChartsOption(graphData, activeTab, searchTerm),
-    [graphData, activeTab, searchTerm],
+    () => buildEChartsOption(graphData, activeTab, searchTerm, gameChapters),
+    [graphData, activeTab, searchTerm, gameChapters],
   );
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

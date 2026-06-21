@@ -119,6 +119,7 @@ export interface ChapterDetails {
 export interface ChapterGame {
   readonly id: string;
   readonly displayName: string;
+  readonly boxArtURL?: string;
 }
 
 export interface GqlRequest {
