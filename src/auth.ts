@@ -43,12 +43,8 @@ export function useUser() {
 }
 
 export async function searchWhitelistedChannels(query: string): Promise<SearchResult[]> {
-  const token = getToken();
-  if (!token) return [];
   try {
-    const res = await fetch(`${API_BASE}/v1/whitelist?search=${encodeURIComponent(query)}&sort=channel`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(`${API_BASE}/v1/whitelist?search=${encodeURIComponent(query)}&sort=channel`);
     if (!res.ok) return [];
     const data = await res.json();
     const entries = (data.data ?? []).map((entry: { channel: string }) => entry.channel);
@@ -79,12 +75,7 @@ export async function searchWhitelistedChannels(query: string): Promise<SearchRe
 }
 
 export async function fetchWhitelistedChannels(page: number, limit: number): Promise<PaginatedWhitelistResponse> {
-  const token = getToken();
-  if (!token) throw new Error('Not logged in');
-
-  const res = await fetch(`${API_BASE}/v1/whitelist?page=${page}&limit=${limit}&sort=channel`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const res = await fetch(`${API_BASE}/v1/whitelist?page=${page}&limit=${limit}&sort=channel`);
   if (!res.ok) throw new Error('Failed to fetch whitelisted channels');
 
   const data = await res.json();

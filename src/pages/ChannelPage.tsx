@@ -3,6 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getNextVods, getVods } from '../api/twitch';
+import { getToken } from '../auth';
 import { INTERSECTION_OBSERVER_MARGIN } from '../constants/ui';
 import type { VodEdge, VodPage } from '../types/twitch';
 import { toHHMMSS } from '../utils/time';
@@ -107,6 +108,14 @@ export default function ChannelPage() {
   const vods =
     data?.pages.flatMap((p: VodPage) => p.edges.filter((v: VodEdge) => v.node.broadcastType === 'ARCHIVE')) ?? [];
   const twitchUser = data?.pages[0]?.user;
+
+  if (!getToken()) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+        <p className="text-text-secondary">You must be logged in to view this page.</p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

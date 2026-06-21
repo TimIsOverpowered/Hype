@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getVod, getVodToken, resolveM3u8 } from '../api/twitch';
+import { getToken } from '../auth';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
 import VideoPlayer, { type VideoPlayerHandle } from '../components/player/VideoPlayer';
@@ -12,7 +13,6 @@ import { BTTV_API_BASE, FFZ_API_BASE, SEVENTV_API_BASE } from '../constants/emot
 import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
 import type { BttvEmote, FfzEmote, M3u8Variant, SevenTVEmote } from '../types/twitch';
-
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
@@ -235,6 +235,14 @@ export default function VODPage() {
       return next;
     });
   }, []);
+
+  if (!getToken()) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-background p-6">
+        <p className="text-text-secondary">You must be logged in to view this page.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
