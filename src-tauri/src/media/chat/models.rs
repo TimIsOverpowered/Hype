@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum FormattedFragment {
     #[serde(rename = "text")]
@@ -23,7 +23,7 @@ pub enum FormattedFragment {
     Url { text: String },
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FormattedMessage {
     pub id: String,
     #[serde(rename = "displayName")]
@@ -36,7 +36,7 @@ pub struct FormattedMessage {
     pub fragments: Vec<FormattedFragment>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChatBadge {
     #[serde(rename = "setID")]
     pub set_id: String,

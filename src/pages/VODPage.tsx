@@ -48,7 +48,7 @@ export default function VODPage() {
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
   const [emotesLoaded, setEmotesLoaded] = useState(false);
 
-  const { startClip, startDownload } = useClipJob();
+  const { startClip, startDownload, startChatRender } = useClipJob();
 
   const emoteDataRef = useRef<SerializedEmoteSet>({
     bttv: [],
@@ -142,6 +142,13 @@ export default function VODPage() {
     [startDownload, vodId, vodInfo],
   );
 
+  const handleRenderChat = useCallback(
+    (startSec: number, durationSec: number) => {
+      startChatRender(vodId, broadcasterId ?? '', startSec, durationSec, vodInfo?.broadcasterName ?? '');
+    },
+    [startChatRender, vodId, broadcasterId, vodInfo],
+  );
+
   const toggleTheatreMode = useCallback(() => {
     setTheatreMode((prev) => {
       const next = !prev;
@@ -223,6 +230,7 @@ export default function VODPage() {
           clipEnd={clipEnd}
           onClip={handleClip}
           onDownload={() => setShowDownloadModal(true)}
+          onRenderChat={handleRenderChat}
           onSetStart={setClipStart}
           onSetEnd={setClipEnd}
         />

@@ -11,6 +11,7 @@ interface ClipBarProps {
   readonly clipEnd: string;
   readonly onClip: (vodId: string, m3u8Url: string, startSeconds: number, durationSeconds: number) => void;
   readonly onDownload: () => void;
+  readonly onRenderChat?: (startSec: number, durationSec: number) => void;
   readonly onSetStart: (hms: string) => void;
   readonly onSetEnd: (hms: string) => void;
 }
@@ -22,6 +23,7 @@ export default function ClipBar({
   clipEnd,
   onClip,
   onDownload,
+  onRenderChat,
   onSetStart,
   onSetEnd,
 }: ClipBarProps) {
@@ -175,6 +177,49 @@ export default function ClipBar({
           </svg>
           Download VOD
         </button>
+
+        {/* Render Chat Overlay button */}
+        {onRenderChat && (
+          <button
+            type="button"
+            onClick={() => {
+              if (!hmsValid(clipStart)) {
+                toast.error('Invalid start time', { description: 'Use HH:MM:SS format.' });
+                return;
+              }
+              if (!hmsValid(clipEnd)) {
+                toast.error('Invalid end time', { description: 'Use HH:MM:SS format.' });
+                return;
+              }
+              const startSec = toSeconds(clipStart);
+              const endSec = toSeconds(clipEnd);
+              if (startSec >= endSec) {
+                toast.error('Invalid range', { description: 'Start time must be before end time.' });
+                return;
+              }
+              onRenderChat(startSec, endSec - startSec);
+            }}
+            className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <title>Render Chat Overlay</title>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 15 6 21 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Chat Render
+          </button>
+        )}
       </div>
     </div>
   );

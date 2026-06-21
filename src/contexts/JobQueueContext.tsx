@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-export type JobType = 'clip' | 'download';
+export type JobType = 'clip' | 'download' | 'chat-render';
 export type JobStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface Job {
@@ -27,6 +27,14 @@ interface JobQueueState {
   ) => Promise<string>;
   cancelJob: (id: string) => Promise<void>;
   removeJob: (id: string) => void;
+  renderChatOverlay: (
+    vodId: string,
+    broadcasterId: string,
+    startSec: number,
+    durationSec: number,
+    outputPath: string,
+    fps: number,
+  ) => Promise<string>;
 }
 
 const JobQueueContext = createContext<JobQueueState | null>(null);
@@ -194,6 +202,54 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         showToast(job.id, 'Download failed', job.error ?? 'Unknown error', 'error');
       });
 
+      await listenFor('chat-render-progress', (job) => {
+        setJobs((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(job.id);
+          if (existing) {
+            next.set(job.id, { ...existing, progress: job.progress });
+          }
+          return next;
+        });
+      });
+
+      const unlistenAssetPreload = await listen<{ job_id: string; loaded: number; total: number }>('asset-preload-progress', (e) => {
+        setJobs((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(e.payload.job_id);
+          if (existing) {
+            const scaled = 5 + (e.payload.loaded / Math.max(e.payload.total, 1)) * 15;
+            next.set(e.payload.job_id, { ...existing, progress: scaled });
+          }
+          return next;
+        });
+      });
+      unlistens.push(unlistenAssetPreload);
+
+      await listenFor('chat-render-complete', (job) => {
+        setJobs((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(job.id);
+          if (existing) {
+            next.set(job.id, { ...existing, status: 'completed', progress: 100 });
+          }
+          return next;
+        });
+        showToast(job.id, 'Chat render completed', job.name, 'success');
+      });
+
+      await listenFor('chat-render-failed', (job) => {
+        setJobs((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(job.id);
+          if (existing) {
+            next.set(job.id, { ...existing, status: 'failed', progress: 100, error: job.error });
+          }
+          return next;
+        });
+        showToast(job.id, 'Chat render failed', job.error ?? 'Unknown error', 'error');
+      });
+
       const unlistenStateChange = await listen<{
         id: string;
         job_type: string;
@@ -302,8 +358,58 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
     await invoke('remove_job', { id });
   };
 
+  const renderChatOverlay = async (
+    vodId: string,
+    broadcasterId: string,
+    startSec: number,
+    durationSec: number,
+    outputPath: string,
+    fps: number,
+  ): Promise<string> => {
+    const newJob: Job = {
+      id: `pending-${Date.now()}`,
+      job_type: 'chat-render',
+      name: outputPath.split('/').pop() || 'chat-overlay.webm',
+      status: 'running',
+      progress: 0,
+      error: null,
+    };
+
+    setJobs((prev) => {
+      const next = new Map(prev);
+      next.set(newJob.id, newJob);
+      return next;
+    });
+
+    showToast(newJob.id, 'Chat render started', newJob.name, 'info');
+
+    const { job_id } = await invoke<SubmitJobResponse>(
+      'render_chat_video_orchestrator_cmd',
+      {
+        vodId,
+        broadcasterId,
+        startSec,
+        durationSec,
+        outputPath,
+        fps,
+      },
+    );
+
+    setJobs((prev) => {
+      const next = new Map(prev);
+      const job = next.get(newJob.id);
+      if (job) {
+        next.delete(newJob.id);
+        next.set(job_id, { ...newJob, id: job_id, status: 'running', progress: 0 });
+      }
+      return next;
+    });
+
+    return job_id;
+  };
+
   return (
-    <JobQueueContext.Provider value={{ jobs, submitJob, cancelJob, removeJob }}>{children}</JobQueueContext.Provider>
+    <JobQueueContext.Provider value={{ jobs, submitJob, cancelJob, removeJob, renderChatOverlay }}>{children}</JobQueueContext.Provider>
   );
 }
 

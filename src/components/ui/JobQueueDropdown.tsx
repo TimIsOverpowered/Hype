@@ -173,8 +173,8 @@ export default function JobQueueDropdown() {
 }
 
 function JobItem({ job, onCancel, showRemove = false }: { job: Job; onCancel: () => void; showRemove?: boolean }) {
-  const typeLabel = job.job_type === 'clip' ? 'Clip' : 'Download';
-  const typeColor = job.job_type === 'clip' ? 'text-primary' : 'text-text-secondary';
+  const typeLabel = job.job_type === 'clip' ? 'Clip' : job.job_type === 'chat-render' ? 'Chat Render' : 'Download';
+  const typeColor = job.job_type === 'clip' ? 'text-primary' : job.job_type === 'chat-render' ? 'text-primary' : 'text-text-secondary';
 
   const name = job.name.length > 60 ? `${job.name.slice(0, 57)}...` : job.name;
 
@@ -192,7 +192,7 @@ function JobItem({ job, onCancel, showRemove = false }: { job: Job; onCancel: ()
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className={`text-[10px] font-medium uppercase tracking-wider ${typeColor}`}>{typeLabel}</span>
+          <span className={`shrink-0 text-[10px] font-medium uppercase tracking-wider ${typeColor}`}>{typeLabel}</span>
           <span className="truncate text-xs text-text-primary">{name}</span>
         </div>
         {job.status === 'running' && (

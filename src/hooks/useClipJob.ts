@@ -4,10 +4,8 @@ import { useCallback, useRef, useState } from 'react';
 import { useJobQueue } from '../contexts/JobQueueContext';
 import { toHHMMSS } from '../utils/time';
 
-type JobType = 'clip' | 'download';
-
 interface UseClipJobResult {
-  jobType: JobType;
+  jobType: 'clip' | 'download' | 'chat-render';
   startClip: (
     vodId: string,
     m3u8Url: string,
@@ -16,6 +14,13 @@ interface UseClipJobResult {
     streamerName: string,
   ) => Promise<void>;
   startDownload: (vodId: string, m3u8Url: string, durationSeconds: number, streamerName: string) => Promise<void>;
+  startChatRender: (
+    vodId: string,
+    broadcasterId: string,
+    startSeconds: number,
+    durationSeconds: number,
+    streamerName: string,
+  ) => Promise<void>;
 }
 
 async function detectFmp4(m3u8Url: string): Promise<boolean> {
@@ -30,12 +35,12 @@ async function detectFmp4(m3u8Url: string): Promise<boolean> {
 }
 
 export function useClipJob(): UseClipJobResult {
-  const { submitJob } = useJobQueue();
-  const [jobType, setJobType] = useState<JobType>('clip');
+  const { submitJob, renderChatOverlay } = useJobQueue();
+  const [jobType, setJobType] = useState<'clip' | 'download' | 'chat-render'>('clip');
   const cancelledRef = useRef(false);
 
   const runJob = useCallback(
-    async (m3u8Url: string, startSeconds: number, durationSeconds: number, type: JobType, defaultName: string) => {
+    async (m3u8Url: string, startSeconds: number, durationSeconds: number, type: 'clip' | 'download', defaultName: string) => {
       cancelledRef.current = false;
       setJobType(type);
 
@@ -73,5 +78,28 @@ export function useClipJob(): UseClipJobResult {
     [runJob],
   );
 
-  return { jobType, startClip, startDownload };
+  const startChatRender = useCallback(
+    async (vodId: string, broadcasterId: string, startSeconds: number, durationSeconds: number, streamerName: string) => {
+      cancelledRef.current = false;
+      setJobType('chat-render');
+
+      const startHMS = toHHMMSS(Math.floor(startSeconds)).replace(/:/g, '-');
+      const endHMS = toHHMMSS(Math.floor(startSeconds + durationSeconds)).replace(/:/g, '-');
+      const defaultName = `${streamerName}-${vodId}-chat-render-${startHMS}-${endHMS}.webm`;
+
+      const outputPath = await save({
+        defaultPath: defaultName,
+        filters: [{ name: 'Video', extensions: ['webm'] }],
+      });
+
+      if (!outputPath) {
+        return;
+      }
+
+      await renderChatOverlay(vodId, broadcasterId, startSeconds, durationSeconds, outputPath, 60);
+    },
+    [renderChatOverlay],
+  );
+
+  return { jobType, startClip, startDownload, startChatRender };
 }

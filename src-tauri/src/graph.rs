@@ -173,7 +173,7 @@ pub async fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, 
             });
 
         if bucket.game.is_none() && !chapter_lookup.is_empty() {
-            bucket.game = get_game_for_timestamp(bucket_key as u64, &chapter_lookup);
+            bucket.game = get_game_for_timestamp((bucket_key as u64) * 1000, &chapter_lookup);
         }
 
         bucket.messages += 1;

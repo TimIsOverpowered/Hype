@@ -113,12 +113,12 @@ function getEmoteSrc(
   size: 'src' | 'srcSet' | 'tooltip',
 ): { src?: string; srcSet?: string } {
   if (provider === '7TV') {
-    if (size === 'src') return { src: `${SEVENTV_CDN_BASE}/${id}/1x.webp` };
+    if (size === 'src') return { src: `${SEVENTV_CDN_BASE}/${id}/1x.avif` };
     if (size === 'srcSet')
       return {
-        srcSet: `${SEVENTV_CDN_BASE}/${id}/1x.webp 1x, ${SEVENTV_CDN_BASE}/${id}/2x.webp 2x, ${SEVENTV_CDN_BASE}/${id}/3x.webp 3x, ${SEVENTV_CDN_BASE}/${id}/4x.webp 4x`,
+        srcSet: `${SEVENTV_CDN_BASE}/${id}/1x.avif 1x, ${SEVENTV_CDN_BASE}/${id}/2x.avif 2x, ${SEVENTV_CDN_BASE}/${id}/3x.avif 3x, ${SEVENTV_CDN_BASE}/${id}/4x.avif 4x`,
       };
-    return { src: `${SEVENTV_CDN_BASE}/${id}/2x.webp` };
+    return { src: `${SEVENTV_CDN_BASE}/${id}/2x.avif` };
   }
   if (provider === 'BTTV') {
     if (size === 'src') return { src: `${BTTV_CDN_BASE}/${id}/1x` };

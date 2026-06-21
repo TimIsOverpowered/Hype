@@ -16,6 +16,7 @@ lazy_static::lazy_static! {
 pub enum JobType {
     Clip,
     Download,
+    ChatRender,
 }
 
 impl JobType {
@@ -23,6 +24,7 @@ impl JobType {
         match self {
             JobType::Clip => "clip",
             JobType::Download => "download",
+            JobType::ChatRender => "chat-render",
         }
     }
 
@@ -31,6 +33,7 @@ impl JobType {
         match self {
             JobType::Clip => "clip",
             JobType::Download => "download",
+            JobType::ChatRender => "chat-render",
         }
     }
 }
