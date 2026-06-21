@@ -5,6 +5,7 @@ import type {
   IncomingWorkerMessage,
   OutgoingWorkerMessage,
   TopEmote,
+  TopSpike,
 } from '../types/graph';
 import { buildEmoteLookup, type EmoteLookupEntry } from '../utils/emoteLookup';
 import { toHHMMSS as toHHMMSSUtil } from '../utils/time';
@@ -76,12 +77,16 @@ function detectEmotesInMessage(
   message: string,
   lookup: Map<string, EmoteLookupEntry>,
   emoteCounts: Map<string, number>,
+  globalEmotes?: Map<string, number>,
 ): void {
   const words = message.split(/\s+/);
   for (const word of words) {
     const emote = lookup.get(word);
     if (emote) {
       emoteCounts.set(word, (emoteCounts.get(word) ?? 0) + 1);
+      if (globalEmotes) {
+        globalEmotes.set(word, (globalEmotes.get(word) ?? 0) + 1);
+      }
     }
   }
 }
@@ -110,6 +115,9 @@ function aggregateLogs(payload: AggregatePayload): {
   threshold: number;
   percentile: number;
   chapters?: ChapterEntry[];
+  totalMessages?: number;
+  topEmotes?: TopEmote[];
+  topSpikes?: TopSpike[];
 } {
   const { logs, duration, interval, emotes, searchType, searchTerm, threshold: userThreshold, chapters } = payload;
 
@@ -120,6 +128,9 @@ function aggregateLogs(payload: AggregatePayload): {
     number,
     { messages: number; subs: number; emotes: Map<string, number>; searchMatches: number; game?: string }
   >();
+
+  let totalMessages = 0;
+  const globalEmotes = new Map<string, number>();
 
   for (const log of logs) {
     if (!log || log.length < MIN_LOG_LINE_LENGTH) continue;
@@ -144,12 +155,13 @@ function aggregateLogs(payload: AggregatePayload): {
     }
 
     bucket.messages++;
+    totalMessages++;
 
     if (parsed.username === 'twitchnotify') {
       bucket.subs++;
     }
 
-    detectEmotesInMessage(parsed.message, emoteLookup, bucket.emotes);
+    detectEmotesInMessage(parsed.message, emoteLookup, bucket.emotes, globalEmotes);
 
     if (searchType === 'search' && searchTerm) {
       const words = parsed.message.toLowerCase().split(/\s+/);
@@ -160,6 +172,27 @@ function aggregateLogs(payload: AggregatePayload): {
       }
     }
   }
+
+  const allBucketsWithKey = Array.from(buckets.entries()).map(([x, data]) => ({ x, ...data }));
+  allBucketsWithKey.sort((a, b) => b.messages - a.messages);
+
+  const topSpikes: TopSpike[] = [];
+  const SPIKE_PROXIMITY_LIMIT = 120;
+
+  for (const b of allBucketsWithKey) {
+    if (b.messages === 0) continue;
+    const isNear = topSpikes.some((s) => Math.abs(s.time - b.x) < SPIKE_PROXIMITY_LIMIT);
+    if (!isNear) {
+      topSpikes.push({ time: b.x, duration: toHHMMSSUtil(b.x), messages: b.messages });
+      if (topSpikes.length >= 10) break;
+    }
+  }
+  topSpikes.sort((a, b) => b.messages - a.messages);
+
+  const overallTopEmotes = [...globalEmotes.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([name, count]) => ({ name, count }));
 
   const results: Array<{
     x: number;
@@ -187,7 +220,15 @@ function aggregateLogs(payload: AggregatePayload): {
       }
     }
     results.sort((a, b) => a.x - b.x);
-    return { results, threshold: searchThreshold, percentile: 0, chapters: chapterLookup };
+    return {
+      results,
+      threshold: searchThreshold,
+      percentile: 0,
+      chapters: chapterLookup,
+      totalMessages,
+      topEmotes: overallTopEmotes,
+      topSpikes,
+    };
   }
 
   const allCounts: number[] = [];
@@ -214,7 +255,15 @@ function aggregateLogs(payload: AggregatePayload): {
   }
 
   results.sort((a, b) => a.x - b.x);
-  return { results, threshold: effectiveThreshold, percentile: Math.round(percentileValue), chapters: chapterLookup };
+  return {
+    results,
+    threshold: effectiveThreshold,
+    percentile: Math.round(percentileValue),
+    chapters: chapterLookup,
+    totalMessages,
+    topEmotes: overallTopEmotes,
+    topSpikes,
+  };
 }
 
 function buildGraphData(
@@ -324,7 +373,15 @@ self.onmessage = (e: MessageEvent<IncomingWorkerMessage>) => {
 
   if (msg.type === 'aggregate') {
     try {
-      const { results: rawBuckets, threshold, percentile, chapters: aggChapters } = aggregateLogs(msg.payload);
+      const {
+        results: rawBuckets,
+        threshold,
+        percentile,
+        chapters: aggChapters,
+        totalMessages,
+        topEmotes,
+        topSpikes,
+      } = aggregateLogs(msg.payload);
       const data = buildGraphData(rawBuckets);
 
       const chapterOutput = aggChapters?.map((c) => ({
@@ -336,7 +393,15 @@ self.onmessage = (e: MessageEvent<IncomingWorkerMessage>) => {
 
       self.postMessage({
         type: 'aggregateResult',
-        payload: { data, computedThreshold: threshold, percentile, chapters: chapterOutput },
+        payload: {
+          data,
+          computedThreshold: threshold,
+          percentile,
+          chapters: chapterOutput,
+          totalMessages,
+          topEmotes,
+          topSpikes,
+        },
       } as OutgoingWorkerMessage);
     } catch (err) {
       console.error('Worker aggregation failed:', err);

@@ -7,6 +7,12 @@ export interface TopEmote {
   readonly count: number;
 }
 
+export interface TopSpike {
+  readonly time: number;
+  readonly duration: string;
+  readonly messages: number;
+}
+
 export interface GraphDataPoint {
   readonly x: number;
   readonly y: number;
@@ -83,6 +89,9 @@ export interface AggregateResult {
       game?: string;
       boxArtURL?: string;
     }>;
+    readonly totalMessages?: number;
+    readonly topEmotes?: readonly TopEmote[];
+    readonly topSpikes?: readonly TopSpike[];
   };
 }
 

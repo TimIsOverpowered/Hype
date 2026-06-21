@@ -7,7 +7,7 @@ import { ECharts } from '../../constants/echarts';
 import { DEFAULT_INTERVAL_SECONDS, TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
 import { HYPE_API_BASE } from '../../constants/urls';
 import { useGraphSettings } from '../../hooks/useGraphSettings';
-import type { ClipDataPoint, GraphDataPoint, GraphType, TopEmote, WorkerEmoteData } from '../../types/graph';
+import type { ClipDataPoint, GraphDataPoint, GraphType, TopEmote, TopSpike, WorkerEmoteData } from '../../types/graph';
 import type { ChapterEdge } from '../../types/twitch';
 
 interface GameChapter {
@@ -92,7 +92,20 @@ function SkeletonGraph(): React.ReactNode {
 
 function formatEmoteTooltip(emotes: readonly TopEmote[] | undefined): string {
   if (!emotes || emotes.length === 0) return '';
-  return emotes.map((e) => `<div style="overflow-wrap:break-word;word-break:break-all">${e.name}: ${e.count}</div>`).join('');
+  return emotes
+    .map((e) => `<div style="overflow-wrap:break-word;word-break:break-all">${e.name}: ${e.count}</div>`)
+    .join('');
+}
+
+function getEmoteUrl(name: string, emoteData: WorkerEmoteData | null): string | null {
+  if (!emoteData) return null;
+  const stv = emoteData.seventv.find((e) => (e.name || e.code) === name);
+  if (stv) return `https://cdn.7tv.app/emote/${stv.id}/1x.webp`;
+  const bttv = emoteData.bttv.find((e) => e.code === name);
+  if (bttv) return `https://cdn.betterttv.net/emote/${bttv.id}/1x`;
+  const ffz = emoteData.ffz.find((e) => (e.code || e.name || e.text) === name);
+  if (ffz) return `https://cdn.frankerfacez.com/emote/${ffz.id}/1`;
+  return null;
 }
 
 function buildEChartsOption(
@@ -159,13 +172,18 @@ function buildEChartsOption(
   const gameColorsMap = new Map<string, number>();
   const richStyles: Record<string, unknown> = {};
   let colorIndex = 0;
-  let renderedLabelsCount = 0;
+
+  const totalDurationSec = xDataSeconds.length > 0 ? xDataSeconds[xDataSeconds.length - 1] - xDataSeconds[0] : 0;
+  const minDistanceSec = totalDurationSec * 0.1;
+  const lastLabelSecAtLevel = [-99999, -99999];
 
   if (gameChapters && gameChapters.length > 0 && xDataSeconds.length > 0) {
     for (let i = 0; i < gameChapters.length; i++) {
       const chapter = gameChapters[i];
       const startSec = chapter.positionMilliseconds / 1000;
       const endSec = (chapter.positionMilliseconds + chapter.durationMilliseconds) / 1000;
+
+      const labelXSec = (startSec + endSec) / 2;
 
       const hasDataInChapter = xDataSeconds.some((sec) => sec >= startSec && sec <= endSec);
       if (!hasDataInChapter) {
@@ -203,8 +221,16 @@ function buildEChartsOption(
       const hasImage = !!boxArtURL && !!richStyles[`gameIcon_${gameColorIdx}`];
       const formatterStr = hasImage ? `{gameIcon_${gameColorIdx}|}\n{name|${gameName}}` : `{name|${gameName}}`;
 
-      const yOffset = (renderedLabelsCount % 2) * 26;
-      renderedLabelsCount++;
+      let level = 0;
+      if (labelXSec - lastLabelSecAtLevel[0] < minDistanceSec) {
+        level = 1;
+        if (labelXSec - lastLabelSecAtLevel[1] < minDistanceSec) {
+          level = lastLabelSecAtLevel[0] < lastLabelSecAtLevel[1] ? 0 : 1;
+        }
+      }
+
+      lastLabelSecAtLevel[level] = labelXSec;
+      const yOffset = level * 26;
 
       markAreaData.push([
         {
@@ -346,6 +372,10 @@ const VodGraph = memo(function VodGraph({
   const [error, setError] = useState<string | null>(null);
   const [effectiveThreshold, setEffectiveThreshold] = useState<number | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
+  const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [overallTopEmotes, setOverallTopEmotes] = useState<TopEmote[]>([]);
+  const [topSpikes, setTopSpikes] = useState<TopSpike[]>([]);
+  const [showInsights, setShowInsights] = useState(true);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -401,6 +431,9 @@ const VodGraph = memo(function VodGraph({
         if (e.data.type === 'aggregateResult') {
           setGraphData(e.data.payload.data);
           setEffectiveThreshold(e.data.payload.computedThreshold);
+          setTotalMessages(e.data.payload.totalMessages ?? 0);
+          setOverallTopEmotes(e.data.payload.topEmotes ?? []);
+          setTopSpikes(e.data.payload.topSpikes ?? []);
           if (e.data.payload.chapters) {
             setGameChapters(e.data.payload.chapters);
             gameChaptersRef.current = e.data.payload.chapters;
@@ -605,6 +638,18 @@ const VodGraph = memo(function VodGraph({
     [graphData, playerRef, activeTab, onClipStart, onClipEnd],
   );
 
+  const handleSeekToTime = useCallback(
+    (timeSec: number) => {
+      if (!playerRef.current) return;
+      let seekTime = timeSec - intervalRef.current;
+      if (seekTime < 0) seekTime = 0;
+      playerRef.current.seek(seekTime);
+      if (onClipStart) onClipStart(toHHMMSS(seekTime));
+      if (onClipEnd) onClipEnd(toHHMMSS(timeSec));
+    },
+    [playerRef, onClipStart, onClipEnd],
+  );
+
   useEffect(() => {
     handleChartClickRef.current = handleChartClick;
   }, [handleChartClick]);
@@ -723,6 +768,7 @@ const VodGraph = memo(function VodGraph({
         on: (ev: string, fn: (e: EChartsEvent) => void) => void;
       };
       convertFromPixel: (finder: { seriesIndex?: number }, value: [number, number]) => number | number[] | undefined;
+      containPixel: (finder: string, value: [number, number]) => boolean;
     };
 
     chart.off('click');
@@ -731,6 +777,9 @@ const VodGraph = memo(function VodGraph({
 
     zr.on('click', (e: EChartsEvent) => {
       if (disposedRef.current) return;
+      if (!chart.containPixel('grid', [e.offsetX, e.offsetY])) {
+        return;
+      }
       const pointInGrid = chart.convertFromPixel({ seriesIndex: 0 }, [e.offsetX, e.offsetY]);
       if (pointInGrid == null) return;
 
@@ -757,111 +806,223 @@ const VodGraph = memo(function VodGraph({
   }, []);
 
   return (
-    <div className="flex w-full flex-1 flex-col min-h-0 rounded-lg border border-border bg-surface p-3">
-      {/* Tab bar */}
-      <div className="relative mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-white/10 text-text-primary'
-                  : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-          {activeTab === 'search' && (
-            <input
-              type="text"
-              value={searchInput}
-              onChange={handleSearchChange}
-              placeholder="Search..."
-              className="w-32 rounded border border-border bg-background px-2 py-1 text-xs text-text-primary placeholder-text-secondary outline-none transition-colors focus:border-border/60"
-            />
-          )}
-        </div>
-        <span className="absolute left-1/2 -translate-x-1/2 text-xs tabular-nums text-text-secondary">
-          {activeTab === 'clips' && graphData.length > 0
-            ? 'Clip Views / Time'
-            : effectiveThreshold != null && effectiveThreshold > 0
-              ? `${effectiveThreshold} msgs / ${interval}s`
-              : ''}
-        </span>
-        <button
-          type="button"
-          onClick={() => setShowSettings(true)}
-          className="text-text-secondary transition-colors hover:text-text-primary"
-          title="Graph settings"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <title>Settings</title>
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Chart area */}
-      <div className="relative flex min-h-[200px] w-full flex-1 flex-col">
-        {error ? (
-          <div className="flex h-full w-full flex-col items-center justify-center">
-            <p className="text-sm text-text-muted">{error}</p>
+    <div className="flex w-full h-full gap-3 min-h-0">
+      {/* Main Graph Area */}
+      <div className="flex flex-1 flex-col min-h-0 min-w-0 rounded-lg border border-border bg-surface p-3">
+        {/* Tab bar */}
+        <div className="relative mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-white/10 text-text-primary'
+                    : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+            {activeTab === 'search' && (
+              <input
+                type="text"
+                value={searchInput}
+                onChange={handleSearchChange}
+                placeholder="Search..."
+                className="w-32 rounded border border-border bg-background px-2 py-1 text-xs text-text-primary placeholder-text-secondary outline-none transition-colors focus:border-border/60"
+              />
+            )}
           </div>
-        ) : isWhitelisted === false ? (
-          <div className="flex h-full w-full flex-col items-center justify-center">
-            <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-4 py-2">
+          <span className="absolute left-1/2 -translate-x-1/2 text-xs tabular-nums text-text-secondary hidden sm:block">
+            {activeTab === 'clips' && graphData.length > 0
+              ? 'Clip Views / Time'
+              : effectiveThreshold != null && effectiveThreshold > 0
+                ? `${effectiveThreshold} msgs / ${interval}s`
+                : ''}
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowInsights(!showInsights)}
+              className={`transition-colors hover:text-text-primary ${showInsights ? 'text-primary' : 'text-text-secondary'}`}
+              title={showInsights ? 'Hide VOD Insights' : 'Show VOD Insights'}
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-yellow-500"
               >
-                <title>Warning</title>
-                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
+                <title>Toggle Insights</title>
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="15" y1="3" x2="15" y2="21" />
               </svg>
-              <p className="text-sm text-yellow-400">This streamer is not whitelisted</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="text-text-secondary transition-colors hover:text-text-primary"
+              title="Graph settings"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <title>Settings</title>
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Chart area */}
+        <div className="relative flex min-h-[200px] w-full flex-1 flex-col">
+          {error ? (
+            <div className="flex h-full w-full flex-col items-center justify-center">
+              <p className="text-sm text-text-muted">{error}</p>
             </div>
-          </div>
-        ) : !hasStarted || (isLoading && !error) ? (
-          <SkeletonGraph />
-        ) : graphData.length === 0 ? (
-          <div className="flex h-full w-full flex-col items-center justify-center">
-            <p className="text-sm text-text-muted">No data to display</p>
-          </div>
-        ) : (
-          <ReactECharts
-            option={option}
-            style={{ height: '100%', width: '100%' }}
-            opts={{ renderer: 'canvas' }}
-            onChartReady={handleChartReady}
-            notMerge={true}
-            lazyUpdate={true}
-          />
-        )}
+          ) : isWhitelisted === false ? (
+            <div className="flex h-full w-full flex-col items-center justify-center">
+              <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-4 py-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-yellow-500"
+                >
+                  <title>Warning</title>
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <p className="text-sm text-yellow-400">This streamer is not whitelisted</p>
+              </div>
+            </div>
+          ) : !hasStarted || (isLoading && !error) ? (
+            <SkeletonGraph />
+          ) : graphData.length === 0 ? (
+            <div className="flex h-full w-full flex-col items-center justify-center">
+              <p className="text-sm text-text-muted">No data to display</p>
+            </div>
+          ) : (
+            <ReactECharts
+              option={option}
+              style={{ height: '100%', width: '100%' }}
+              opts={{ renderer: 'canvas' }}
+              onChartReady={handleChartReady}
+              notMerge={true}
+              lazyUpdate={true}
+            />
+          )}
+        </div>
       </div>
+
+      {/* Insights Side Panel */}
+      {showInsights && (
+        <div className="w-56 shrink-0 flex flex-col rounded-lg border border-border bg-surface p-3 overflow-hidden">
+          <h3 className="text-sm font-semibold text-text-primary mb-3">VOD Insights</h3>
+          {!hasStarted || (isLoading && !error) ? (
+            <div className="flex flex-col gap-4 animate-pulse">
+              <div className="h-10 w-full bg-white/5 rounded" />
+              <div className="h-24 w-full bg-white/5 rounded" />
+              <div className="h-32 w-full bg-white/5 rounded" />
+            </div>
+          ) : error || isWhitelisted === false ? (
+            <span className="text-xs text-text-hint">No insights available</span>
+          ) : (
+            <div className="flex flex-col h-full min-h-0 gap-4 overflow-y-auto chat-scrollbar pr-1">
+              {/* Total Messages Metric */}
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-text-secondary">Total Messages</span>
+                <span className="text-lg font-bold text-primary">{totalMessages?.toLocaleString() ?? 0}</span>
+              </div>
+
+              {/* Top Emotes Grid */}
+              {overallTopEmotes && overallTopEmotes.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-medium text-text-secondary">Top Emotes</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {overallTopEmotes.map((emote) => {
+                      const url = getEmoteUrl(emote.name, emoteData.current);
+                      return (
+                        <button
+                          type="button"
+                          key={emote.name}
+                          onClick={() => {
+                            setActiveTab('search');
+                            setSearchInput(emote.name);
+                            setSearchTerm(emote.name);
+                          }}
+                          className="flex items-center gap-1.5 rounded bg-background border border-border px-1.5 py-1 hover:border-primary/50 transition-colors"
+                          title={`${emote.count.toLocaleString()} uses`}
+                        >
+                          {url ? (
+                            <img src={url} alt={emote.name} className="h-4 w-4 object-contain" />
+                          ) : (
+                            <span className="text-[10px]">{emote.name}</span>
+                          )}
+                          <span className="text-[10px] font-medium text-text-secondary">
+                            {emote.count >= 1000 ? `${(emote.count / 1000).toFixed(1)}k` : emote.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Top Moments List */}
+              {topSpikes && topSpikes.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-medium text-text-secondary">Top Moments</span>
+                  <div className="flex flex-col gap-1">
+                    {topSpikes.map((spike, idx) => (
+                      <button
+                        type="button"
+                        key={spike.time}
+                        onClick={() => handleSeekToTime(spike.time)}
+                        className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-white/5 transition-colors group text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-text-hint group-hover:text-text-secondary w-5 shrink-0">
+                            #{idx + 1}
+                          </span>
+                          <span className="text-xs font-medium text-primary group-hover:text-primary-hover">
+                            {spike.duration}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-text-hint">{spike.messages.toLocaleString()} msgs</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Settings modal */}
       {showSettings && (
