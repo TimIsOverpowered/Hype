@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Search, Settings, User } from 'lucide-react';
+import { LogOut, Search, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getToken, logout, searchWhitelistedChannels, useUser } from '../../auth';
@@ -155,16 +155,16 @@ function UserMenu() {
       {open && (
         <div className="absolute right-0 top-10 z-50 w-fit whitespace-nowrap rounded-md border border-border bg-surface py-1 shadow-lg">
           <a
-            href="/settings/profile"
+            href="/profile"
             onClick={(e) => {
               e.preventDefault();
               setOpen(false);
-              navigate('/settings/profile');
+              navigate('/profile');
             }}
             className="flex items-center gap-2 px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
           >
-            <Settings className="h-4 w-4" />
-            Settings
+            <User className="h-4 w-4" />
+            Profile
           </a>
           <button
             type="button"

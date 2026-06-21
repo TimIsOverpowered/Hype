@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect } from 'react';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import DeepLinkHandler from './components/DeepLinkHandler';
 import AppLayout from './components/layout/AppLayout';
@@ -34,8 +34,8 @@ function App() {
               <Route path="home" element={<HomePage />} />
               <Route path="channel/:channel" element={<ChannelPage />} />
               <Route path="vod/:vodId" element={<VODPage />} />
-              <Route path="settings" element={<Navigate to="/settings/profile" replace />} />
-              <Route path="settings/:subPath" element={<SettingsPage />} />
+              <Route path="profile" element={<SettingsPage />} />
+              <Route path="profile/:subPath" element={<SettingsPage />} />
             </Route>
           </Routes>
         </JobQueueProvider>
