@@ -1,16 +1,6 @@
 import { parse as hlsParse } from 'hls-parser';
 import { M3U8_DOMAINS, Twitch } from '../constants/twitch';
-import type {
-  BadgeSet,
-  ChapterEdge,
-  CheerBadge,
-  GqlResponse,
-  M3u8Variant,
-  TwitchBadge,
-  TwitchUser,
-  VodNode,
-  VodPage,
-} from '../types/twitch';
+import type { ChapterEdge, GqlResponse, M3u8Variant, TwitchUser, VodNode, VodPage } from '../types/twitch';
 
 const PRIMARY_CLIENT_ID = Twitch.GQL_CLIENT_ID;
 const BACKUP_CLIENT_ID = Twitch.BACKUP_GQL_CLIENT_ID;
@@ -271,31 +261,6 @@ export async function getVodToken(vodId: string): Promise<{ value: string; signa
   }
 
   return { value: token.value, signature: token.signature };
-}
-
-export async function getBadges(vodId: string): Promise<BadgeSet> {
-  const data = await gqlPost<{
-    badges: TwitchBadge[];
-    video: { owner: { broadcastBadges: TwitchBadge[]; cheer: CheerBadge[] } };
-  }>(PRIMARY_CLIENT_ID, {
-    operationName: 'VideoComments',
-    variables: {
-      videoID: vodId,
-      hasVideoID: true,
-    },
-    extensions: {
-      persistedQuery: {
-        version: 1,
-        sha256Hash: 'be06407e8d7cda72f2ee086ebb11abb6b062a7deb8985738e648090904d2f0eb',
-      },
-    },
-  });
-
-  return {
-    globalBadges: data.badges ?? null,
-    channelBadges: data.video?.owner?.broadcastBadges ?? null,
-    channelCheerBadges: data.video?.owner?.cheer ?? null,
-  };
 }
 
 export async function getChapters(vodId: string): Promise<ReadonlyArray<ChapterEdge>> {

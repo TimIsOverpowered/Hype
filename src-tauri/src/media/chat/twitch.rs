@@ -7,10 +7,106 @@ use serde_json::json;
 
 use crate::media::chat::emotes::EMOTE_CACHE;
 use crate::media::chat::models::{
-    CachedEmote, ChatBadge, FormattedFragment, FormattedMessage,
+    BadgeSet, CachedEmote, ChatBadge, CheerBadge, FormattedFragment, FormattedMessage, TwitchBadge,
 };
 
 const BACKUP_CLIENT_ID: &str = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
+const PRIMARY_CLIENT_ID: &str = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+
+pub async fn fetch_badges(vod_id: &str) -> Result<BadgeSet, String> {
+    let client = reqwest::Client::new();
+
+    let payload = json!({
+        "operationName": "VideoComments",
+        "variables": {
+            "videoID": vod_id,
+            "hasVideoID": true,
+        },
+        "extensions": {
+            "persistedQuery": {
+                "version": 1,
+                "sha256Hash": "be06407e8d7cda72f2ee086ebb11abb6b062a7deb8985738e648090904d2f0eb"
+            }
+        }
+    });
+
+    let res = client
+        .post("https://gql.twitch.tv/gql")
+        .header("Client-Id", PRIMARY_CLIENT_ID)
+        .header("Content-Type", "text/plain;charset=UTF-8")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if let Some(errors) = json.get("errors").and_then(|e| e.as_array()) {
+        let messages: Vec<String> = errors
+            .iter()
+            .filter_map(|e| e["message"].as_str().map(|s| s.to_string()))
+            .collect();
+        return Err(format!("GQL errors: {}", messages.join(", ")));
+    }
+
+    let data = json.get("data").ok_or("No data in response")?;
+
+    let global_badges: Option<Vec<TwitchBadge>> = data
+        .get("badges")
+        .and_then(|b| b.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|b| TwitchBadge {
+                    set_id: b["setID"].as_str().unwrap_or("").to_string(),
+                    version: b["version"].as_str().unwrap_or("").to_string(),
+                    image_1x: b["image1x"].as_str().unwrap_or("").to_string(),
+                    image_2x: b["image2x"].as_str().unwrap_or("").to_string(),
+                    image_4x: b["image4x"].as_str().unwrap_or("").to_string(),
+                })
+                .collect()
+        });
+
+    let video = data.get("video");
+    let owner = video.and_then(|v| v.get("owner"));
+    let broadcast_badges: Option<Vec<TwitchBadge>> = owner
+        .and_then(|o| o.get("broadcastBadges"))
+        .and_then(|b| b.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|b| TwitchBadge {
+                    set_id: b["setID"].as_str().unwrap_or("").to_string(),
+                    version: b["version"].as_str().unwrap_or("").to_string(),
+                    image_1x: b["image1x"].as_str().unwrap_or("").to_string(),
+                    image_2x: b["image2x"].as_str().unwrap_or("").to_string(),
+                    image_4x: b["image4x"].as_str().unwrap_or("").to_string(),
+                })
+                .collect()
+        });
+
+    let cheer_badges: Option<Vec<CheerBadge>> = owner
+        .and_then(|o| o.get("cheer"))
+        .and_then(|c| c.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|b| CheerBadge {
+                    image_1x: b["image1x"].as_str().unwrap_or("").to_string(),
+                    image_2x: b["image2x"].as_str().unwrap_or("").to_string(),
+                    image_4x: b["image4x"].as_str().unwrap_or("").to_string(),
+                    can_show_globally: b["canShowGlobally"].as_bool().unwrap_or(false),
+                    minimum_cheer_amount: b["minimumCheerAmount"].as_u64().unwrap_or(0),
+                })
+                .collect()
+        });
+
+    Ok(BadgeSet {
+        global_badges,
+        channel_badges: broadcast_badges,
+        channel_cheer_badges: cheer_badges,
+    })
+}
 
 #[derive(Serialize, Clone)]
 pub struct ChatBatchResponse {

@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -9,10 +10,10 @@ import VideoPlayer, { type VideoPlayerHandle } from '../components/player/VideoP
 import ChatSettingsModal from '../components/ui/ChatSettingsModal';
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
-import { BTTV_API_BASE, FFZ_API_BASE, SEVENTV_API_BASE } from '../constants/emotes';
 import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
-import type { BttvEmote, FfzEmote, M3u8Variant, SevenTVEmote } from '../types/twitch';
+import type { SerializedEmoteSet } from '../types/graph';
+import type { M3u8Variant } from '../types/twitch';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
@@ -49,10 +50,10 @@ export default function VODPage() {
 
   const { startClip, startDownload } = useClipJob();
 
-  const emoteDataRef = useRef({
-    bttv: [] as BttvEmote[],
-    ffz: [] as FfzEmote[],
-    seventv: [] as SevenTVEmote[],
+  const emoteDataRef = useRef<SerializedEmoteSet>({
+    bttv: [],
+    ffz: [],
+    seventv: [],
   });
 
   useEffect(() => {
@@ -60,110 +61,19 @@ export default function VODPage() {
 
     const abortController = new AbortController();
 
-    const loadBTTVGlobalEmotes = async () => {
+    const loadEmotes = async () => {
       try {
-        const response = await fetch(`${BTTV_API_BASE}/cached/emotes/global`, { signal: abortController.signal });
-        const data = await response.json();
-        if (!abortController.signal.aborted && Array.isArray(data)) {
-          emoteDataRef.current.bttv = [...emoteDataRef.current.bttv, ...data];
+        const data = await invoke<SerializedEmoteSet>('fetch_emotes', { broadcasterId });
+        if (!abortController.signal.aborted) {
+          emoteDataRef.current = data;
+          setEmotesLoaded(true);
         }
       } catch {
         // ignore
       }
     };
 
-    const loadBTTVChannelEmotes = async () => {
-      try {
-        const response = await fetch(`${BTTV_API_BASE}/cached/users/twitch/${broadcasterId}`, {
-          signal: abortController.signal,
-        });
-        const data = await response.json();
-        if (!abortController.signal.aborted && data && typeof data === 'object') {
-          const d = data as { sharedEmotes?: BttvEmote[]; channelEmotes?: BttvEmote[] };
-          const combined = [...(d.sharedEmotes ?? []), ...(d.channelEmotes ?? [])];
-          emoteDataRef.current.bttv = [...emoteDataRef.current.bttv, ...combined];
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const loadFFZEmotes = async () => {
-      try {
-        const response = await fetch(`${FFZ_API_BASE}/room/id/${broadcasterId}`, { signal: abortController.signal });
-        const raw = await response.json();
-        if (!abortController.signal.aborted && raw && typeof raw === 'object') {
-          const d = raw as { sets?: Record<string, { emoticons: FfzEmote[] }>; room?: { set?: number } };
-          const emoticons = d.sets?.[String(d.room?.set)]?.emoticons ?? [];
-          emoteDataRef.current.ffz = emoticons;
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const load7TVEmotes = async () => {
-      try {
-        const response = await fetch(`${SEVENTV_API_BASE}/users/twitch/${broadcasterId}`, {
-          signal: abortController.signal,
-        });
-        const data = await response.json();
-        if (!abortController.signal.aborted && data && typeof data === 'object') {
-          const d = data as { emote_set?: { emotes: SevenTVEmote[] } };
-          const emotes = d.emote_set?.emotes ?? [];
-          for (const emote of emotes) {
-            const file = (emote as { data?: { host?: { files?: Array<{ width?: number; height?: number }> } } })?.data
-              ?.host?.files?.[0];
-            if (file) {
-              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).width = file.width;
-              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).height = file.height;
-            }
-          }
-          emoteDataRef.current.seventv = emotes;
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const load7TVGlobalEmotes = async () => {
-      try {
-        const response = await fetch(`${SEVENTV_API_BASE}/emote-sets/global`, {
-          signal: abortController.signal,
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const data = await response.json();
-        if (!abortController.signal.aborted && data && typeof data === 'object') {
-          const d = data as { emotes: SevenTVEmote[] };
-          const emotes = d.emotes ?? [];
-          for (const emote of emotes) {
-            const file = (emote as { data?: { host?: { files?: Array<{ width?: number; height?: number }> } } })?.data
-              ?.host?.files?.[0];
-            if (file) {
-              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).width = file.width;
-              (emote as unknown as SevenTVEmote & { width?: number; height?: number }).height = file.height;
-            }
-          }
-          emoteDataRef.current.seventv = [...emoteDataRef.current.seventv, ...emotes];
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    const loadAll = async () => {
-      await Promise.all([
-        loadBTTVGlobalEmotes(),
-        loadBTTVChannelEmotes(),
-        loadFFZEmotes(),
-        load7TVEmotes(),
-        load7TVGlobalEmotes(),
-      ]);
-      if (!abortController.signal.aborted) {
-        setEmotesLoaded(true);
-      }
-    };
-    loadAll();
+    loadEmotes();
 
     return () => abortController.abort();
   }, [broadcasterId]);

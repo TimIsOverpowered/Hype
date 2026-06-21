@@ -7,7 +7,16 @@ import { ECharts } from '../../constants/echarts';
 import { DEFAULT_INTERVAL_SECONDS, TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
 import { HYPE_API_BASE } from '../../constants/urls';
 import { useGraphSettings } from '../../hooks/useGraphSettings';
-import type { ClipDataPoint, GraphDataPoint, GraphType, TopEmote, TopSpike, WorkerEmoteData } from '../../types/graph';
+import type {
+  ClipDataPoint,
+  ClipsResult,
+  GraphDataPoint,
+  GraphResult,
+  GraphType,
+  SerializedEmoteSet,
+  TopEmote,
+  TopSpike,
+} from '../../types/graph';
 import type { ChapterEdge } from '../../types/twitch';
 
 interface GameChapter {
@@ -73,7 +82,7 @@ const RotateCcwIcon = () => (
 interface VodGraphProps {
   readonly vodId: string;
   readonly playerRef: React.RefObject<{ seek: (time: number) => void; play: () => void; pause: () => void } | null>;
-  readonly emoteData: React.RefObject<WorkerEmoteData | null>;
+  readonly emoteData: React.RefObject<SerializedEmoteSet>;
   readonly emotesLoaded?: boolean;
   readonly duration?: number;
   readonly currentTime?: number;
@@ -98,13 +107,13 @@ function formatEmoteTooltip(emotes: readonly TopEmote[] | undefined): string {
     .join('');
 }
 
-function getEmoteUrl(name: string, emoteData: WorkerEmoteData | null): string | null {
+function getEmoteUrl(name: string, emoteData: SerializedEmoteSet | null): string | null {
   if (!emoteData) return null;
-  const stv = emoteData.seventv.find((e) => (e.name || e.code) === name);
+  const stv = emoteData.seventv.find((e) => e.name === name || e.code === name);
   if (stv) return `https://cdn.7tv.app/emote/${stv.id}/1x.webp`;
   const bttv = emoteData.bttv.find((e) => e.code === name);
   if (bttv) return `https://cdn.betterttv.net/emote/${bttv.id}/1x`;
-  const ffz = emoteData.ffz.find((e) => (e.code || e.name || e.text) === name);
+  const ffz = emoteData.ffz.find((e) => e.code === name || e.name === name);
   if (ffz) return `https://cdn.frankerfacez.com/emote/${ffz.id}/1`;
   return null;
 }
@@ -382,7 +391,6 @@ const VodGraph = memo(function VodGraph({
   const [showSettings, setShowSettings] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const workerRef = useRef<Worker | null>(null);
   const chartInstanceRef = useRef<unknown>(null);
   const disposedRef = useRef(false);
   const clipsRef = useRef<Array<{
@@ -424,55 +432,11 @@ const VodGraph = memo(function VodGraph({
   }, []);
 
   useEffect(() => {
-    let worker: Worker | null = null;
-    try {
-      worker = new Worker(new URL('../../workers/graphWorker.ts', import.meta.url), { type: 'module' });
-      workerRef.current = worker;
-
-      worker.onmessage = (e: MessageEvent) => {
-        if (e.data.type === 'aggregateResult') {
-          setGraphData(e.data.payload.data);
-          setEffectiveThreshold(e.data.payload.computedThreshold);
-          setTotalMessages(e.data.payload.totalMessages ?? 0);
-          setOverallTopEmotes(e.data.payload.topEmotes ?? []);
-          setTopSpikes(e.data.payload.topSpikes ?? []);
-          if (e.data.payload.chapters) {
-            setGameChapters(e.data.payload.chapters);
-            gameChaptersRef.current = e.data.payload.chapters;
-          }
-          setIsLoading(false);
-        }
-        if (e.data.type === 'aggregateClipsResult') {
-          setGraphData(e.data.payload.data);
-          setEffectiveThreshold(null);
-          if (e.data.payload.chapters) {
-            setGameChapters(e.data.payload.chapters);
-            gameChaptersRef.current = e.data.payload.chapters;
-          }
-          setIsLoading(false);
-        }
-      };
-
-      worker.onerror = (err) => {
-        console.error('Graph worker error:', err);
-        setError('Worker failed to initialize');
-        setIsLoading(false);
-      };
-    } catch {
-      setError('Failed to load graph worker');
-    }
-
     return () => {
-      if (worker) worker.terminate();
-      workerRef.current = null;
+      disposedRef.current = true;
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    const worker = workerRef.current;
-    if (!worker) return;
-    worker.postMessage({ type: 'setEmotes', payload: { emotes: emoteData } });
-  }, [emoteData]);
 
   const fetchClips = useCallback(async (id: string) => {
     try {
@@ -520,9 +484,6 @@ const VodGraph = memo(function VodGraph({
       searchThresh: number | null,
       intv: number,
     ) => {
-      const worker = workerRef.current;
-      if (!worker) return;
-
       setHasStarted(true);
       setIsLoading(true);
       setError(null);
@@ -543,13 +504,18 @@ const VodGraph = memo(function VodGraph({
           return;
         }
 
-        worker.postMessage({
-          type: 'aggregateClips',
-          payload: {
-            clips: clipsRef.current,
-            chapters: chaptersRef.current ?? [],
-          },
-        });
+        const payload = {
+          clips: clipsRef.current,
+          chapters: chaptersRef.current ?? [],
+        };
+        const result = await invoke<ClipsResult>('aggregate_clips_cmd', { payload });
+        setGraphData([...result.data]);
+        setEffectiveThreshold(null);
+        if (result.chapters) {
+          setGameChapters(result.chapters);
+          gameChaptersRef.current = result.chapters;
+        }
+        setIsLoading(false);
         fetchedRef.current = true;
         return;
       }
@@ -582,20 +548,27 @@ const VodGraph = memo(function VodGraph({
 
       const threshold = type === 'search' ? (searchThresh ?? 0) : (msgThresh ?? 0);
 
-      worker.postMessage({
-        type: 'aggregate',
-        payload: {
-          logs,
-          duration: durationRef.current,
-          interval: intv,
-          emotes: emoteData.current,
-          threshold,
-          searchType: type,
-          searchTerm: type === 'search' ? searchTerm : undefined,
-          chapters: chaptersRef.current ?? [],
-        },
-      });
-
+      const payload = {
+        logs,
+        duration: durationRef.current,
+        interval: intv,
+        emotes: emoteData.current,
+        threshold,
+        searchType: type,
+        searchTerm: type === 'search' ? searchTerm : undefined,
+        chapters: chaptersRef.current ?? [],
+      };
+      const result = await invoke<GraphResult>('aggregate_graph', { payload });
+      setGraphData([...result.data]);
+      setEffectiveThreshold(result.computedThreshold);
+      setTotalMessages(result.totalMessages ?? 0);
+      setOverallTopEmotes([...(result.topEmotes ?? [])]);
+      setTopSpikes([...(result.topSpikes ?? [])]);
+      if (result.chapters) {
+        setGameChapters(result.chapters);
+        gameChaptersRef.current = result.chapters;
+      }
+      setIsLoading(false);
       fetchedRef.current = true;
     },
     [fetchZstdLogs, emoteData, searchTerm, fetchChapters, fetchClips],
@@ -604,13 +577,31 @@ const VodGraph = memo(function VodGraph({
   useEffect(() => {
     if (!vodId || propDurationRef.current <= 0 || isWhitelisted !== true || !emotesLoaded) return;
     runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
-  }, [vodId, activeTab, runAggregate, userMessageThreshold, userSearchThreshold, interval, isWhitelisted, emotesLoaded]);
+  }, [
+    vodId,
+    activeTab,
+    runAggregate,
+    userMessageThreshold,
+    userSearchThreshold,
+    interval,
+    isWhitelisted,
+    emotesLoaded,
+  ]);
 
   useEffect(() => {
     if (vodId && propDurationRef.current > 0 && !fetchedRef.current && isWhitelisted === true && emotesLoaded) {
       runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
     }
-  }, [isWhitelisted, activeTab, runAggregate, vodId, userMessageThreshold, userSearchThreshold, interval, emotesLoaded]);
+  }, [
+    isWhitelisted,
+    activeTab,
+    runAggregate,
+    vodId,
+    userMessageThreshold,
+    userSearchThreshold,
+    interval,
+    emotesLoaded,
+  ]);
 
   const handleChartClick = useCallback(
     (idx: number) => {

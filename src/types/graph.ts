@@ -1,6 +1,19 @@
-import type { BttvEmote, FfzEmote, SevenTVEmote } from './twitch';
-
 export type GraphType = 'messages' | 'volume' | 'clips' | 'search';
+
+export interface SerializedEmote {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly provider: string;
+  readonly width?: number;
+  readonly height?: number;
+}
+
+export interface SerializedEmoteSet {
+  readonly bttv: readonly SerializedEmote[];
+  readonly ffz: readonly SerializedEmote[];
+  readonly seventv: readonly SerializedEmote[];
+}
 
 export interface TopEmote {
   readonly name: string;
@@ -27,17 +40,11 @@ export interface GraphDataPoint {
   readonly messages?: number;
 }
 
-export interface WorkerEmoteData {
-  readonly bttv: readonly BttvEmote[];
-  readonly ffz: readonly FfzEmote[];
-  readonly seventv: readonly SevenTVEmote[];
-}
-
 export interface AggregatePayload {
   readonly logs: readonly string[];
   readonly duration: number;
   readonly interval: number;
-  readonly emotes: WorkerEmoteData;
+  readonly emotes: SerializedEmoteSet;
   readonly threshold: number;
   readonly searchType: GraphType;
   readonly searchTerm?: string;
@@ -50,49 +57,6 @@ export interface AggregatePayload {
       };
     };
   }>;
-}
-
-export interface SetEmotesPayload {
-  readonly emotes: WorkerEmoteData;
-}
-
-export interface SetSearchTermPayload {
-  readonly term: string;
-}
-
-export interface AggregateMessage {
-  readonly type: 'aggregate';
-  readonly payload: AggregatePayload;
-}
-
-export interface SetEmotesMessage {
-  readonly type: 'setEmotes';
-  readonly payload: SetEmotesPayload;
-}
-
-export interface SetSearchTermMessage {
-  readonly type: 'setSearchTerm';
-  readonly payload: SetSearchTermPayload;
-}
-
-export type IncomingWorkerMessage = AggregateMessage | SetEmotesMessage | SetSearchTermMessage | AggregateClipsMessage;
-
-export interface AggregateResult {
-  readonly type: 'aggregateResult';
-  readonly payload: {
-    readonly data: readonly GraphDataPoint[];
-    readonly computedThreshold: number;
-    readonly percentile: number;
-    readonly chapters?: Array<{
-      positionMilliseconds: number;
-      durationMilliseconds: number;
-      game?: string;
-      boxArtURL?: string;
-    }>;
-    readonly totalMessages?: number;
-    readonly topEmotes?: readonly TopEmote[];
-    readonly topSpikes?: readonly TopSpike[];
-  };
 }
 
 export interface ClipDataPoint {
@@ -126,23 +90,25 @@ export interface AggregateClipsPayload {
   }>;
 }
 
-export interface AggregateClipsMessage {
-  readonly type: 'aggregateClips';
-  readonly payload: AggregateClipsPayload;
+export interface ChapterEntry {
+  positionMilliseconds: number;
+  durationMilliseconds: number;
+  game?: string;
+  boxArtURL?: string;
 }
 
-export interface AggregateClipsResult {
-  readonly type: 'aggregateClipsResult';
-  readonly payload: {
-    readonly data: readonly ClipDataPoint[];
-    readonly totalViews: number;
-    readonly chapters?: Array<{
-      positionMilliseconds: number;
-      durationMilliseconds: number;
-      game?: string;
-      boxArtURL?: string;
-    }>;
-  };
+export interface GraphResult {
+  data: readonly GraphDataPoint[];
+  computedThreshold: number;
+  percentile: number;
+  chapters?: readonly ChapterEntry[];
+  totalMessages?: number;
+  topEmotes?: readonly TopEmote[];
+  topSpikes?: readonly TopSpike[];
 }
 
-export type OutgoingWorkerMessage = AggregateResult | AggregateClipsResult;
+export interface ClipsResult {
+  data: readonly ClipDataPoint[];
+  totalViews: number;
+  chapters?: readonly ChapterEntry[];
+}

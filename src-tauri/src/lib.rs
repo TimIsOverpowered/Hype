@@ -3,6 +3,7 @@ use std::path::Path;
 
 use tauri::{AppHandle, Manager, WebviewWindow};
 
+mod graph;
 mod logs;
 mod media;
 mod proxy;
@@ -12,8 +13,10 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-use crate::media::chat::emotes::init_channel_emotes;
+use crate::media::chat::emotes::{get_channel_emotes, init_channel_emotes};
+use crate::media::chat::models::{AggregateClipsPayload, AggregatePayload, BadgeSet};
 use crate::media::chat::twitch::{fetch_and_parse_comments, ChatBatchResponse};
+use crate::graph::{aggregate_clips, aggregate_logs};
 
 #[tauri::command]
 async fn init_chat_session(broadcaster_id: String) -> Result<(), String> {
@@ -28,6 +31,27 @@ async fn fetch_chat_batch(
     cursor: Option<String>,
 ) -> Result<ChatBatchResponse, String> {
     fetch_and_parse_comments(&vod_id, &broadcaster_id, offset_seconds, cursor).await
+}
+
+#[tauri::command]
+async fn fetch_emotes(broadcaster_id: String) -> Result<crate::media::chat::models::SerializedEmoteSet, String> {
+    get_channel_emotes(&broadcaster_id).await
+}
+
+#[tauri::command]
+async fn fetch_badges(vod_id: String) -> Result<BadgeSet, String> {
+    crate::media::chat::twitch::fetch_badges(&vod_id).await
+}
+
+#[tauri::command]
+async fn aggregate_graph(payload: AggregatePayload) -> Result<crate::media::chat::models::GraphResult, String> {
+    let (_data, result) = aggregate_logs(payload).await;
+    Ok(result)
+}
+
+#[tauri::command]
+async fn aggregate_clips_cmd(payload: AggregateClipsPayload) -> Result<crate::media::chat::models::ClipsResult, String> {
+    Ok(aggregate_clips(payload).await)
 }
 
 #[tauri::command]
@@ -90,6 +114,10 @@ pub fn run(debug: bool) {
             show_window,
             init_chat_session,
             fetch_chat_batch,
+            fetch_emotes,
+            fetch_badges,
+            aggregate_graph,
+            aggregate_clips_cmd,
             proxy::get_proxy_port,
             logs::fetch_vod_logs,
             media::clipper::submit_clip,

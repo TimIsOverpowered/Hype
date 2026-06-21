@@ -80,25 +80,25 @@ export interface CommentsConnection {
 }
 
 export interface BadgeSet {
-  readonly globalBadges: readonly TwitchBadge[] | null;
-  readonly channelBadges: readonly TwitchBadge[] | null;
-  readonly channelCheerBadges: readonly CheerBadge[] | null;
+  readonly global_badges: readonly TwitchBadge[] | null;
+  readonly channel_badges: readonly TwitchBadge[] | null;
+  readonly channel_cheer_badges: readonly CheerBadge[] | null;
 }
 
 export interface TwitchBadge {
   readonly setID: string;
   readonly version: string;
-  readonly image1x: string;
-  readonly image2x: string;
-  readonly image4x: string;
+  readonly image_1x: string;
+  readonly image_2x: string;
+  readonly image_4x: string;
 }
 
 export interface CheerBadge {
-  readonly image1x: string;
-  readonly image2x: string;
-  readonly image4x: string;
-  readonly canShowGlobally: boolean;
-  readonly minimumCheerAmount: number;
+  readonly image_1x: string;
+  readonly image_2x: string;
+  readonly image_4x: string;
+  readonly can_show_globally: boolean;
+  readonly minimum_cheer_amount: number;
 }
 
 export interface ChapterEdge {

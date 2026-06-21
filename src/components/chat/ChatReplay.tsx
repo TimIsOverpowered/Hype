@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, Pause, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getBadges } from '../../api/twitch';
 import { BTTV_CDN_BASE, FFZ_CDN_BASE, SEVENTV_CDN_BASE, TWITCH_CDN_BASE } from '../../constants/emotes';
 import {
   CHAT_BOTTOM_THRESHOLD,
@@ -19,6 +18,7 @@ import {
 } from '../../constants/ui';
 import type { UseChatSettingsReturn } from '../../hooks/useChatSettings';
 import type {
+  BadgeSet,
   ChatBadge,
   CustomEmoteFragment,
   EmojiFragment,
@@ -438,8 +438,8 @@ function renderBadges(
     wrapper.push(
       <img
         key={`${keyPrefix}-badge-${badgeId}-${version}-${badgeIdx}`}
-        srcSet={`${badge.image1x} 1x, ${badge.image2x} 2x, ${badge.image4x} 4x`}
-        src={badge.image1x}
+        srcSet={`${badge.image_1x} 1x, ${badge.image_2x} 2x, ${badge.image_4x} 4x`}
+        src={badge.image_1x}
         alt={`${badgeId} ${version}`}
         style={{
           display: 'inline-block',
@@ -916,17 +916,17 @@ export default function ChatReplay({
 
     const loadBadges = async () => {
       try {
-        const badgeData = await getBadges(vodId);
+        const badgeData = await invoke<BadgeSet>('fetch_badges', { vodId });
         if (!abortController.signal.aborted) {
           const map = new Map<string, TwitchBadge>();
-          const all = [...(badgeData.channelBadges ?? []), ...(badgeData.globalBadges ?? [])];
+          const all = [...(badgeData.channel_badges ?? []), ...(badgeData.global_badges ?? [])];
           for (const b of all) {
             map.set(`${b.setID}-${b.version}`, b);
           }
           setBadgeState({
             platform: 'twitch',
-            channelBadges: badgeData.channelBadges,
-            globalBadges: badgeData.globalBadges,
+            channelBadges: badgeData.channel_badges,
+            globalBadges: badgeData.global_badges,
             badgeMap: map,
           });
         }

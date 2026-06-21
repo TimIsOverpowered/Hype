@@ -5,14 +5,14 @@ use lazy_static::lazy_static;
 use serde_json::Value;
 use tokio::sync::RwLock;
 
-use crate::media::chat::models::CachedEmote;
+use crate::media::chat::models::{CachedEmote, SerializedEmote, SerializedEmoteSet};
+
+const SEVENTV_ZERO_WIDTH_FLAG: u64 = 1 << 8;
 
 lazy_static! {
     pub static ref EMOTE_CACHE: Arc<RwLock<HashMap<String, HashMap<String, CachedEmote>>>> =
         Arc::new(RwLock::new(HashMap::new()));
 }
-
-const SEVENTV_ZERO_WIDTH_FLAG: u64 = 1 << 8;
 
 pub async fn init_channel_emotes(broadcaster_id: &str) -> Result<(), String> {
     let mut cache = EMOTE_CACHE.write().await;
@@ -278,4 +278,49 @@ async fn fetch_ffz(
             },
         );
     }
+}
+
+pub async fn get_channel_emotes(broadcaster_id: &str) -> Result<SerializedEmoteSet, String> {
+    init_channel_emotes(broadcaster_id).await?;
+    let cache = EMOTE_CACHE.read().await;
+    let emotes = cache
+        .get(broadcaster_id)
+        .ok_or_else(|| "Emotes not found".to_string())?;
+
+    let mut bttv: Vec<SerializedEmote> = Vec::new();
+    let mut ffz: Vec<SerializedEmote> = Vec::new();
+    let mut seventv: Vec<SerializedEmote> = Vec::new();
+
+    for emote in emotes.values() {
+        let serialized = SerializedEmote {
+            id: emote.id.clone(),
+            code: emote.code.clone(),
+            name: emote.name.clone(),
+            provider: emote.provider.clone(),
+            width: emote.width,
+            height: emote.height,
+        };
+        match emote.provider.as_str() {
+            "BTTV" => bttv.push(serialized),
+            "FFZ" => ffz.push(serialized),
+            "7TV" => seventv.push(serialized),
+            _ => {}
+        }
+    }
+
+    Ok(SerializedEmoteSet { bttv, ffz, seventv })
+}
+
+pub fn count_emotes_in_message(
+    message: &str,
+    lookup: &HashMap<String, SerializedEmote>,
+) -> HashMap<String, u64> {
+    let mut counts = HashMap::new();
+    let words: Vec<&str> = message.split_whitespace().collect();
+    for word in words {
+        if lookup.contains_key(word) {
+            *counts.entry(word.to_string()).or_insert(0) += 1;
+        }
+    }
+    counts
 }
