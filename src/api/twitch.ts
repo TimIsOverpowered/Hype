@@ -500,7 +500,8 @@ export async function getChaptersWithFallback(
 
 export async function fetchM3u8(vodId: string, token: string, sig: string): Promise<string> {
   const codecs = encodeURIComponent('av1,h265,h264');
-  const url = `${Twitch.USHER_BASE_URL}/${vodId}.m3u8?allow_source=true&allow_audio_only=true&player=mediaplayer&include_unavailable=true&supported_codecs=${codecs}&playlist_include_framerate=true&allow_spectre=true&nauthsig=${sig}&nauth=${token}`;
+  const p = Math.floor(Math.random() * 9000000) + 1000000;
+  const url = `${Twitch.USHER_BASE_URL}/v2/${vodId}.m3u8?allow_source=true&allow_audio_only=true&player=twitchweb&platform=web&p=${p}&include_unavailable=true&supported_codecs=${codecs}&playlist_include_framerate=true&allow_spectre=true&nauthsig=${sig}&nauth=${token}&transcode_mode=cbr_v1`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -508,6 +509,101 @@ export async function fetchM3u8(vodId: string, token: string, sig: string): Prom
   }
 
   return response.text();
+}
+
+interface UnavailableIvsVariant {
+  'STABLE-VARIANT-ID': string;
+  IVS_NAME: string;
+  BANDWIDTH: number;
+  CODECS: string;
+  RESOLUTION: string;
+  'FRAME-RATE': number;
+  'AUTHORIZATION_REASONS': string[];
+  'IVS-VARIANT-SOURCE': string;
+}
+
+function parseIvsNames(masterM3u8: string): string[] {
+  return [
+    ...masterM3u8.matchAll(/STABLE-VARIANT-ID="([^"]+)"/g),
+  ].map((m) => m[1]);
+}
+
+function extractHashAndDomain(variants: M3u8Variant[]): { hash: string | null; domain: string | null } {
+  const firstUri = variants[0]?.uri;
+  if (!firstUri) return { hash: null, domain: null };
+  const match = firstUri.match(/(?:https?:\/\/[^/]+)\/([^/]+)\/[^/]+\/index-/);
+  return {
+    hash: match?.[1] ?? null,
+    domain: (() => {
+      try {
+        return new URL(firstUri).origin;
+      } catch {
+        return null;
+      }
+    })(),
+  };
+}
+
+function parseResolution(name: string): { width: number; height: number } | null {
+  const match = name.match(/(\d+)x(\d+)/);
+  if (match) return { width: parseInt(match[1], 10), height: parseInt(match[2], 10) };
+  const numMatch = name.match(/(\d+)p/);
+  if (numMatch) {
+    const h = parseInt(numMatch[1], 10);
+    return { width: h * (h >= 1080 ? 16 / 9 : 16 / 9), height: h };
+  }
+  return null;
+}
+
+function recoverUnavailableVariants(
+  rawMasterM3u8: string,
+  existingVariants: M3u8Variant[],
+): M3u8Variant[] {
+  const sessionMatch = rawMasterM3u8.match(
+    /DATA-ID="com\.amazon\.ivs\.unavailable-media",VALUE="([^"]+)"/,
+  );
+  if (!sessionMatch) return [];
+
+  let decoded: UnavailableIvsVariant[];
+  try {
+    decoded = JSON.parse(atob(sessionMatch[1])) as UnavailableIvsVariant[];
+  } catch {
+    return [];
+  }
+
+  const { hash, domain } = extractHashAndDomain(existingVariants);
+  if (!hash || !domain) return [];
+
+  const existingNames = new Set(existingVariants.map((v) => v.name));
+
+  return decoded
+    .filter(
+      (v) =>
+        v.AUTHORIZATION_REASONS.includes('AUTHZ_NOT_LOGGED_IN') &&
+        v.RESOLUTION &&
+        !existingNames.has(v['STABLE-VARIANT-ID']),
+    )
+    .map((v) => {
+      const suffix = existingVariants[0]?.uri.split('/').pop() ?? 'index.m3u8';
+      return {
+        uri: `${domain}/${hash}/chunked/${suffix}`,
+        name: v['STABLE-VARIANT-ID'],
+        codec: v.CODECS,
+      };
+    });
+}
+
+function sortVariantsByResolution(variants: M3u8Variant[]): M3u8Variant[] {
+  return [...variants].sort((a, b) => {
+    const resA = parseResolution(a.name);
+    const resB = parseResolution(b.name);
+    if (!resA && !resB) return 0;
+    if (!resA) return 1;
+    if (!resB) return -1;
+    const pixelsA = resA.width * resA.height;
+    const pixelsB = resB.width * resB.height;
+    return pixelsB - pixelsA;
+  });
 }
 
 export async function resolveM3u8(
@@ -520,17 +616,18 @@ export async function resolveM3u8(
     const masterM3u8 = await fetchM3u8(vodId, token, sig);
     const parsed = hlsParse(masterM3u8);
     if ('variants' in parsed) {
-      const variants = parsed.variants.map(
-        (v: { uri: string; resolution?: { width: number; height: number }; video?: { name?: string }[] }) => ({
-          uri: v.uri,
-          name: v.video?.[0]?.name
-            ? `${v.video[0].name}`
-            : v.resolution
-              ? `${v.resolution.width}x${v.resolution.height}`
-              : 'Unknown',
-        }),
-      );
-      return { m3u8Url: variants[0]?.uri ?? '', variants };
+      const stableNames = parseIvsNames(masterM3u8);
+      const variants = parsed.variants.map((v, i) => {
+        const stableName = stableNames[i];
+        if (stableName === 'audio_only') return { uri: v.uri, name: 'Audio Only' };
+        if (stableName) return { uri: v.uri, name: stableName };
+        if (v.video?.[0]?.name) return { uri: v.uri, name: v.video[0].name };
+        if (v.resolution) return { uri: v.uri, name: `${v.resolution.width}x${v.resolution.height}` };
+        return { uri: v.uri, name: 'Unknown' };
+      });
+      const recovered = recoverUnavailableVariants(masterM3u8, variants);
+      const allVariants = sortVariantsByResolution([...variants, ...recovered]);
+      return { m3u8Url: allVariants[0]?.uri ?? '', variants: allVariants };
     }
     throw new Error('Received non-master playlist from usher');
   } catch {

@@ -142,6 +142,7 @@ export interface GqlError {
 export interface M3u8Variant {
   readonly uri: string;
   readonly name: string;
+  readonly codec?: string;
 }
 
 // ─── Third-party emote types ───────────────────────────────────────────────
