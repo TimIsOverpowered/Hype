@@ -1,10 +1,10 @@
+import { invoke } from '@tauri-apps/api/core';
 import ReactECharts from 'echarts-for-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { getChaptersWithFallback } from '../../api/twitch';
 import { getToken } from '../../auth';
 import { ECharts } from '../../constants/echarts';
-import { DEFAULT_INTERVAL_SECONDS } from '../../constants/ui';
+import { DEFAULT_INTERVAL_SECONDS, TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
 import { HYPE_API_BASE } from '../../constants/urls';
 import { useGraphSettings } from '../../hooks/useGraphSettings';
 import type { ClipDataPoint, GraphDataPoint, GraphType, TopEmote, WorkerEmoteData } from '../../types/graph';
@@ -40,6 +40,7 @@ interface VodGraphProps {
   readonly playerRef: React.RefObject<{ seek: (time: number) => void; play: () => void; pause: () => void } | null>;
   readonly emoteData: React.RefObject<WorkerEmoteData | null>;
   readonly duration?: number;
+  readonly currentTime?: number;
   readonly isWhitelisted?: boolean | undefined;
   readonly onClipStart?: (hms: string) => void;
   readonly onClipEnd?: (hms: string) => void;
@@ -119,7 +120,7 @@ function buildEChartsOption(
 
   return {
     backgroundColor: 'transparent',
-    grid: ECharts.GRID_PADDING,
+    grid: { ...ECharts.GRID_PADDING, top: 35 },
     xAxis: {
       type: 'category',
       data: xData,
@@ -165,6 +166,18 @@ function buildEChartsOption(
             ],
           },
         },
+        markLine: {
+          symbol: ['none', 'none'],
+          animation: false,
+          silent: true,
+          label: { show: false },
+          lineStyle: {
+            color: ECharts.PLAYHEAD_COLOR,
+            width: 2,
+            type: 'solid',
+          },
+          data: [{ xAxis: 0 }],
+        },
       },
     ],
     dataZoom: [
@@ -182,6 +195,7 @@ const VodGraph = memo(function VodGraph({
   playerRef,
   emoteData,
   duration: propDuration,
+  currentTime,
   isWhitelisted,
   onClipStart,
   onClipEnd,
@@ -213,6 +227,7 @@ const VodGraph = memo(function VodGraph({
 
   const workerRef = useRef<Worker | null>(null);
   const chartInstanceRef = useRef<unknown>(null);
+  const disposedRef = useRef(false);
   const clipsRef = useRef<Array<{
     vod_offset: number;
     title: string;
@@ -230,6 +245,7 @@ const VodGraph = memo(function VodGraph({
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleChartClickRef = useRef<((idx: number) => void) | null>(null);
   const graphDataRef = useRef<GraphDataPoint[] | ClipDataPoint[]>(graphData);
+  const lastPlayheadUpdateRef = useRef<number>(0);
 
   useEffect(() => {
     graphDataRef.current = graphData;
@@ -244,6 +260,7 @@ const VodGraph = memo(function VodGraph({
 
   useEffect(() => {
     return () => {
+      disposedRef.current = true;
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, []);
@@ -456,7 +473,109 @@ const VodGraph = memo(function VodGraph({
     handleChartClickRef.current = handleChartClick;
   }, [handleChartClick]);
 
+  const updatePlayhead = useCallback((echartsInstance: unknown, time: number) => {
+    if (disposedRef.current) return;
+    if (time <= 0 || graphDataRef.current.length === 0) return;
+
+    const ec = echartsInstance as {
+      isDisposed?: () => boolean;
+      setOption: (option: Record<string, unknown>, notMerge?: boolean, lazyUpdate?: boolean) => void;
+    };
+
+    if (ec.isDisposed?.()) return;
+
+    const xVals = graphDataRef.current.map((d) => d.x);
+    let targetIndex = xVals.indexOf(Math.round(time));
+    if (targetIndex < 0) {
+      targetIndex = xVals.reduce(
+        (closest, val, idx) => (Math.abs(val - time) < Math.abs(xVals[closest] - time) ? idx : closest),
+        0,
+      );
+    }
+
+    if (targetIndex < 0 || targetIndex >= xVals.length) return;
+
+    const formattedTime = toHHMMSS(time);
+
+    ec.setOption(
+      {
+        series: [
+          {
+            markLine: {
+              data: [
+                {
+                  xAxis: targetIndex,
+                  label: {
+                    show: true,
+                    position: 'end',
+                    formatter: () => formattedTime,
+                    backgroundColor: ECharts.TOOLTIP_BG,
+                    borderColor: ECharts.BORDER_COLOR,
+                    borderWidth: 1,
+                    color: ECharts.TEXT_COLOR,
+                    padding: [4, 8],
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      false,
+      true,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (disposedRef.current) return;
+    if (currentTime == null || currentTime <= 0 || graphData.length === 0) return;
+
+    const now = Date.now();
+    if (now - lastPlayheadUpdateRef.current < TIME_UPDATE_THROTTLE_MS) return;
+    lastPlayheadUpdateRef.current = now;
+
+    const chart = chartInstanceRef.current;
+    if (!chart) return;
+
+    updatePlayhead(chart, currentTime);
+  }, [currentTime, graphData.length, updatePlayhead]);
+
+  useEffect(() => {
+    if (disposedRef.current) return;
+    const chart = chartInstanceRef.current;
+    if (!chart) return;
+
+    const ec = chart as {
+      isDisposed?: () => boolean;
+      on: (event: string, fn: (...args: unknown[]) => void) => void;
+      off: (event: string, fn?: (...args: unknown[]) => void) => void;
+    };
+
+    const onZoom = () => {
+      if (disposedRef.current || ec.isDisposed?.()) return;
+      if (currentTime != null && currentTime > 0) {
+        updatePlayhead(chart, currentTime);
+      }
+    };
+
+    ec.off('datazoom', onZoom);
+    ec.on('datazoom', onZoom);
+
+    ec.off('resize', onZoom);
+    ec.on('resize', onZoom);
+
+    return () => {
+      if (ec.isDisposed?.()) return;
+      ec.off('datazoom', onZoom);
+      ec.off('resize', onZoom);
+    };
+  }, [currentTime, updatePlayhead]);
+
   const handleChartReady = useCallback((echartsInstance: unknown) => {
+    disposedRef.current = false;
     chartInstanceRef.current = echartsInstance;
 
     type EChartsEvent = { offsetX: number; offsetY: number };
@@ -475,6 +594,7 @@ const VodGraph = memo(function VodGraph({
     zr.off('click');
 
     zr.on('click', (e: EChartsEvent) => {
+      if (disposedRef.current) return;
       const pointInGrid = chart.convertFromPixel({ seriesIndex: 0 }, [e.offsetX, e.offsetY]);
       if (pointInGrid == null) return;
 

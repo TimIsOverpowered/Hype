@@ -11,4 +11,5 @@ export const ECharts = {
   AREA_TOP: 'rgba(0,128,128,0.3)',
   AREA_BOTTOM: 'rgba(0,128,128,0.02)',
   SLIDER_FILL: 'rgba(0,128,128,0.15)',
+  PLAYHEAD_COLOR: '#ff4466',
 } as const;

@@ -334,6 +334,7 @@ export default function VODPage() {
             }
             emoteData={emoteDataRef}
             duration={vodInfo?.lengthSeconds ?? 0}
+            currentTime={currentTime}
             isWhitelisted={isWhitelisted}
             onClipStart={(hms: string) => setClipStart(hms)}
             onClipEnd={(hms: string) => setClipEnd(hms)}

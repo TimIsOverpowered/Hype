@@ -95,7 +95,7 @@ function DeepLinkHandler() {
     };
 
     init();
-  }, []);
+  }, [queryClient]);
 
   return null;
 }
