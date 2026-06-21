@@ -1,9 +1,7 @@
 use std::fs;
 use std::path::Path;
-use std::sync::Mutex;
 
-use tauri::async_runtime::spawn;
-use tauri::{AppHandle, Manager, State, WebviewWindow};
+use tauri::{AppHandle, Manager, WebviewWindow};
 
 mod logs;
 mod media;
@@ -14,31 +12,11 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-struct SetupState {
-    frontend_task: bool,
-    backend_task: bool,
-}
-
 #[tauri::command]
-async fn set_complete(
-    app: AppHandle,
-    state: State<'_, Mutex<SetupState>>,
-    task: String,
-) -> Result<(), ()> {
-    let mut state_lock = state.lock().unwrap();
-    match task.as_str() {
-        "frontend" => state_lock.frontend_task = true,
-        "backend" => state_lock.backend_task = true,
-        _ => return Err(()),
-    }
-    if state_lock.backend_task && state_lock.frontend_task {
-        if let Some(splash) = app.get_webview_window("splashscreen") {
-            let _ = splash.close();
-        }
-        if let Some(main) = app.get_webview_window("main") {
-            let _ = main.show();
-            let _ = main.set_focus();
-        }
+fn show_window(app: AppHandle) -> Result<(), ()> {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.set_focus();
     }
     Ok(())
 }
@@ -56,17 +34,6 @@ fn set_window_title(window: &WebviewWindow) {
         let title = format!("Hype v{}", version);
         window.set_title(&title).ok();
     }
-}
-
-async fn setup_backend(app: AppHandle) -> Result<(), ()> {
-    println!("Backend setup complete!");
-    set_complete(
-        app.clone(),
-        app.state::<Mutex<SetupState>>(),
-        "backend".to_string(),
-    )
-    .await?;
-    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -90,23 +57,11 @@ pub fn run(debug: bool) {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::all()
-                        & !tauri_plugin_window_state::StateFlags::VISIBLE,
-                )
-                .build(),
-        )
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(Mutex::new(SetupState {
-            frontend_task: false,
-            backend_task: false,
-        }))
         .invoke_handler(tauri::generate_handler![
             greet,
-            set_complete,
+            show_window,
             proxy::get_proxy_port,
             logs::fetch_vod_logs,
             media::clipper::submit_clip,
@@ -124,8 +79,6 @@ pub fn run(debug: bool) {
             if debug {
                 window.open_devtools();
             }
-
-            spawn(setup_backend(app.handle().clone()));
 
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {

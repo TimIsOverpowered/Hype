@@ -20,7 +20,7 @@ const queryClient = new QueryClient({
 
 function App() {
   useEffect(() => {
-    invoke('set_complete', { task: 'frontend' }).catch(console.error);
+    invoke('show_window').catch(console.error);
   }, []);
 
   return (
