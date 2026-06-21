@@ -215,33 +215,39 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       });
       unlistens.push(unlistenChatProgress);
 
-      const unlistenAssetPreload = await listen<{ job_id: string; loaded: number; total: number }>('asset-preload-progress', (e) => {
-        const data = e.payload;
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(data.job_id);
-          if (existing) {
-            const scaled = 5 + (data.loaded / Math.max(data.total, 1)) * 15;
-            next.set(data.job_id, { ...existing, progress: scaled });
-          }
-          return next;
-        });
-      });
+      const unlistenAssetPreload = await listen<{ job_id: string; loaded: number; total: number }>(
+        'asset-preload-progress',
+        (e) => {
+          const data = e.payload;
+          setJobs((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(data.job_id);
+            if (existing) {
+              const scaled = 5 + (data.loaded / Math.max(data.total, 1)) * 15;
+              next.set(data.job_id, { ...existing, progress: scaled });
+            }
+            return next;
+          });
+        },
+      );
       unlistens.push(unlistenAssetPreload);
 
-      const unlistenChatComplete = await listen<{ job_id: string; output_path: string }>('chat-render-complete', (e) => {
-        const data = e.payload;
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(data.job_id);
-          if (existing) {
-            next.set(data.job_id, { ...existing, status: 'completed', progress: 100 });
-          }
-          return next;
-        });
-        const name = data.output_path.split('/').pop() || 'Chat render completed';
-        showToast(data.job_id, 'Chat render completed', name, 'success');
-      });
+      const unlistenChatComplete = await listen<{ job_id: string; output_path: string }>(
+        'chat-render-complete',
+        (e) => {
+          const data = e.payload;
+          setJobs((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(data.job_id);
+            if (existing) {
+              next.set(data.job_id, { ...existing, status: 'completed', progress: 100 });
+            }
+            return next;
+          });
+          const name = data.output_path.split('/').pop() || 'Chat render completed';
+          showToast(data.job_id, 'Chat render completed', name, 'success');
+        },
+      );
       unlistens.push(unlistenChatComplete);
 
       const unlistenChatFailed = await listen<{ job_id: string; error: string }>('chat-render-failed', (e) => {
@@ -377,17 +383,14 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
     const name = outputPath.split('/').pop() || 'chat-render.webm';
     showToast('chat-render', 'Chat render started', name, 'info');
 
-    const { job_id } = await invoke<SubmitJobResponse>(
-      'render_chat_video_orchestrator_cmd',
-      {
-        vodId,
-        broadcasterId,
-        startSec,
-        durationSec,
-        outputPath,
-        fps,
-      },
-    );
+    const { job_id } = await invoke<SubmitJobResponse>('render_chat_video_orchestrator_cmd', {
+      vodId,
+      broadcasterId,
+      startSec,
+      durationSec,
+      outputPath,
+      fps,
+    });
 
     await fetchJobs();
 
@@ -395,7 +398,9 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <JobQueueContext.Provider value={{ jobs, submitJob, cancelJob, removeJob, renderChatOverlay }}>{children}</JobQueueContext.Provider>
+    <JobQueueContext.Provider value={{ jobs, submitJob, cancelJob, removeJob, renderChatOverlay }}>
+      {children}
+    </JobQueueContext.Provider>
   );
 }
 

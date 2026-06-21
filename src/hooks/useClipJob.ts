@@ -71,7 +71,7 @@ export function useClipJob(): UseClipJobResult {
       await submitJob(type, m3u8Url, durationSeconds, outputPath, isFmp4, startSeconds);
 
       if (chatOptions?.includeChat) {
-        const chatPath = outputPath.replace(/\.[^/.]+$/, '') + '_chat.webm';
+        const chatPath = `${outputPath.replace(/\.[^/.]+$/, '')}_chat.webm`;
         await renderChatOverlay(
           chatOptions.vodId,
           chatOptions.broadcasterId,
@@ -103,13 +103,7 @@ export function useClipJob(): UseClipJobResult {
   );
 
   const startDownload = useCallback(
-    (
-      vodId: string,
-      m3u8Url: string,
-      durationSeconds: number,
-      streamerName: string,
-      chatOptions?: ChatOptions,
-    ) => {
+    (vodId: string, m3u8Url: string, durationSeconds: number, streamerName: string, chatOptions?: ChatOptions) => {
       const defaultName = `${streamerName}-${vodId}.mp4`;
       return runJob(m3u8Url, 0, durationSeconds, 'download', defaultName, chatOptions);
     },

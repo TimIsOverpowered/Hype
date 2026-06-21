@@ -7,7 +7,6 @@ import { getToken } from '../auth';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
 import VideoPlayer, { type VideoPlayerHandle } from '../components/player/VideoPlayer';
-import ChatSettingsModal from '../components/ui/ChatSettingsModal';
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
 import { useChatSettings } from '../hooks/useChatSettings';
@@ -39,7 +38,6 @@ export default function VODPage() {
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showChat, setShowChat] = useState(true);
-  const [showChatSettings, setShowChatSettings] = useState(false);
   const chatSettings = useChatSettings();
   const [theatreMode, setTheatreMode] = useState(() => {
     const saved = safeLocalStorage.getItem('theatre-mode');
@@ -203,7 +201,6 @@ export default function VODPage() {
           playerState={playerState}
           showChat={showChat}
           setShowChat={setShowChat}
-          onOpenSettings={() => setShowChatSettings(true)}
           chatSettings={chatSettings}
         />
         {!showChat && (
@@ -233,11 +230,6 @@ export default function VODPage() {
           onDownload={() => setShowDownloadModal(true)}
           onSetStart={setClipStart}
           onSetEnd={setClipEnd}
-        />
-        <ChatSettingsModal
-          open={showChatSettings}
-          onClose={() => setShowChatSettings(false)}
-          chatSettings={chatSettings}
         />
         <DownloadVodModal
           open={showDownloadModal}

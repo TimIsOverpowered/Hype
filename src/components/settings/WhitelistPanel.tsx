@@ -20,7 +20,7 @@ export default function WhitelistPanel() {
   const { data: user } = useUser();
   const [input, setInput] = useState('');
   const [success, setSuccess] = useState<boolean | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [message, setMessage] = useState('');
   const [twitchUsers, setTwitchUsers] = useState<TwitchUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
@@ -39,7 +39,7 @@ export default function WhitelistPanel() {
   }, [user]);
 
   const getUserForChannel = (channel: string) =>
-    twitchUsers.find((u) => u.login.toLowerCase() === channel.toLowerCase());
+    twitchUsers.find((u) => u != null && u.login.toLowerCase() === channel.toLowerCase());
 
   const whitelistMutation = useMutation({
     mutationFn: async (username: string) => {
@@ -57,19 +57,22 @@ export default function WhitelistPanel() {
     onSuccess: (data: WhitelistResponse) => {
       if (data.error) {
         setSuccess(false);
-        setErrorMsg(data.message ?? '');
+        setMessage(data.message ?? '');
       } else {
         setSuccess(true);
-        setErrorMsg('');
+        setMessage(data.message ?? '');
         queryClient.setQueryData(['user'], (old: UserUpdate | undefined) => {
           if (!old) return old;
-          return { ...old, whitelists: [...old.whitelists, data.whitelist ?? { id: '', channel: '' }] };
+          if (data.whitelist) {
+            return { ...old, whitelists: [...old.whitelists, data.whitelist] };
+          }
+          return old;
         });
       }
     },
     onError: () => {
       setSuccess(false);
-      setErrorMsg('Server encountered an error.');
+      setMessage('Server encountered an error.');
     },
   });
 
@@ -104,7 +107,6 @@ export default function WhitelistPanel() {
     if (!isVip || whitelistMutation.isPending || !input.trim()) return;
     whitelistMutation.mutate(input.trim());
     setInput('');
-    setTimeout(() => setSuccess(null), 3000);
   };
 
   const handleDelete = (channel: string) => {
@@ -117,7 +119,7 @@ export default function WhitelistPanel() {
       <h3 className="mb-3 text-sm font-semibold text-text-primary">Whitelist</h3>
 
       <div className="flex items-center gap-4 py-1">
-        <span className="w-32 shrink-0 text-sm font-semibold text-text-secondary">Channels</span>
+        <span className="w-32 shrink-0 text-sm font-semibold text-text-secondary">Whitelists</span>
         <span className="text-sm text-text-primary">
           {whitelists.length}/{user.max_whitelist_channels}
         </span>
@@ -127,36 +129,43 @@ export default function WhitelistPanel() {
 
       <div className="py-2">
         <div className="flex items-center gap-4 py-1">
-          <span className="w-32 shrink-0 text-sm font-semibold text-text-secondary">Add Channel</span>
-          <div className="flex flex-1 gap-2">
+          <span className="w-32 shrink-0 text-sm font-semibold text-text-secondary">Whitelist Channel</span>
+          <div className="flex flex-1 flex-col gap-2">
             {success === false && (
-              <div className="mb-2 w-full rounded-md bg-red-950/50 border border-red-900/50 px-3 py-1.5 text-xs text-red-400">
-                {errorMsg}
+              <div className="w-full rounded-md bg-red-950/50 border border-red-900/50 px-3 py-1.5 text-xs text-red-400">
+                {message}
               </div>
             )}
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              disabled={!isVip}
-              placeholder="Channel name"
-              className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-text-primary placeholder-text-hint outline-none transition-colors focus:border-primary disabled:opacity-50"
-            />
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={!isVip || whitelistMutation.isPending}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50 ${
-                success === true
-                  ? 'bg-emerald-600 hover:bg-emerald-700'
-                  : success === false
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-primary hover:bg-primary-hover'
-              }`}
-            >
-              {whitelistMutation.isPending ? '...' : 'Add'}
-            </button>
+            {success === true && (
+              <div className="w-full rounded-md bg-emerald-950/50 border border-emerald-900/50 px-3 py-1.5 text-xs text-emerald-400">
+                {message}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                disabled={!isVip}
+                placeholder="Channel name"
+                className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-text-primary placeholder-text-hint outline-none transition-colors focus:border-primary disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={!isVip || whitelistMutation.isPending}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50 ${
+                  success === true
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : success === false
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-primary hover:bg-primary-hover'
+                }`}
+              >
+                {whitelistMutation.isPending ? '...' : 'Add'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

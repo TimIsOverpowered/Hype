@@ -94,7 +94,14 @@ export function useChatSettings(): UseChatSettingsReturn {
     }
     settings = { ...settings, ...updates };
     safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    window.dispatchEvent(new Event('chat-settings-changed'));
   }, []);
+
+  useEffect(() => {
+    const handleSync = () => loadSettings();
+    window.addEventListener('chat-settings-changed', handleSync);
+    return () => window.removeEventListener('chat-settings-changed', handleSync);
+  }, [loadSettings]);
 
   const handleSetChatWidth = useCallback(
     (v: number) => {

@@ -45,7 +45,6 @@ interface ChatReplayProps {
   readonly setChatWidth?: (w: number) => void;
   readonly showChat?: boolean;
   readonly setShowChat?: (v: boolean) => void;
-  readonly onOpenSettings?: () => void;
   readonly chatSettings?: UseChatSettingsReturn;
 }
 
@@ -887,7 +886,6 @@ export default function ChatReplay({
   setChatWidth: _setChatWidthProp,
   showChat: showChatProp,
   setShowChat: setShowChatProp,
-  onOpenSettings,
   chatSettings,
 }: ChatReplayProps) {
   const [showChatInternal, setShowChatInternal] = useState(true);
@@ -982,7 +980,7 @@ export default function ChatReplay({
             <span className="flex-1 text-center text-sm font-medium text-text-primary">Chat Replay</span>
             <button
               type="button"
-              onClick={() => onOpenSettings?.()}
+              onClick={() => window.dispatchEvent(new CustomEvent('open-global-settings', { detail: 'chat' }))}
               className="text-text-secondary transition-colors hover:text-text-primary"
               title="Settings"
             >

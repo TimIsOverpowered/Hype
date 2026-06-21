@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getChaptersWithFallback } from '../../api/twitch';
 import { getToken } from '../../auth';
 import { ECharts } from '../../constants/echarts';
-import { DEFAULT_INTERVAL_SECONDS, TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
+import { TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
 import { HYPE_API_BASE } from '../../constants/urls';
 import { useGraphSettings } from '../../hooks/useGraphSettings';
 import type {
@@ -60,24 +60,6 @@ function findNearestIndex(targetSec: number, xDataSeconds: number[]): number {
   }
   return closest;
 }
-
-const RotateCcwIcon = () => (
-  // biome-ignore lint/a11y/noSvgWithoutTitle: icon button has title prop on parent button
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-    <path d="M3 3v5h5" />
-  </svg>
-);
 
 interface VodGraphProps {
   readonly vodId: string;
@@ -363,15 +345,11 @@ const VodGraph = memo(function VodGraph({
 }: VodGraphProps) {
   const {
     interval,
-    setInterval,
+    setInterval: _setInterval,
     messageThreshold: userMessageThreshold,
-    setMessageThreshold,
+    setMessageThreshold: _setMessageThreshold,
     searchThreshold: userSearchThreshold,
-    setSearchThreshold,
-    resetInterval,
-    resetMessageThreshold,
-    resetSearchThreshold,
-    resetAll,
+    setSearchThreshold: _setSearchThreshold,
   } = useGraphSettings();
 
   const [activeTab, setActiveTab] = useState<GraphType>('messages');
@@ -387,9 +365,6 @@ const VodGraph = memo(function VodGraph({
   const [overallTopEmotes, setOverallTopEmotes] = useState<TopEmote[]>([]);
   const [topSpikes, setTopSpikes] = useState<TopSpike[]>([]);
   const [showInsights, setShowInsights] = useState(true);
-
-  const [showSettings, setShowSettings] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const chartInstanceRef = useRef<unknown>(null);
   const disposedRef = useRef(false);
@@ -861,7 +836,7 @@ const VodGraph = memo(function VodGraph({
             </button>
             <button
               type="button"
-              onClick={() => setShowSettings(true)}
+              onClick={() => window.dispatchEvent(new CustomEvent('open-global-settings', { detail: 'graph' }))}
               className="text-text-secondary transition-colors hover:text-text-primary"
               title="Graph settings"
             >
@@ -877,7 +852,7 @@ const VodGraph = memo(function VodGraph({
                 strokeLinejoin="round"
               >
                 <title>Settings</title>
-                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 1-2 0l-.43-.25a2 2 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
             </button>
@@ -1014,229 +989,6 @@ const VodGraph = memo(function VodGraph({
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Settings modal */}
-      {showSettings && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onClick={() => setShowSettings(false)}
-        >
-          <div
-            className="w-80 max-h-[85vh] rounded-lg border border-border bg-surface text-text-primary"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(true)}
-                className="text-text-secondary transition-colors hover:text-text-primary"
-                title="Reset all settings to defaults"
-              >
-                <RotateCcwIcon />
-              </button>
-
-              <h3 className="text-sm font-medium">Graph Settings</h3>
-
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="text-text-secondary transition-colors hover:text-text-primary"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <title>Close settings</title>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="overflow-y-auto px-4 py-4" style={{ maxHeight: 'calc(85vh - 52px)' }}>
-              <div className="space-y-4">
-                <div className="rounded border border-border px-3 py-2">
-                  <div className="mb-2 text-xs font-medium text-text-secondary">Interval</div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={5}
-                      max={60}
-                      step={5}
-                      value={interval}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setInterval(v);
-                      }}
-                      className="min-w-0 flex-1 accent-primary"
-                    />
-                    <span className="shrink-0 text-sm text-text-secondary">{interval}s</span>
-                    <button
-                      type="button"
-                      onClick={resetInterval}
-                      disabled={interval === DEFAULT_INTERVAL_SECONDS}
-                      className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-colors ${
-                        interval === DEFAULT_INTERVAL_SECONDS
-                          ? 'cursor-not-allowed opacity-40'
-                          : 'text-text-secondary hover:text-text-primary'
-                      }`}
-                      title="Reset interval"
-                    >
-                      <RotateCcwIcon />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded border border-border px-3 py-2">
-                  <div className="mb-2 text-xs font-medium text-text-secondary">Message Threshold</div>
-                  <div className="flex items-center gap-1">
-                    <span className="shrink-0 text-xs text-text-secondary">every</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={userMessageThreshold ?? effectiveThreshold ?? ''}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === '') {
-                          setMessageThreshold(null);
-                          return;
-                        }
-                        const num = Number(v);
-                        if (!Number.isFinite(num) || num <= 0) return;
-                        setMessageThreshold(num);
-                      }}
-                      className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1.5 text-sm text-text-primary"
-                    />
-                    <span className="shrink-0 text-xs text-text-secondary">msgs</span>
-                    <button
-                      type="button"
-                      onClick={resetMessageThreshold}
-                      disabled={userMessageThreshold == null}
-                      className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-colors ${
-                        userMessageThreshold == null
-                          ? 'cursor-not-allowed opacity-40'
-                          : 'text-text-secondary hover:text-text-primary'
-                      }`}
-                      title="Reset to auto"
-                    >
-                      <RotateCcwIcon />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded border border-border px-3 py-2">
-                  <div className="mb-2 text-xs font-medium text-text-secondary">Search Threshold</div>
-                  <div className="flex items-center gap-1">
-                    <span className="shrink-0 text-xs text-text-secondary">every</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={userSearchThreshold ?? 1}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === '') {
-                          setSearchThreshold(null);
-                          return;
-                        }
-                        const num = Number(v);
-                        if (!Number.isFinite(num) || num <= 0) return;
-                        setSearchThreshold(num);
-                      }}
-                      className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1.5 text-sm text-text-primary"
-                    />
-                    <span className="shrink-0 text-xs text-text-secondary">msgs</span>
-                    <button
-                      type="button"
-                      onClick={resetSearchThreshold}
-                      disabled={userSearchThreshold == null}
-                      className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-border transition-colors ${
-                        userSearchThreshold == null
-                          ? 'cursor-not-allowed opacity-40'
-                          : 'text-text-secondary hover:text-text-primary'
-                      }`}
-                      title="Reset to auto"
-                    >
-                      <RotateCcwIcon />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset confirmation dialog */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowResetConfirm(false);
-            }}
-          />
-          <div
-            className="relative z-[61] w-full max-w-[340px] rounded-lg border border-border bg-surface p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex justify-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                {/* biome-ignore lint/a11y/noSvgWithoutTitle: decorative icon in confirmation dialog */}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              </div>
-            </div>
-            <h3 className="mb-2 text-center text-lg font-semibold text-text-primary">Reset All Settings?</h3>
-            <p className="mb-6 text-center text-sm text-text-secondary">
-              This will reset your graph settings back to their default values.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="flex-1 rounded border border-border bg-background px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-background/80"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  resetAll();
-                  setShowSettings(false);
-                }}
-                className="flex-1 rounded bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-500"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

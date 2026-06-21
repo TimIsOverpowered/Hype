@@ -174,7 +174,8 @@ export default function JobQueueDropdown() {
 
 function JobItem({ job, onCancel, showRemove = false }: { job: Job; onCancel: () => void; showRemove?: boolean }) {
   const typeLabel = job.job_type === 'clip' ? 'Clip' : job.job_type === 'chat-render' ? 'Chat Render' : 'Download';
-  const typeColor = job.job_type === 'clip' ? 'text-primary' : job.job_type === 'chat-render' ? 'text-primary' : 'text-text-secondary';
+  const typeColor =
+    job.job_type === 'clip' ? 'text-primary' : job.job_type === 'chat-render' ? 'text-primary' : 'text-text-secondary';
 
   const name = job.name.length > 60 ? `${job.name.slice(0, 57)}...` : job.name;
 

@@ -5,7 +5,6 @@ import { HashRouter, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import DeepLinkHandler from './components/DeepLinkHandler';
 import AppLayout from './components/layout/AppLayout';
-import SettingsPage from './components/settings/SettingsPage';
 import { DEFAULT_RETRY_COUNT, STALE_TIME_5MIN } from './constants/auth';
 import { JobQueueProvider } from './contexts/JobQueueContext';
 import ChannelPage from './pages/ChannelPage';
@@ -34,8 +33,6 @@ function App() {
               <Route path="home" element={<HomePage />} />
               <Route path="channel/:channel" element={<ChannelPage />} />
               <Route path="vod/:vodId" element={<VODPage />} />
-              <Route path="profile" element={<SettingsPage />} />
-              <Route path="profile/:subPath" element={<SettingsPage />} />
             </Route>
           </Routes>
         </JobQueueProvider>

@@ -11,7 +11,7 @@ export interface WhitelistEntry {
 
 export interface User {
   readonly display_name: string;
-  readonly patreon: PatreonInfo;
+  readonly patreon: PatreonInfo | null;
   readonly whitelists: WhitelistEntry[];
   readonly max_whitelist_channels: number;
   readonly admin: boolean;

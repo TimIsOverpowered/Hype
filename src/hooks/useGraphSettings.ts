@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DEFAULT_MESSAGE_THRESHOLD, DEFAULT_SEARCH_THRESHOLD } from '../constants/ui';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
@@ -44,6 +44,16 @@ export function useGraphSettings() {
     }
     settings = { ...settings, ...updates };
     safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    window.dispatchEvent(new Event('graph-settings-changed'));
+  }, []);
+
+  useEffect(() => {
+    const handleSync = () => {
+      const val = loadStoredInterval();
+      setIntervalState(val);
+    };
+    window.addEventListener('graph-settings-changed', handleSync);
+    return () => window.removeEventListener('graph-settings-changed', handleSync);
   }, []);
 
   const handleSetInterval = useCallback(
