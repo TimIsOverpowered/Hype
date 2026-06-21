@@ -159,10 +159,19 @@ function buildEChartsOption(
   const gameColorsMap = new Map<string, number>();
   const richStyles: Record<string, unknown> = {};
   let colorIndex = 0;
+  let renderedLabelsCount = 0;
 
   if (gameChapters && gameChapters.length > 0 && xDataSeconds.length > 0) {
     for (let i = 0; i < gameChapters.length; i++) {
       const chapter = gameChapters[i];
+      const startSec = chapter.positionMilliseconds / 1000;
+      const endSec = (chapter.positionMilliseconds + chapter.durationMilliseconds) / 1000;
+
+      const hasDataInChapter = xDataSeconds.some((sec) => sec >= startSec && sec <= endSec);
+      if (!hasDataInChapter) {
+        continue;
+      }
+
       const gameName = chapter.game || 'Unknown';
       const boxArtURL = chapter.boxArtURL;
 
@@ -183,8 +192,6 @@ function buildEChartsOption(
       }
 
       const gameColorIdx = gameColorsMap.get(gameName) ?? 0;
-      const startSec = chapter.positionMilliseconds / 1000;
-      const endSec = (chapter.positionMilliseconds + chapter.durationMilliseconds) / 1000;
 
       const startIndex = findNearestIndex(startSec, xDataSeconds);
       const endIndex = findNearestIndex(endSec, xDataSeconds);
@@ -196,6 +203,9 @@ function buildEChartsOption(
       const hasImage = !!boxArtURL && !!richStyles[`gameIcon_${gameColorIdx}`];
       const formatterStr = hasImage ? `{gameIcon_${gameColorIdx}|}\n{name|${gameName}}` : `{name|${gameName}}`;
 
+      const yOffset = (renderedLabelsCount % 2) * 26;
+      renderedLabelsCount++;
+
       markAreaData.push([
         {
           name: gameName,
@@ -204,7 +214,7 @@ function buildEChartsOption(
           label: {
             show: true,
             position: 'insideTop',
-            offset: [0, (i % 2) * 26],
+            offset: [0, yOffset],
             color: '#adadb8',
             fontSize: 10,
             formatter: formatterStr,
