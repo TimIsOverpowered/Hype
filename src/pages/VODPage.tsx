@@ -45,6 +45,7 @@ export default function VODPage() {
     return saved === 'true';
   });
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
+  const [emotesLoaded, setEmotesLoaded] = useState(false);
 
   const { startClip, startDownload } = useClipJob();
 
@@ -150,11 +151,19 @@ export default function VODPage() {
       }
     };
 
-    loadBTTVGlobalEmotes();
-    loadBTTVChannelEmotes();
-    loadFFZEmotes();
-    load7TVEmotes();
-    load7TVGlobalEmotes();
+    const loadAll = async () => {
+      await Promise.all([
+        loadBTTVGlobalEmotes(),
+        loadBTTVChannelEmotes(),
+        loadFFZEmotes(),
+        load7TVEmotes(),
+        load7TVGlobalEmotes(),
+      ]);
+      if (!abortController.signal.aborted) {
+        setEmotesLoaded(true);
+      }
+    };
+    loadAll();
 
     return () => abortController.abort();
   }, [broadcasterId]);
@@ -270,12 +279,12 @@ export default function VODPage() {
         </div>
         <ChatReplay
           vodId={vodId || ''}
+          broadcasterId={broadcasterId}
           playerRef={playerRef as React.RefObject<unknown>}
           userChatDelay={0}
           playerState={playerState}
           showChat={showChat}
           setShowChat={setShowChat}
-          emoteData={emoteDataRef.current}
           onOpenSettings={() => setShowChatSettings(true)}
           chatSettings={chatSettings}
         />
@@ -333,6 +342,7 @@ export default function VODPage() {
               } | null>
             }
             emoteData={emoteDataRef}
+            emotesLoaded={emotesLoaded}
             duration={vodInfo?.lengthSeconds ?? 0}
             currentTime={currentTime}
             isWhitelisted={isWhitelisted}

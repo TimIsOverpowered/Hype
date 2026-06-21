@@ -1,15 +1,14 @@
+import { invoke } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, Pause, Settings } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getBadges, getComments, getNextComments } from '../../api/twitch';
+import { getBadges } from '../../api/twitch';
 import { BTTV_CDN_BASE, FFZ_CDN_BASE, SEVENTV_CDN_BASE, TWITCH_CDN_BASE } from '../../constants/emotes';
 import {
   CHAT_BOTTOM_THRESHOLD,
-  CHAT_FETCH_RETRIES,
   CHAT_INTERSECTION_MARGIN,
   CHAT_LOOP_INTERVAL_MS,
   CHAT_MAX_MESSAGES,
   CHAT_MAX_MESSAGES_AT_BOTTOM,
-  CHAT_RETRY_DELAY_MS,
   CHAT_SCROLL_UP_THRESHOLD,
   CHAT_SKELETON_COUNT,
   CHAT_STATE_CHANGE_DELAY_MS,
@@ -21,18 +20,14 @@ import {
 import type { UseChatSettingsReturn } from '../../hooks/useChatSettings';
 import type {
   ChatBadge,
-  CommentNode,
   CustomEmoteFragment,
   EmojiFragment,
   FormattedFragment,
   FormattedMessage,
-  IncomingWorkerMessage,
-  OutgoingWorkerMessage,
   TextFragment,
   TwitchBadge,
   TwitchEmoteFragment,
   UrlFragment,
-  WorkerEmoteData,
 } from '../../types/twitch';
 import { toHHMMSS } from '../../utils/time';
 import MessageTooltip from './MessageTooltip';
@@ -50,7 +45,6 @@ interface ChatReplayProps {
   readonly setChatWidth?: (w: number) => void;
   readonly showChat?: boolean;
   readonly setShowChat?: (v: boolean) => void;
-  readonly emoteData?: WorkerEmoteData;
   readonly onOpenSettings?: () => void;
   readonly chatSettings?: UseChatSettingsReturn;
 }
@@ -148,7 +142,7 @@ function renderSingleEmote(
   isZeroWidthWrapper?: boolean,
 ): RenderResult {
   const provider = 'provider' in emote ? emote.provider : 'Twitch';
-  const emoteID = 'emoteID' in emote ? emote.emoteID : String(emote.id);
+  const emoteID = 'emote_id' in emote ? emote.emote_id : String(emote.id);
   const isCustom = 'provider' in emote;
   const isZW = isZeroWidthWrapper ?? ('isZeroWidth' in emote && !!emote.isZeroWidth);
 
@@ -247,7 +241,7 @@ function renderSingleEmote(
 function renderCombinedEmote(normalEmote: EmoteFragment, zwEmote: CustomEmoteFragment, key: string): RenderResult {
   const normalProvider = 'provider' in normalEmote ? normalEmote.provider : 'Twitch';
   const zwProvider = zwEmote.provider;
-  const normalID = 'emoteID' in normalEmote ? normalEmote.emoteID : String(normalEmote.id);
+  const normalID = 'emote_id' in normalEmote ? normalEmote.emote_id : String(normalEmote.id);
   const zwID = zwEmote.id;
 
   const normalSrc = getEmoteSrc(normalID, normalProvider, 'src').src;
@@ -538,81 +532,53 @@ function ChatSkeleton(): React.ReactNode {
 
 // ─── ChatEngine hook ───────────────────────────────────────────────────────
 
+interface ChatBatchResponse {
+  readonly messages: readonly FormattedMessage[];
+  readonly next_cursor: string | null;
+}
+
 function useChatEngine({
   vodId,
+  broadcasterId,
   playerRef,
   userChatDelay,
   playerState,
-  emoteData,
 }: {
   readonly vodId: string;
+  readonly broadcasterId?: string;
   readonly playerRef: React.RefObject<unknown>;
   readonly userChatDelay: number;
   readonly playerState: number;
-  readonly emoteData: WorkerEmoteData;
 }): ChatEngineState {
   const [messages, setMessages] = useState<FormattedMessage[]>([]);
   const [scrolling, setScrolling] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [commentsCount, setCommentsCount] = useState(0);
 
-  const commentsRef = useRef<CommentNode[]>([]);
+  const bufferRef = useRef<FormattedMessage[]>([]);
   const cursorRef = useRef<string | null>(null);
   const loopRef = useRef<number | null>(null);
   const loopCbRef = useRef<(() => void) | undefined>(undefined);
   const playRef = useRef<number | null>(null);
   const chatRef = useRef<HTMLDivElement | null>(null);
   const stoppedAtIndexRef = useRef(0);
-  const newMessagesRef = useRef<CommentNode[]>([]);
-  const paginationAbortRef = useRef<AbortController | null>(null);
-  const isFetchingNextRef = useRef(false);
-  const lastFetchedCursorRef = useRef<string | null>(null);
+  const isFetchingRef = useRef(false);
   const isAutoScrollingRef = useRef(false);
   const isAtBottomRef = useRef(true);
   const lastScrollTopRef = useRef(0);
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
   const scrollRAFRef = useRef<number | null>(null);
   const scrollingRef = useRef(scrolling);
-  const hasFetchedRef = useRef(false);
-  const workerRef = useRef<Worker | null>(null);
-
-  // Worker setup
-  useEffect(() => {
-    let worker: Worker | null = null;
-    try {
-      worker = new Worker(new URL('../../workers/chatWorker.ts', import.meta.url), { type: 'module' });
-      workerRef.current = worker;
-
-      worker.onmessage = (e: MessageEvent<OutgoingWorkerMessage>) => {
-        if (e.data.type === 'result') {
-          setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id));
-            const unique = e.data.payload.messages.filter((m) => !existingIds.has(m.id));
-            if (unique.length === 0) return prev;
-            const merged = [...prev, ...unique];
-            const maxLimit = isAtBottomRef.current ? CHAT_MAX_MESSAGES_AT_BOTTOM : CHAT_MAX_MESSAGES;
-            if (merged.length > maxLimit) {
-              merged.splice(0, merged.length - maxLimit);
-            }
-            return merged;
-          });
-        }
-      };
-    } catch {
-      // Worker failed to load
-    }
-
-    return () => {
-      if (worker) {
-        worker.terminate();
-      }
-      workerRef.current = null;
-    };
-  }, []);
 
   useEffect(() => {
     scrollingRef.current = scrolling;
   }, [scrolling]);
+
+  useEffect(() => {
+    if (broadcasterId) {
+      invoke('init_chat_session', { broadcasterId }).catch(console.error);
+    }
+  }, [broadcasterId]);
 
   const fetchWithRetry = useCallback(
     async <T,>(fetchFn: () => Promise<T>, retries = 3, delayMs = 1000): Promise<T | null> => {
@@ -633,32 +599,45 @@ function useChatEngine({
     [],
   );
 
-  const fetchNextComments = useCallback(() => {
-    if (isFetchingNextRef.current) return;
-    if (cursorRef.current === lastFetchedCursorRef.current) return;
+  const fetchBatch = useCallback(
+    async (offsetSeconds?: number) => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      setIsLoading(true);
 
-    isFetchingNextRef.current = true;
+      try {
+        const res = await fetchWithRetry(
+          () =>
+            invoke<ChatBatchResponse>('fetch_chat_batch', {
+              vodId,
+              broadcasterId: broadcasterId ?? '',
+              offsetSeconds: offsetSeconds ?? null,
+              cursor: cursorRef.current,
+            }),
+          3,
+          1000,
+        );
 
-    if (paginationAbortRef.current) {
-      paginationAbortRef.current.abort();
-    }
-    paginationAbortRef.current = new AbortController();
-    lastFetchedCursorRef.current = cursorRef.current;
-
-    fetchWithRetry(() => getNextComments(vodId, cursorRef.current), CHAT_FETCH_RETRIES, CHAT_RETRY_DELAY_MS)
-      .then((res) => {
         if (!res) return;
-        stoppedAtIndexRef.current = 0;
-        commentsRef.current = res.edges.map((e) => e.node);
-        cursorRef.current = res.edges[res.edges.length - 1]?.cursor ?? null;
-      })
-      .catch(() => {
-        // handled
-      })
-      .finally(() => {
-        isFetchingNextRef.current = false;
-      });
-  }, [vodId, fetchWithRetry]);
+
+        if (offsetSeconds !== undefined) {
+          bufferRef.current = [...res.messages];
+          stoppedAtIndexRef.current = 0;
+        } else {
+          bufferRef.current = [...bufferRef.current, ...res.messages];
+        }
+
+        cursorRef.current = res.next_cursor;
+        setCommentsCount(bufferRef.current.length);
+      } catch (e) {
+        console.error('Failed to fetch chat batch from Rust', e);
+      } finally {
+        isFetchingRef.current = false;
+        setIsLoading(false);
+      }
+    },
+    [vodId, broadcasterId, fetchWithRetry],
+  );
 
   const getCurrentTime = useCallback(() => {
     const current = playerRef.current;
@@ -671,37 +650,24 @@ function useChatEngine({
     return time;
   }, [playerRef, userChatDelay]);
 
-  const isPlaying = useCallback(() => {
-    return playerState === 1;
-  }, [playerState]);
-
   const buildComments = useCallback(() => {
-    if (
-      !playerRef.current ||
-      commentsRef.current.length === 0 ||
-      !cursorRef.current ||
-      stoppedAtIndexRef.current === null
-    )
-      return;
-    if (!isPlaying()) return;
-
-    const worker = workerRef.current;
-    if (!worker) return;
+    if (bufferRef.current.length === 0) return;
+    if (playerState !== 1) return;
 
     const time = getCurrentTime();
 
     if (
       stoppedAtIndexRef.current > 0 &&
-      commentsRef.current[stoppedAtIndexRef.current - 1] &&
-      commentsRef.current[stoppedAtIndexRef.current - 1].contentOffsetSeconds > time
+      bufferRef.current[stoppedAtIndexRef.current - 1] &&
+      bufferRef.current[stoppedAtIndexRef.current - 1].contentOffsetSeconds > time
     ) {
       setMessages([]);
       stoppedAtIndexRef.current = 0;
     }
 
-    let lastIndex = commentsRef.current.length;
-    for (let i = stoppedAtIndexRef.current; i < commentsRef.current.length; i++) {
-      if (commentsRef.current[i].contentOffsetSeconds > time) {
+    let lastIndex = bufferRef.current.length;
+    for (let i = stoppedAtIndexRef.current; i < bufferRef.current.length; i++) {
+      if (bufferRef.current[i].contentOffsetSeconds > time) {
         lastIndex = i;
         break;
       }
@@ -709,28 +675,29 @@ function useChatEngine({
 
     if (stoppedAtIndexRef.current === lastIndex && stoppedAtIndexRef.current !== 0) return;
 
-    const rawSlice = commentsRef.current.slice(stoppedAtIndexRef.current, lastIndex);
-    if (rawSlice.length === 0) return;
+    if (lastIndex === 0 && stoppedAtIndexRef.current !== 0) {
+      stoppedAtIndexRef.current = 0;
+      return;
+    }
 
-    const payload: IncomingWorkerMessage = {
-      type: 'process',
-      payload: {
-        timestamp: time,
-        rawComments: rawSlice,
-        filterWords: [],
-        emotes: emoteData,
-      },
-    };
+    const newSlice = bufferRef.current.slice(stoppedAtIndexRef.current, lastIndex);
+    if (newSlice.length === 0) return;
 
-    newMessagesRef.current = rawSlice;
+    setMessages((prev) => {
+      const merged = [...prev, ...newSlice];
+      const maxLimit = isAtBottomRef.current ? CHAT_MAX_MESSAGES_AT_BOTTOM : CHAT_MAX_MESSAGES;
+      if (merged.length > maxLimit) {
+        return merged.slice(merged.length - maxLimit);
+      }
+      return merged;
+    });
+
     stoppedAtIndexRef.current = lastIndex;
 
-    worker.postMessage(payload);
-
-    if (commentsRef.current.length === lastIndex && !isFetchingNextRef.current) {
-      fetchNextComments();
+    if (lastIndex >= bufferRef.current.length - 50 && !isFetchingRef.current && cursorRef.current) {
+      fetchBatch();
     }
-  }, [playerRef, isPlaying, getCurrentTime, emoteData, fetchNextComments]);
+  }, [playerState, getCurrentTime, fetchBatch]);
 
   const scrollToBottom = useCallback(() => {
     if (!chatRef.current) return;
@@ -801,29 +768,6 @@ function useChatEngine({
     if (loopRef.current !== null) clearInterval(loopRef.current);
   }, []);
 
-  const fetchComments = useCallback(
-    async (offset: number = 0) => {
-      try {
-        setIsLoading(true);
-        const res = await fetchWithRetry(() => getComments(vodId, offset), CHAT_FETCH_RETRIES, CHAT_RETRY_DELAY_MS);
-
-        if (!res) {
-          setIsLoading(false);
-          return;
-        }
-
-        commentsRef.current = res.edges.map((e) => e.node);
-        cursorRef.current = res.edges[res.edges.length - 1]?.cursor ?? null;
-        setCommentsCount(res.edges.length);
-        hasFetchedRef.current = true;
-        setIsLoading(false);
-      } catch {
-        setIsLoading(false);
-      }
-    },
-    [vodId, fetchWithRetry],
-  );
-
   useEffect(() => {
     loopCbRef.current = startLoop;
   }, [startLoop]);
@@ -879,12 +823,6 @@ function useChatEngine({
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (paginationAbortRef.current) paginationAbortRef.current.abort();
-    };
-  }, []);
-
-  useEffect(() => {
     const abortController = new AbortController();
     if (playRef.current) clearTimeout(playRef.current);
     if (playerState === -1 || !playerRef.current) return;
@@ -893,20 +831,19 @@ function useChatEngine({
       if (playerState === 1) {
         const time = getCurrentTime();
         if (
-          commentsRef.current.length === 0 ||
-          time < commentsRef.current[0].contentOffsetSeconds ||
-          time > commentsRef.current[commentsRef.current.length - 1].contentOffsetSeconds
+          bufferRef.current.length === 0 ||
+          time < bufferRef.current[0]?.contentOffsetSeconds ||
+          time > bufferRef.current[bufferRef.current.length - 1]?.contentOffsetSeconds + 30
         ) {
           playRef.current = window.setTimeout(async () => {
             stopLoop();
             stoppedAtIndexRef.current = 0;
-            commentsRef.current = [];
+            bufferRef.current = [];
             cursorRef.current = null;
             setMessages([]);
             setCommentsCount(0);
-            hasFetchedRef.current = false;
             setIsLoading(true);
-            await fetchComments(time);
+            await fetchBatch(time);
             loopCbRef.current?.();
           }, CHAT_STATE_CHANGE_DELAY_MS);
         } else {
@@ -924,7 +861,7 @@ function useChatEngine({
       stopLoop();
       if (playRef.current) clearTimeout(playRef.current);
     };
-  }, [playerRef, playerState, getCurrentTime, stopLoop, fetchComments]); // eslint-disable-next-line exhaustive-deps
+  }, [playerRef, playerState, getCurrentTime, stopLoop, fetchBatch]);
 
   return {
     messages,
@@ -942,6 +879,7 @@ function useChatEngine({
 
 export default function ChatReplay({
   vodId,
+  broadcasterId,
   playerRef,
   userChatDelay,
   playerState,
@@ -949,7 +887,6 @@ export default function ChatReplay({
   setChatWidth: _setChatWidthProp,
   showChat: showChatProp,
   setShowChat: setShowChatProp,
-  emoteData,
   onOpenSettings,
   chatSettings,
 }: ChatReplayProps) {
@@ -967,10 +904,10 @@ export default function ChatReplay({
   const { messages, scrolling, isLoading, commentsCount, chatRef, bottomAnchorRef, handleScroll, scrollToBottom } =
     useChatEngine({
       vodId,
+      broadcasterId,
       playerRef,
       userChatDelay,
       playerState,
-      emoteData: emoteData ?? { bttv: [], ffz: [], seventv: [] },
     });
 
   // Fetch badges — precompute Map for O(1) lookup

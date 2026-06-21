@@ -1,0 +1,218 @@
+use std::collections::HashMap;
+
+use lazy_static::lazy_static;
+use regex::Regex;
+use serde::Serialize;
+use serde_json::json;
+
+use crate::media::chat::emotes::EMOTE_CACHE;
+use crate::media::chat::models::{
+    CachedEmote, ChatBadge, FormattedFragment, FormattedMessage,
+};
+
+const BACKUP_CLIENT_ID: &str = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
+
+#[derive(Serialize, Clone)]
+pub struct ChatBatchResponse {
+    pub messages: Vec<FormattedMessage>,
+    pub next_cursor: Option<String>,
+}
+
+pub async fn fetch_and_parse_comments(
+    vod_id: &str,
+    broadcaster_id: &str,
+    offset_seconds: Option<f64>,
+    cursor: Option<String>,
+) -> Result<ChatBatchResponse, String> {
+    let client = reqwest::Client::new();
+
+    let variables = if let Some(c) = cursor {
+        json!({ "videoID": vod_id, "cursor": c })
+    } else {
+        json!({ "videoID": vod_id, "contentOffsetSeconds": offset_seconds.map(|o| o.floor() as i32).unwrap_or(0) })
+    };
+
+    let payload = json!({
+        "operationName": "VideoCommentsByOffsetOrCursor",
+        "variables": variables,
+        "extensions": {
+            "persistedQuery": {
+                "version": 1,
+                "sha256Hash": "b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a"
+            }
+        }
+    });
+
+    let res = client
+        .post("https://gql.twitch.tv/gql")
+        .header("Client-Id", BACKUP_CLIENT_ID)
+        .header("Content-Type", "text/plain;charset=UTF-8")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if let Some(errors) = json.get("errors").and_then(|e| e.as_array()) {
+        let messages: Vec<String> = errors
+            .iter()
+            .filter_map(|e| e["message"].as_str().map(|s| s.to_string()))
+            .collect();
+        return Err(format!("GQL errors: {}", messages.join(", ")));
+    }
+
+    let mut messages = Vec::new();
+    let mut next_cursor = None;
+
+    let cache = EMOTE_CACHE.read().await;
+    let emote_dict = cache.get(broadcaster_id);
+
+    let edges = match json
+        .get("data")
+        .and_then(|d| d.get("video"))
+        .and_then(|v| v.get("comments"))
+        .and_then(|c| c.get("edges"))
+        .and_then(|e| e.as_array())
+    {
+        Some(e) => e,
+        None => return Ok(ChatBatchResponse { messages, next_cursor }),
+    };
+
+    for edge in edges {
+        let node = match edge.get("node") {
+            Some(n) => n,
+            None => continue,
+        };
+
+        let id = node["id"].as_str().unwrap_or("").to_string();
+        let display_name = node["commenter"]["displayName"]
+            .as_str()
+            .unwrap_or("Unknown")
+            .to_string();
+        let user_color = node["message"]["userColor"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+        let offset = node["contentOffsetSeconds"].as_f64().unwrap_or(0.0);
+
+        let mut badges = Vec::new();
+        if let Some(user_badges) = node["message"]["userBadges"].as_array() {
+            for b in user_badges {
+                badges.push(ChatBadge {
+                    set_id: b["setID"].as_str().unwrap_or("").to_string(),
+                    version: b["version"].as_str().unwrap_or("").to_string(),
+                });
+            }
+        }
+
+        let formatted_fragments = parse_fragments(
+            node["message"]["fragments"].as_array().map(|v| v.as_slice()),
+            emote_dict,
+        );
+
+        messages.push(FormattedMessage {
+            id,
+            display_name,
+            user_color,
+            content_offset_seconds: offset,
+            badges: Some(badges),
+            fragments: formatted_fragments,
+        });
+    }
+
+    if let Some(last_edge) = edges.last() {
+        next_cursor = last_edge["cursor"].as_str().map(|s| s.to_string());
+    }
+
+    Ok(ChatBatchResponse { messages, next_cursor })
+}
+
+fn is_url(word: &str) -> bool {
+    word.starts_with("http://") || word.starts_with("https://")
+}
+
+lazy_static! {
+    static ref EMOJI_RE: Regex =
+        Regex::new(r"[\p{Emoji_Presentation}\p{Extended_Pictographic}]").unwrap();
+}
+
+fn is_emoji(word: &str) -> bool {
+    EMOJI_RE.is_match(word)
+}
+
+fn parse_fragments(
+    fragments: Option<&[serde_json::Value]>,
+    emote_dict: Option<&HashMap<String, CachedEmote>>,
+) -> Vec<FormattedFragment> {
+    let Some(fragments_array) = fragments else {
+        return Vec::new();
+    };
+
+    let mut result = Vec::new();
+
+    for frag in fragments_array {
+        let text = frag["text"].as_str().unwrap_or("").to_string();
+        if text.is_empty() {
+            continue;
+        }
+
+        if frag.get("emote").and_then(|e| e.get("emoteID")).is_some() {
+            let emote_id = frag["emote"]["emoteID"]
+                .as_str()
+                .unwrap_or("")
+                .to_string();
+            result.push(FormattedFragment::Twitch {
+                emote_id,
+                text,
+            });
+            continue;
+        }
+
+        let words: Vec<&str> = text.split_whitespace().collect();
+        if words.is_empty() {
+            result.push(FormattedFragment::Text { text });
+            continue;
+        }
+
+        for (i, word) in words.iter().enumerate() {
+            if is_url(word) {
+                result.push(FormattedFragment::Url { text: word.to_string() });
+            } else if is_emoji(word) {
+                result.push(FormattedFragment::Emoji { text: word.to_string() });
+            } else if let Some(dict) = emote_dict {
+                if let Some(cached_emote) = dict.get(*word) {
+                    result.push(FormattedFragment::Custom {
+                        id: cached_emote.id.clone(),
+                        code: cached_emote.code.clone(),
+                        name: cached_emote.name.clone(),
+                        provider: cached_emote.provider.clone(),
+                        is_zero_width: cached_emote.is_zero_width,
+                        width: cached_emote.width,
+                        height: cached_emote.height,
+                    });
+                    if i < words.len() - 1 {
+                        result.push(FormattedFragment::Text {
+                            text: " ".to_string(),
+                        });
+                    }
+                    continue;
+                }
+            }
+
+            result.push(FormattedFragment::Text {
+                text: word.to_string(),
+            });
+            if i < words.len() - 1 {
+                result.push(FormattedFragment::Text {
+                    text: " ".to_string(),
+                });
+            }
+        }
+    }
+
+    result
+}

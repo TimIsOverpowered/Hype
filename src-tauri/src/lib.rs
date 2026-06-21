@@ -12,6 +12,24 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+use crate::media::chat::emotes::init_channel_emotes;
+use crate::media::chat::twitch::{fetch_and_parse_comments, ChatBatchResponse};
+
+#[tauri::command]
+async fn init_chat_session(broadcaster_id: String) -> Result<(), String> {
+    init_channel_emotes(&broadcaster_id).await
+}
+
+#[tauri::command]
+async fn fetch_chat_batch(
+    vod_id: String,
+    broadcaster_id: String,
+    offset_seconds: Option<f64>,
+    cursor: Option<String>,
+) -> Result<ChatBatchResponse, String> {
+    fetch_and_parse_comments(&vod_id, &broadcaster_id, offset_seconds, cursor).await
+}
+
 #[tauri::command]
 fn show_window(app: AppHandle) -> Result<(), ()> {
     if let Some(main) = app.get_webview_window("main") {
@@ -70,6 +88,8 @@ pub fn run(debug: bool) {
         .invoke_handler(tauri::generate_handler![
             greet,
             show_window,
+            init_chat_session,
+            fetch_chat_batch,
             proxy::get_proxy_port,
             logs::fetch_vod_logs,
             media::clipper::submit_clip,

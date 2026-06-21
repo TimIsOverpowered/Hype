@@ -53,7 +53,7 @@ export interface ChatBadge {
 
 export interface ChatFragment {
   readonly text: string;
-  readonly emote: { readonly emoteID: string } | null;
+  readonly emote: { readonly emote_id: string } | null;
 }
 
 export interface ChatMessage {
@@ -193,7 +193,7 @@ export interface TextFragment {
 
 export interface TwitchEmoteFragment {
   readonly type: 'twitch';
-  readonly emoteID: string;
+  readonly emote_id: string;
   readonly text: string;
 }
 

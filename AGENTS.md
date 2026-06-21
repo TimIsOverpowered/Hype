@@ -27,7 +27,6 @@ Hype is a desktop application for visualizing Twitch chat data and clipping Twit
 
 - **Web Workers are Mandatory:** Any heavy data processing—specifically ZSTD log decoding, large chat array parsing, and parsing 7TV/BTTV/FFZ emotes—MUST be offloaded to a Web Worker to prevent main-thread UI freezing.
 - **Tauri Native APIs:** Replace any Node.js `fs` or `path` logic with Tauri's native Rust plugins (`@tauri-apps/plugin-fs`, `@tauri-apps/plugin-dialog`).
-- **MediaBunny over FFmpeg:** Do not spawn backend FFmpeg processes. All video clipping, chunk fetching (`.m3u8`), and transmuxing will be handled frontend-side via MediaBunny and WebCodecs.
 
 ### 3. Styling & UI
 

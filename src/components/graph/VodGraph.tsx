@@ -74,6 +74,7 @@ interface VodGraphProps {
   readonly vodId: string;
   readonly playerRef: React.RefObject<{ seek: (time: number) => void; play: () => void; pause: () => void } | null>;
   readonly emoteData: React.RefObject<WorkerEmoteData | null>;
+  readonly emotesLoaded?: boolean;
   readonly duration?: number;
   readonly currentTime?: number;
   readonly isWhitelisted?: boolean | undefined;
@@ -344,6 +345,7 @@ const VodGraph = memo(function VodGraph({
   vodId,
   playerRef,
   emoteData,
+  emotesLoaded,
   duration: propDuration,
   currentTime,
   isWhitelisted,
@@ -600,15 +602,15 @@ const VodGraph = memo(function VodGraph({
   );
 
   useEffect(() => {
-    if (!vodId || propDurationRef.current <= 0 || isWhitelisted !== true) return;
+    if (!vodId || propDurationRef.current <= 0 || isWhitelisted !== true || !emotesLoaded) return;
     runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
-  }, [vodId, activeTab, runAggregate, userMessageThreshold, userSearchThreshold, interval, isWhitelisted]);
+  }, [vodId, activeTab, runAggregate, userMessageThreshold, userSearchThreshold, interval, isWhitelisted, emotesLoaded]);
 
   useEffect(() => {
-    if (vodId && propDurationRef.current > 0 && !fetchedRef.current && isWhitelisted === true) {
+    if (vodId && propDurationRef.current > 0 && !fetchedRef.current && isWhitelisted === true && emotesLoaded) {
       runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
     }
-  }, [isWhitelisted, activeTab, runAggregate, vodId, userMessageThreshold, userSearchThreshold, interval]);
+  }, [isWhitelisted, activeTab, runAggregate, vodId, userMessageThreshold, userSearchThreshold, interval, emotesLoaded]);
 
   const handleChartClick = useCallback(
     (idx: number) => {
