@@ -209,7 +209,7 @@ function renderSingleEmote(
         style={imgStyle}
         width={isZW ? 0 : (emoteWidth ?? 28)}
         height={isZW ? 0 : (emoteHeight ?? 28)}
-      />{' '}
+      />
     </span>
   );
 
@@ -301,7 +301,7 @@ function renderCombinedEmote(normalEmote: EmoteFragment, zwEmote: CustomEmoteFra
         width={normalWidth}
         height={normalHeight}
       />
-      <img src={zwSrc} srcSet={zwSrcSet} alt="" style={zwImgStyle} width={0} height={0} />{' '}
+      <img src={zwSrc} srcSet={zwSrcSet} alt="" style={zwImgStyle} width={0} height={0} />
     </span>
   );
 
