@@ -40,8 +40,6 @@ export const CHAT_MAX_MESSAGES_AT_BOTTOM = 200;
 
 // Graph
 export const DEFAULT_INTERVAL_SECONDS = 30;
-export const DEFAULT_MESSAGE_THRESHOLD = 25;
-export const DEFAULT_SEARCH_THRESHOLD = 1;
 export const DEFAULT_SEARCH_TERM = '';
 
 // Workers

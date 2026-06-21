@@ -350,6 +350,8 @@ const VodGraph = memo(function VodGraph({
     setMessageThreshold: _setMessageThreshold,
     searchThreshold: userSearchThreshold,
     setSearchThreshold: _setSearchThreshold,
+    setEffectiveMessageThreshold,
+    setEffectiveSearchThreshold,
   } = useGraphSettings();
 
   const [activeTab, setActiveTab] = useState<GraphType>('messages');
@@ -486,6 +488,7 @@ const VodGraph = memo(function VodGraph({
         const result = await invoke<ClipsResult>('aggregate_clips_cmd', { payload });
         setGraphData([...result.data]);
         setEffectiveThreshold(null);
+        setEffectiveMessageThreshold(null);
         if (result.chapters) {
           setGameChapters(result.chapters);
           gameChaptersRef.current = result.chapters;
@@ -536,6 +539,11 @@ const VodGraph = memo(function VodGraph({
       const result = await invoke<GraphResult>('aggregate_graph', { payload });
       setGraphData([...result.data]);
       setEffectiveThreshold(result.computedThreshold);
+      if (type === 'messages') {
+        setEffectiveMessageThreshold(result.computedThreshold);
+      } else if (type === 'search') {
+        setEffectiveSearchThreshold(result.computedThreshold);
+      }
       setTotalMessages(result.totalMessages ?? 0);
       setOverallTopEmotes([...(result.topEmotes ?? [])]);
       setTopSpikes([...(result.topSpikes ?? [])]);
@@ -546,7 +554,15 @@ const VodGraph = memo(function VodGraph({
       setIsLoading(false);
       fetchedRef.current = true;
     },
-    [fetchZstdLogs, emoteData, searchTerm, fetchChapters, fetchClips],
+    [
+      fetchZstdLogs,
+      emoteData,
+      searchTerm,
+      fetchChapters,
+      fetchClips,
+      setEffectiveMessageThreshold,
+      setEffectiveSearchThreshold,
+    ],
   );
 
   useEffect(() => {

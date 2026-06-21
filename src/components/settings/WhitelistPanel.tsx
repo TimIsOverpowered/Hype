@@ -116,8 +116,6 @@ export default function WhitelistPanel() {
 
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
-      <h3 className="mb-3 text-sm font-semibold text-text-primary">Whitelist</h3>
-
       <div className="flex items-center gap-4 py-1">
         <span className="w-32 shrink-0 text-sm font-semibold text-text-secondary">Whitelists</span>
         <span className="text-sm text-text-primary">

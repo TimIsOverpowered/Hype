@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { GraphSettingsProvider } from '../../hooks/useGraphSettings';
 import GlobalSettingsModal, { type SettingsTabKey } from '../settings/GlobalSettingsModal';
 import NavBar from './NavBar';
 
@@ -18,12 +19,14 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-background">
-      <NavBar />
-      <main className="flex min-h-0 flex-1">
-        <Outlet />
-      </main>
-      <GlobalSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
-    </div>
+    <GraphSettingsProvider>
+      <div className="flex h-screen w-screen flex-col bg-background">
+        <NavBar />
+        <main className="flex min-h-0 flex-1">
+          <Outlet />
+        </main>
+        <GlobalSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialTab={settingsTab} />
+      </div>
+    </GraphSettingsProvider>
   );
 }

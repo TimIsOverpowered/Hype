@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Activity, MessageSquare, RotateCcw, Settings, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { API_BASE, getToken } from '../../auth';
 import { DEFAULT_CHAT_WIDTH_MAX, DEFAULT_CHAT_WIDTH_MIN } from '../../constants/ui';
 import { useChatSettings } from '../../hooks/useChatSettings';
@@ -36,9 +37,12 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const queryClient = useQueryClient();
+  const location = useLocation();
 
   const chatSettings = useChatSettings();
   const graphSettings = useGraphSettings();
+
+  const isVodActive = location.pathname.includes('/vod/');
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
@@ -109,13 +113,13 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
             />
             <TabButton
               icon={<MessageSquare size={18} />}
-              label="Chat Overlay"
+              label="Chat Replay"
               active={activeTab === 'chat'}
               onClick={() => setActiveTab('chat')}
             />
             <TabButton
               icon={<Activity size={18} />}
-              label="Graph & Insights"
+              label="Graph"
               active={activeTab === 'graph'}
               onClick={() => setActiveTab('graph')}
             />
@@ -128,8 +132,8 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
           <div className="flex items-center justify-between border-b border-border px-8 py-5">
             <h3 className="text-base font-medium text-text-primary">
               {activeTab === 'account' && 'Account Settings'}
-              {activeTab === 'chat' && 'Chat Overlay Settings'}
-              {activeTab === 'graph' && 'Graph & Insights Settings'}
+              {activeTab === 'chat' && 'Chat Replay Settings'}
+              {activeTab === 'graph' && 'Graph Settings'}
               {activeTab === 'patreon' && 'Patreon'}
             </h3>
             <div className="flex items-center gap-2">
@@ -199,7 +203,7 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
 
                 <div className="rounded-lg border border-border p-4">
                   <div className="mb-4 flex items-center justify-between">
-                    <label className="text-sm font-medium text-text-secondary">Overlay Width</label>
+                    <label className="text-sm font-medium text-text-secondary">Chat Width</label>
                     <span className="text-sm font-bold text-text-primary">{chatSettings.chatWidth}px</span>
                   </div>
                   <input
@@ -264,8 +268,11 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      placeholder="Auto"
-                      value={graphSettings.messageThreshold ?? ''}
+                      placeholder={isVodActive ? String(graphSettings.effectiveMessageThreshold ?? '') : 'Auto'}
+                      value={
+                        graphSettings.messageThreshold ??
+                        (isVodActive ? (graphSettings.effectiveMessageThreshold ?? '') : '')
+                      }
                       onChange={(e) => {
                         const v = e.target.value;
                         if (v === '') return graphSettings.setMessageThreshold(null);
@@ -276,6 +283,9 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                     />
                     <span className="shrink-0 text-sm text-text-secondary">msgs</span>
                   </div>
+                  <p className="mt-3 text-xs text-text-hint">
+                    Minimum messages per interval before the graph point is plotted.
+                  </p>
                 </div>
 
                 <div className="rounded-lg border border-border p-4">
@@ -285,8 +295,11 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      placeholder="1"
-                      value={graphSettings.searchThreshold ?? ''}
+                      placeholder={isVodActive ? String(graphSettings.effectiveSearchThreshold ?? '') : 'Auto'}
+                      value={
+                        graphSettings.searchThreshold ??
+                        (isVodActive ? (graphSettings.effectiveSearchThreshold ?? '') : '')
+                      }
                       onChange={(e) => {
                         const v = e.target.value;
                         if (v === '') return graphSettings.setSearchThreshold(null);
@@ -297,6 +310,9 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                     />
                     <span className="shrink-0 text-sm text-text-secondary">hits</span>
                   </div>
+                  <p className="mt-3 text-xs text-text-hint">
+                    Minimum search hits per interval before the graph point is plotted.
+                  </p>
                 </div>
               </div>
             )}
