@@ -92,7 +92,7 @@ function SkeletonGraph(): React.ReactNode {
 
 function formatEmoteTooltip(emotes: readonly TopEmote[] | undefined): string {
   if (!emotes || emotes.length === 0) return '';
-  return emotes.map((e) => `<div>${e.name}: ${e.count}</div>`).join('');
+  return emotes.map((e) => `<div style="overflow-wrap:break-word;word-break:break-all">${e.name}: ${e.count}</div>`).join('');
 }
 
 function buildEChartsOption(
