@@ -1,5 +1,5 @@
-import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { useQueryClient } from '@tanstack/react-query';
+import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, useUser } from '../auth';
@@ -52,12 +52,10 @@ function DeepLinkHandler() {
       if (parsed.type === 'oauth') {
         try {
           await login(parsed.value);
-          queryClient.invalidateQueries({ 
-            predicate: (q) => 
-              q.queryKey[0] === 'user' || 
-              q.queryKey[0] === 'whitelisted-channels' || 
-              q.queryKey[0] === 'search',
-            refetchType: 'all'
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              q.queryKey[0] === 'user' || q.queryKey[0] === 'whitelisted-channels' || q.queryKey[0] === 'search',
+            refetchType: 'all',
           });
           navigateRef.current('/', { replace: true });
         } catch (e) {

@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use tauri::async_runtime::spawn;
 use tauri::{AppHandle, Manager, State, WebviewWindow};
 
+mod logs;
 mod media;
 mod proxy;
 
@@ -107,6 +108,7 @@ pub fn run(debug: bool) {
             greet,
             set_complete,
             proxy::get_proxy_port,
+            logs::fetch_vod_logs,
             media::clipper::submit_clip,
             media::clipper::submit_download,
             media::clipper::cancel_job,

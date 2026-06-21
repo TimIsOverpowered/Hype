@@ -1,6 +1,6 @@
 import ReactECharts from 'echarts-for-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ZSTDDecoder } from 'zstddec';
+import { invoke } from '@tauri-apps/api/core';
 import { getChaptersWithFallback } from '../../api/twitch';
 import { getToken } from '../../auth';
 import { ECharts } from '../../constants/echarts';
@@ -316,16 +316,10 @@ const VodGraph = memo(function VodGraph({
 
   const fetchZstdLogs = useCallback(async (id: string): Promise<string[] | null> => {
     try {
-      const res = await fetch(`${HYPE_API_BASE}/vods/${id}/logs`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+      return await invoke<string[]>('fetch_vod_logs', {
+        vodId: id,
+        token: getToken(),
       });
-      if (!res.ok) return null;
-      const buffer = await res.arrayBuffer();
-      const decoder = new ZSTDDecoder();
-      await decoder.init();
-      const decompressed = await decoder.decode(new Uint8Array(buffer));
-      const text = new TextDecoder('utf-8').decode(decompressed);
-      return text.split('\n').filter((l) => l.length > 0);
     } catch {
       return null;
     }
