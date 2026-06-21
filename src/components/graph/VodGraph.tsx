@@ -626,9 +626,9 @@ const VodGraph = memo(function VodGraph({
         const clipDuration = (point as ClipDataPoint).clipDuration ?? 0;
         endTime = point.x + clipDuration;
       } else {
-        seekTime = point.x - intervalRef.current;
-        startTime = point.x - intervalRef.current;
-        endTime = point.x;
+        seekTime = point.x;
+        startTime = point.x;
+        endTime = point.x + intervalRef.current;
       }
 
       if (seekTime < 0) seekTime = 0;
