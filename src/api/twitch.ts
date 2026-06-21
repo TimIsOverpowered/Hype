@@ -305,13 +305,24 @@ export async function getChapter(vodId: string, lengthSeconds: number): Promise<
   const game = data.video?.game;
   if (!game) return null;
 
+  let boxArtURL = game.boxArtURL;
+  if (!boxArtURL) {
+    const standardUrl = `https://static-cdn.jtvnw.net/ttv-boxart/${game.id}-40x53.jpg`;
+    const standardCheck = await fetch(standardUrl);
+    if (standardCheck.redirected) {
+      boxArtURL = `https://static-cdn.jtvnw.net/ttv-boxart/${game.id}_IGDB-40x53.jpg`;
+    } else {
+      boxArtURL = standardUrl;
+    }
+  }
+
   return {
     cursor: null,
     node: {
       positionMilliseconds: 0,
       durationMilliseconds: lengthSeconds * 1000,
       details: {
-        game: { id: game.id, displayName: game.displayName, boxArtURL: game.boxArtURL },
+        game: { id: game.id, displayName: game.displayName, boxArtURL },
       },
     },
   };
