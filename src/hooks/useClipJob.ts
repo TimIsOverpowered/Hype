@@ -72,13 +72,7 @@ export function useClipJob(): UseClipJobResult {
 
       if (chatOptions?.includeChat) {
         const chatPath = `${outputPath.replace(/\.[^/.]+$/, '')}_chat.webm`;
-        await renderChatOverlay(
-          chatOptions.vodId,
-          chatOptions.broadcasterId,
-          startSeconds,
-          durationSeconds,
-          chatPath,
-        );
+        await renderChatOverlay(chatOptions.vodId, chatOptions.broadcasterId, startSeconds, durationSeconds, chatPath);
       }
     },
     [submitJob, renderChatOverlay],

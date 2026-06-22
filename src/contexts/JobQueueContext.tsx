@@ -1,9 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
-import { DEFAULT_RENDER_SETTINGS } from '../hooks/useChatRenderSettings';
-import { safeLocalStorage } from '../utils/safeLocalStorage';
 import { listen } from '@tauri-apps/api/event';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { DEFAULT_RENDER_SETTINGS } from '../hooks/useChatRenderSettings';
+import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export type JobType = 'clip' | 'download' | 'chat-render';
 export type JobStatus = 'running' | 'completed' | 'failed' | 'cancelled';

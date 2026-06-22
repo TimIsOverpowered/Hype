@@ -1,3 +1,11 @@
+import {
+  Clock,
+  Download,
+  Minus,
+  Plus,
+  Scissors,
+  Video
+} from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { hmsValid, toHHMMSS, toSeconds } from '../../utils/time';
@@ -33,6 +41,12 @@ export default function ClipBar({
 }: ClipBarProps) {
   const [includeChat, setIncludeChat] = useState(false);
 
+  // --- Calculations ---
+  const startSec = hmsValid(clipStart) ? toSeconds(clipStart) : 0;
+  const endSec = hmsValid(clipEnd) ? toSeconds(clipEnd) : 0;
+  const clipDuration = endSec > startSec ? endSec - startSec : 0;
+
+  // --- Core Handlers ---
   const handleClip = useCallback(() => {
     if (!hmsValid(clipStart)) {
       toast.error('Invalid start time', { description: 'Use HH:MM:SS format.' });
@@ -42,14 +56,12 @@ export default function ClipBar({
       toast.error('Invalid end time', { description: 'Use HH:MM:SS format.' });
       return;
     }
-    const startSec = toSeconds(clipStart);
-    const endSec = toSeconds(clipEnd);
     if (startSec >= endSec) {
       toast.error('Invalid range', { description: 'Start time must be before end time.' });
       return;
     }
     onClip(vodId, '', startSec, endSec - startSec, includeChat);
-  }, [clipStart, clipEnd, onClip, vodId, includeChat]);
+  }, [clipStart, clipEnd, onClip, vodId, includeChat, startSec, endSec]);
 
   const handleSetStart = useCallback(() => {
     onSetStart(toHHMMSS(Math.floor(currentTime)));
@@ -59,141 +71,156 @@ export default function ClipBar({
     onSetEnd(toHHMMSS(Math.floor(currentTime)));
   }, [currentTime, onSetEnd]);
 
+  // --- Nudge Handlers ---
+  const adjustTime = useCallback(
+    (field: 'start' | 'end', deltaSeconds: number) => {
+      if (field === 'start') {
+        if (!hmsValid(clipStart)) return;
+        const newStart = Math.max(0, toSeconds(clipStart) + deltaSeconds);
+        onSetStart(toHHMMSS(newStart));
+      } else {
+        if (!hmsValid(clipEnd)) return;
+        const newEnd = Math.max(0, toSeconds(clipEnd) + deltaSeconds);
+        onSetEnd(toHHMMSS(newEnd));
+      }
+    },
+    [clipStart, clipEnd, onSetStart, onSetEnd],
+  );
+
   return (
-    <div className="flex w-full flex-col gap-2 rounded-lg border border-border bg-surface p-3">
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Start */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-text-hint">Start</span>
+    <div className="flex w-full flex-wrap items-center gap-4 rounded-xl border border-border bg-surface p-3 shadow-sm">
+      
+      {/* 1. Start Time Controls */}
+      <div className="flex items-center gap-1.5">
+        <span className="mr-1 text-xs font-medium text-text-hint">Start</span>
+        <button
+          type="button"
+          onClick={() => adjustTime('start', -30)}
+          className="flex items-center rounded bg-surface-elevated px-1.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-white/10 hover:text-text-primary"
+          title="Subtract 30 seconds"
+        >
+          <Minus size={10} className="mr-0.5" /> 30s
+        </button>
+        
+        <div className="flex items-center gap-1 rounded-md border border-border bg-background p-1 focus-within:border-primary transition-colors">
           <input
             type="text"
             value={clipStart}
             onChange={(e) => onSetStart(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
-            className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs text-text-primary outline-none transition-colors focus:border-primary"
+            className="w-[72px] bg-transparent px-1.5 text-center text-xs font-mono text-text-primary outline-none"
+            placeholder="00:00:00"
           />
           <button
             type="button"
             onClick={handleSetStart}
-            className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
-            title="Set from current player time"
+            className="rounded p-1 text-text-hint transition-colors hover:bg-white/10 hover:text-text-primary"
+            title="Set to current player time"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Set from current</title>
-              <path d="M3 3v18h18" />
-              <path d="M18.7 8l-6.6 6-3.3-3" />
-            </svg>
+            <Clock size={14} />
           </button>
         </div>
 
-        {/* End */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-text-hint">End</span>
+        <button
+          type="button"
+          onClick={() => adjustTime('start', 30)}
+          className="flex items-center rounded bg-surface-elevated px-1.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-white/10 hover:text-text-primary"
+          title="Add 30 seconds"
+        >
+          <Plus size={10} className="mr-0.5" /> 30s
+        </button>
+      </div>
+
+      {/* 2. End Time Controls */}
+      <div className="flex items-center gap-1.5">
+        <span className="mr-1 ml-2 text-xs font-medium text-text-hint">End</span>
+        <button
+          type="button"
+          onClick={() => adjustTime('end', -30)}
+          className="flex items-center rounded bg-surface-elevated px-1.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-white/10 hover:text-text-primary"
+          title="Subtract 30 seconds"
+        >
+          <Minus size={10} className="mr-0.5" /> 30s
+        </button>
+
+        <div className="flex items-center gap-1 rounded-md border border-border bg-background p-1 focus-within:border-primary transition-colors">
           <input
             type="text"
             value={clipEnd}
             onChange={(e) => onSetEnd(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
-            className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs text-text-primary outline-none transition-colors focus:border-primary"
+            className="w-[72px] bg-transparent px-1.5 text-center text-xs font-mono text-text-primary outline-none"
+            placeholder="00:00:00"
           />
           <button
             type="button"
             onClick={handleSetEnd}
-            className="rounded-md bg-surface-elevated p-1.5 text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
-            title="Set from current player time"
+            className="rounded p-1 text-text-hint transition-colors hover:bg-white/10 hover:text-text-primary"
+            title="Set to current player time"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <title>Set from current</title>
-              <path d="M3 3v18h18" />
-              <path d="M18.7 8l-6.6 6-3.3-3" />
-            </svg>
+            <Clock size={14} />
           </button>
         </div>
 
-        <div className="h-6 w-px bg-border" />
-
-        {/* Clip button */}
         <button
           type="button"
-          onClick={handleClip}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => adjustTime('end', 30)}
+          className="flex items-center rounded bg-surface-elevated px-1.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-white/10 hover:text-text-primary"
+          title="Add 30 seconds"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <title>Clip selection</title>
-            <path d="M7 2v20" />
-            <path d="M17 2v20" />
-            <path d="M2 12h20" />
-            <path d="M2 7l5 5-5 5" />
-            <path d="M22 7l-5 5 5 5" />
-          </svg>
-          Clip
+          <Plus size={10} className="mr-0.5" /> 30s
         </button>
+      </div>
 
-        {/* Chat Toggle */}
-        <div className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-          <input
-            type="checkbox"
-            checked={includeChat}
-            onChange={(e) => setIncludeChat(e.target.checked)}
-            className="h-4 w-4 accent-primary"
-          />
-          Chat Render
-        </div>
+      <div className="hidden h-6 w-px bg-border xl:block" />
 
-        <div className="flex-1" />
+      {/* 3. Live Duration Pill */}
+      <div 
+        className={`flex items-center justify-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide transition-colors ${
+          clipDuration > 0 ? 'bg-primary/20 text-primary' : 'bg-white/5 text-text-hint'
+        }`}
+        title="Resulting Clip Duration"
+      >
+        {clipDuration > 0 ? `${toHHMMSS(clipDuration)}` : '--:--:--'}
+      </div>
 
-        {/* Download VOD button */}
+      {/* 4. Clip Button */}
+      <button
+        type="button"
+        onClick={handleClip}
+        disabled={clipDuration <= 0}
+        className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-md shadow-primary/20 transition-all hover:bg-primary-hover active:scale-95 disabled:pointer-events-none disabled:opacity-40 disabled:shadow-none"
+      >
+        <Scissors size={16} />
+        Clip
+      </button>
+
+      {/* 5. Chat Renderer Toggle */}
+      <label className="group relative inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary">
+        <input
+          type="checkbox"
+          checked={includeChat}
+          onChange={(e) => setIncludeChat(e.target.checked)}
+          className="peer sr-only"
+        />
+        <div className="h-4 w-7 rounded-full bg-border transition-colors after:absolute after:top-[2px] after:left-[2px] after:h-3 after:w-3 after:rounded-full after:bg-text-secondary after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-3 peer-checked:after:bg-text-primary" />
+        <span className="flex items-center gap-1.5">
+          <Video size={14} className={includeChat ? 'text-primary' : ''} />
+          Chat Renderer
+        </span>
+      </label>
+
+      <div className="flex-1" />
+
+      {/* 6. Download Full VOD */}
+      <div className="border-l border-border pl-4">
         <button
           type="button"
           onClick={onDownload}
-          className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary ml-auto"
+          className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 text-xs font-medium text-text-secondary transition-all hover:bg-white/10 hover:text-text-primary"
+          title="Download the entire VOD"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <title>Download VOD</title>
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
+          <Download size={14} />
           Download VOD
         </button>
       </div>
