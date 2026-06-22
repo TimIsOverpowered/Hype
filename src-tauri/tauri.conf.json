@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "hype",
+  "productName": "Hype",
   "version": "2.0.0",
   "identifier": "com.overpowered.hype",
   "build": {
