@@ -19,17 +19,26 @@ import ConnectionsPanel from './ConnectionsPanel';
 import PatreonPanel from './PatreonPanel';
 import ProfilePanel from './ProfilePanel';
 
-const FONT_OPTIONS = [
-  { label: 'System Sans', value: 'ui-sans-serif, system-ui, -apple-system, sans-serif' },
-  { label: 'Inter', value: 'Inter, ui-sans-serif, system-ui, -apple-system, sans-serif' },
-  { label: 'Roboto', value: 'Roboto, ui-sans-serif, system-ui, -apple-system, sans-serif' },
-  { label: 'SF Pro', value: 'SF Pro Display, -apple-system, BlinkMacSystemFont, sans-serif' },
-  { label: 'Source Sans 3', value: 'Source Sans 3, ui-sans-serif, system-ui, -apple-system, sans-serif' },
-  { label: 'JetBrains Mono', value: 'JetBrains Mono, ui-monospace, Caskaydia Cove, monospace' },
-  { label: 'SF Mono', value: 'SF Mono, ui-monospace, Cascadia Code, monospace' },
-  { label: 'IBM Plex Mono', value: 'IBM Plex Mono, ui-monospace, monospace' },
-  { label: 'Georgia (Serif)', value: 'Georgia, ui-serif, serif' },
-  { label: 'System Serif', value: 'ui-serif, Georgia, Cambria, serif' },
+const COMMON_FONTS = [
+  'Inter',
+  'Roboto',
+  'Open Sans',
+  'Segoe UI',
+  'San Francisco',
+  'Helvetica',
+  'Arial',
+  'Verdana',
+  'Tahoma',
+  'Trebuchet MS',
+  'Times New Roman',
+  'Georgia',
+  'Garamond',
+  'Courier New',
+  'JetBrains Mono',
+  'Fira Code',
+  'Consolas',
+  'Courier',
+  'Comic Sans MS',
 ];
 
 export type SettingsTabKey = 'account' | 'chat' | 'chat-render' | 'graph' | 'patreon';
@@ -201,17 +210,14 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                       <RotateCcw size={12} />
                     </button>
                   </div>
-                  <select
+                  <input
+                    type="text"
+                    list="font-list"
                     value={chatSettings.fontFamily}
                     onChange={(e) => chatSettings.setFontFamily(e.target.value)}
+                    placeholder="Type a font name..."
                     className="mt-2 w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
-                  >
-                    {FONT_OPTIONS.map((font) => (
-                      <option key={font.value} value={font.value}>
-                        {font.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div className="flex flex-col rounded-lg border border-border p-4">
@@ -470,6 +476,13 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
           onCancel={() => setShowDisconnectConfirm(false)}
         />
       )}
+
+      {/* Shared Datalist for Font Autocomplete */}
+      <datalist id="font-list">
+        {COMMON_FONTS.map((font) => (
+          <option key={font} value={font} />
+        ))}
+      </datalist>
     </div>
   );
 }
@@ -522,11 +535,16 @@ function RenderSettingsTabContent({
     handleChange(key, DEFAULT_RENDER_SETTINGS[key]);
   };
 
-  const ResetButton = ({ onClick }: { readonly onClick: () => void }) => (
+  const ResetButton = ({ onClick, disabled }: { readonly onClick: () => void; readonly disabled: boolean }) => (
     <button
       type="button"
       onClick={onClick}
-      className="ml-auto shrink-0 rounded p-1 text-text-hint transition-colors hover:bg-white/5 hover:text-text-secondary"
+      disabled={disabled}
+      className={`ml-auto shrink-0 rounded p-1 transition-colors ${
+        disabled
+          ? 'cursor-not-allowed text-text-hint opacity-30'
+          : 'text-text-hint hover:bg-white/5 hover:text-text-secondary'
+      }`}
       title="Reset to default"
     >
       <RotateCcw size={12} />
@@ -538,9 +556,9 @@ function RenderSettingsTabContent({
       {/* Dimensions & Framerate */}
       <div className="grid grid-cols-3 gap-4">
         <div className="flex flex-col rounded-lg border border-border p-4">
-          <div className="flex items-center gap-1">
-            <label className="text-sm font-medium text-text-secondary">Width (px)</label>
-            <ResetButton onClick={() => handleReset('width')} />
+          <div className="flex items-center gap-1 mb-2">
+            <label className="text-sm font-medium whitespace-nowrap text-text-secondary">Width (px)</label>
+            <ResetButton onClick={() => handleReset('width')} disabled={form.width === DEFAULT_RENDER_SETTINGS.width} />
           </div>
           <input
             type="text"
@@ -551,13 +569,16 @@ function RenderSettingsTabContent({
               const val = e.target.value.replace(/[^0-9]/g, '');
               handleChange('width', val ? Number(val) : 0);
             }}
-            className="mt-2 w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+            className="mt-auto w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
           />
         </div>
         <div className="flex flex-col rounded-lg border border-border p-4">
-          <div className="flex items-center gap-1">
-            <label className="text-sm font-medium text-text-secondary">Height (px)</label>
-            <ResetButton onClick={() => handleReset('height')} />
+          <div className="flex items-center gap-1 mb-2">
+            <label className="text-sm font-medium whitespace-nowrap text-text-secondary">Height (px)</label>
+            <ResetButton
+              onClick={() => handleReset('height')}
+              disabled={form.height === DEFAULT_RENDER_SETTINGS.height}
+            />
           </div>
           <input
             type="text"
@@ -568,13 +589,13 @@ function RenderSettingsTabContent({
               const val = e.target.value.replace(/[^0-9]/g, '');
               handleChange('height', val ? Number(val) : 0);
             }}
-            className="mt-2 w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+            className="mt-auto w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
           />
         </div>
         <div className="flex flex-col rounded-lg border border-border p-4">
-          <div className="flex items-center gap-1">
-            <label className="text-sm font-medium text-text-secondary">Framerate (FPS)</label>
-            <ResetButton onClick={() => handleReset('fps')} />
+          <div className="flex items-center gap-1 mb-2">
+            <label className="text-sm font-medium whitespace-nowrap text-text-secondary">Framerate (FPS)</label>
+            <ResetButton onClick={() => handleReset('fps')} disabled={form.fps === DEFAULT_RENDER_SETTINGS.fps} />
           </div>
           <input
             type="text"
@@ -585,17 +606,38 @@ function RenderSettingsTabContent({
               const val = e.target.value.replace(/[^0-9]/g, '');
               handleChange('fps', val ? Number(val) : 0);
             }}
-            className="mt-2 w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
+            className="mt-auto w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
           />
         </div>
       </div>
 
-      {/* Typography & Background ROW */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Typography & Background - Spaced out into a 2x2 grid */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col rounded-lg border border-border p-4">
-          <div className="flex items-center gap-1">
-            <label className="text-sm font-medium text-text-secondary">Font Size (px)</label>
-            <ResetButton onClick={() => handleReset('fontSize')} />
+          <div className="flex items-center gap-1 mb-2">
+            <label className="text-sm font-medium whitespace-nowrap text-text-secondary">Font Family</label>
+            <ResetButton
+              onClick={() => handleReset('fontFamily')}
+              disabled={form.fontFamily === DEFAULT_RENDER_SETTINGS.fontFamily}
+            />
+          </div>
+          <input
+            type="text"
+            list="font-list"
+            value={form.fontFamily || ''}
+            onChange={(e) => handleChange('fontFamily', e.target.value)}
+            placeholder="Inter"
+            className="mt-auto h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-text-primary outline-none transition-colors focus:border-primary [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+          />
+        </div>
+
+        <div className="flex flex-col rounded-lg border border-border p-4">
+          <div className="flex items-center gap-1 mb-2">
+            <label className="text-sm font-medium whitespace-nowrap text-text-secondary">Font Size (px)</label>
+            <ResetButton
+              onClick={() => handleReset('fontSize')}
+              disabled={form.fontSize === DEFAULT_RENDER_SETTINGS.fontSize}
+            />
           </div>
           <input
             type="text"
@@ -606,16 +648,19 @@ function RenderSettingsTabContent({
               const val = e.target.value.replace(/[^0-9]/g, '');
               handleChange('fontSize', val ? Number(val) : 0);
             }}
-            className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
+            className="mt-auto h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-text-primary outline-none transition-colors focus:border-primary"
           />
         </div>
 
         <div className="flex flex-col rounded-lg border border-border p-4">
-          <div className="flex items-center gap-1">
-            <label className="text-sm font-medium text-text-secondary">Font Color</label>
-            <ResetButton onClick={() => handleReset('fontColor')} />
+          <div className="flex items-center gap-1 mb-2">
+            <label className="text-sm font-medium whitespace-nowrap text-text-secondary">Font Color</label>
+            <ResetButton
+              onClick={() => handleReset('fontColor')}
+              disabled={form.fontColor === DEFAULT_RENDER_SETTINGS.fontColor}
+            />
           </div>
-          <div className="flex h-10 w-full items-center rounded-md border border-border bg-background px-2 transition-colors focus-within:border-primary mt-2">
+          <div className="flex h-10 w-full items-center rounded-md border border-border bg-background px-2 transition-colors focus-within:border-primary">
             <input
               type="color"
               value={form.fontColor}
@@ -633,14 +678,17 @@ function RenderSettingsTabContent({
         </div>
 
         <div className="flex flex-col rounded-lg border border-border p-4">
-          <div className="flex items-center gap-1">
-            <label className="text-sm font-medium text-text-secondary">Background</label>
-            <ResetButton onClick={() => handleReset('backgroundColor')} />
+          <div className="flex items-center gap-1 mb-2">
+            <label className="text-sm font-medium whitespace-nowrap text-text-secondary">Background Color</label>
+            <ResetButton
+              onClick={() => handleReset('backgroundColor')}
+              disabled={form.backgroundColor === DEFAULT_RENDER_SETTINGS.backgroundColor}
+            />
           </div>
           <div
             className={`flex h-10 w-full items-center rounded-md border border-border bg-background px-2 transition-all ${
               form.transparentBackground ? 'pointer-events-none opacity-25 grayscale' : 'focus-within:border-primary'
-            } mt-2`}
+            }`}
           >
             <input
               type="color"
@@ -658,15 +706,21 @@ function RenderSettingsTabContent({
               className="ml-2 w-full bg-transparent text-sm font-medium uppercase text-text-primary outline-none disabled:cursor-not-allowed"
             />
           </div>
-          <div className="flex items-center gap-3 text-sm text-text-primary mt-3">
-            <input
-              type="checkbox"
-              checked={form.transparentBackground}
-              onChange={(e) => handleChange('transparentBackground', e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-primary"
+          <div className="mt-3 flex items-center justify-between">
+            <label className="relative inline-flex cursor-pointer items-center gap-2 text-xs text-text-secondary transition-colors hover:text-text-primary">
+              <input
+                type="checkbox"
+                checked={form.transparentBackground}
+                onChange={(e) => handleChange('transparentBackground', e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="h-4 w-7 rounded-full bg-border transition-colors after:absolute after:top-[2px] after:left-[2px] after:h-3 after:w-3 after:rounded-full after:bg-text-secondary after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-3 peer-checked:after:bg-text-primary" />
+              <span>Transparent</span>
+            </label>
+            <ResetButton
+              onClick={() => handleReset('transparentBackground')}
+              disabled={form.transparentBackground === DEFAULT_RENDER_SETTINGS.transparentBackground}
             />
-            Transparent
-            <ResetButton onClick={() => handleReset('transparentBackground')} />
           </div>
         </div>
       </div>
@@ -683,7 +737,10 @@ function RenderSettingsTabContent({
               className="h-4 w-4 cursor-pointer accent-primary"
             />
             Chat Badges
-            <ResetButton onClick={() => handleReset('showBadges')} />
+            <ResetButton
+              onClick={() => handleReset('showBadges')}
+              disabled={form.showBadges === DEFAULT_RENDER_SETTINGS.showBadges}
+            />
           </div>
           <div className="flex items-center gap-3 text-sm text-text-primary">
             <input
@@ -693,7 +750,10 @@ function RenderSettingsTabContent({
               className="h-4 w-4 cursor-pointer accent-primary"
             />
             7TV Emotes
-            <ResetButton onClick={() => handleReset('enable7tv')} />
+            <ResetButton
+              onClick={() => handleReset('enable7tv')}
+              disabled={form.enable7tv === DEFAULT_RENDER_SETTINGS.enable7tv}
+            />
           </div>
           <div className="flex items-center gap-3 text-sm text-text-primary">
             <input
@@ -703,7 +763,10 @@ function RenderSettingsTabContent({
               className="h-4 w-4 cursor-pointer accent-primary"
             />
             BTTV Emotes
-            <ResetButton onClick={() => handleReset('enableBttv')} />
+            <ResetButton
+              onClick={() => handleReset('enableBttv')}
+              disabled={form.enableBttv === DEFAULT_RENDER_SETTINGS.enableBttv}
+            />
           </div>
           <div className="flex items-center gap-3 text-sm text-text-primary">
             <input
@@ -713,7 +776,10 @@ function RenderSettingsTabContent({
               className="h-4 w-4 cursor-pointer accent-primary"
             />
             FFZ Emotes
-            <ResetButton onClick={() => handleReset('enableFfz')} />
+            <ResetButton
+              onClick={() => handleReset('enableFfz')}
+              disabled={form.enableFfz === DEFAULT_RENDER_SETTINGS.enableFfz}
+            />
           </div>
         </div>
 
@@ -722,7 +788,10 @@ function RenderSettingsTabContent({
           <div className="flex flex-col gap-1.5">
             <label className="flex items-center gap-1 text-xs text-text-hint">
               Ignored Users
-              <ResetButton onClick={() => handleReset('ignoredUsers')} />
+              <ResetButton
+                onClick={() => handleReset('ignoredUsers')}
+                disabled={form.ignoredUsers === DEFAULT_RENDER_SETTINGS.ignoredUsers}
+              />
             </label>
             <input
               type="text"
@@ -734,7 +803,10 @@ function RenderSettingsTabContent({
           <div className="flex flex-col gap-1.5 mt-2">
             <label className="flex items-center gap-1 text-xs text-text-hint">
               Banned Words
-              <ResetButton onClick={() => handleReset('bannedWords')} />
+              <ResetButton
+                onClick={() => handleReset('bannedWords')}
+                disabled={form.bannedWords === DEFAULT_RENDER_SETTINGS.bannedWords}
+              />
             </label>
             <input
               type="text"

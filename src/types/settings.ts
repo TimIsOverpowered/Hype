@@ -17,6 +17,7 @@ export interface ChatRenderSettings {
   fps: number;
   transparentBackground: boolean;
   backgroundColor: string;
+  fontFamily: string;
   fontColor: string;
   fontSize: number;
   showBadges: boolean;

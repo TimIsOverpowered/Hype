@@ -10,6 +10,7 @@ export const DEFAULT_RENDER_SETTINGS: ChatRenderSettings = {
   fps: 60,
   transparentBackground: true,
   backgroundColor: '#000000',
+  fontFamily: 'Inter, sans-serif',
   fontColor: '#ffffff',
   fontSize: 24,
   showBadges: true,
