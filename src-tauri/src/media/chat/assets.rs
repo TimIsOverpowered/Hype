@@ -21,6 +21,7 @@ const SEVENTV_CDN: &str = "https://cdn.7tv.app/emote";
 const BTTV_CDN: &str = "https://cdn.betterttv.net/emote";
 const FFZ_CDN: &str = "https://cdn.frankerfacez.com/emote";
 const TWITCH_EMOTES_CDN: &str = "https://static-cdn.jtvnw.net/emoticons/v2";
+const TWEMOJI_CDN: &str = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72";
 
 lazy_static! {
     static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::builder()
@@ -72,6 +73,20 @@ impl SkiaAnimatedImage {
         }
         self.frames.last().unwrap()
     }
+}
+
+// ─── Twemoji Helper ────────────────────────────────────────────────────────
+
+pub fn to_twemoji_id(emoji: &str) -> String {
+    let mut hex_points = Vec::new();
+    for c in emoji.chars() {
+        let p = c as u32;
+        if p == 0xFE0F {
+            continue;
+        }
+        hex_points.push(format!("{:x}", p));
+    }
+    hex_points.join("-")
 }
 
 // ─── Asset manager ─────────────────────────────────────────────────────────
@@ -442,6 +457,7 @@ async fn run_preload(
     // Only extract the emotes that actually appear in this clip's messages
     let mut custom_emotes_to_fetch = HashMap::new();
     let mut twitch_emote_ids = HashSet::new();
+    let mut twemoji_ids = HashSet::new();
 
     for msg in messages {
         for frag in &msg.fragments {
@@ -460,6 +476,12 @@ async fn run_preload(
                 }
                 crate::media::chat::models::FormattedFragment::Twitch { emote_id, .. } => {
                     twitch_emote_ids.insert(emote_id.clone());
+                }
+                crate::media::chat::models::FormattedFragment::Emoji { text } => {
+                    let twemoji_id = to_twemoji_id(text);
+                    if !twemoji_id.is_empty() {
+                        twemoji_ids.insert(twemoji_id);
+                    }
                 }
                 _ => {}
             }
@@ -483,6 +505,12 @@ async fn run_preload(
     for emote_id in twitch_emote_ids {
         let key = format!("twitch:{}", emote_id);
         let url = RenderAssetManager::build_twitch_emote_url(&emote_id);
+        emote_tasks.push((key, url, false));
+    }
+
+    for id in twemoji_ids {
+        let key = format!("twemoji:{}", id);
+        let url = format!("{}/{}.png", TWEMOJI_CDN, id);
         emote_tasks.push((key, url, false));
     }
 

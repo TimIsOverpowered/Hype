@@ -234,12 +234,53 @@ fn is_url(word: &str) -> bool {
 }
 
 lazy_static! {
-    static ref EMOJI_RE: Regex =
-        Regex::new(r"[\p{Emoji_Presentation}\p{Extended_Pictographic}]").unwrap();
+    // Highly specific Regex that extracts individual emojis while preserving valid Zero-Width Joiner (ZWJ) sequences
+    static ref EMOJI_RE: Regex = Regex::new(r"(?x)
+        (?:
+            [\p{Emoji_Presentation}\p{Extended_Pictographic}]
+            [\x{1F3FB}-\x{1F3FF}]?
+            \x{FE0F}?
+        )
+        (?:
+            \x{200D}
+            (?:
+                [\p{Emoji_Presentation}\p{Extended_Pictographic}\x{2640}\x{2642}]
+                [\x{1F3FB}-\x{1F3FF}]?
+                \x{FE0F}?
+            )
+        )*
+    ").unwrap();
 }
 
-fn is_emoji(word: &str) -> bool {
-    EMOJI_RE.is_match(word)
+// Intercepts a word block (like "LUL😂😂") and cleanly separates the text from the emojis
+fn split_emojis_and_text(text: &str) -> Vec<FormattedFragment> {
+    let mut result = Vec::new();
+    let mut last_end = 0;
+
+    for mat in EMOJI_RE.find_iter(text) {
+        let start = mat.start();
+        let end = mat.end();
+
+        if start > last_end {
+            result.push(FormattedFragment::Text {
+                text: text[last_end..start].to_string(),
+            });
+        }
+
+        result.push(FormattedFragment::Emoji {
+            text: mat.as_str().to_string(),
+        });
+
+        last_end = end;
+    }
+
+    if last_end < text.len() {
+        result.push(FormattedFragment::Text {
+            text: text[last_end..].to_string(),
+        });
+    }
+
+    result
 }
 
 fn parse_fragments(
@@ -275,10 +316,6 @@ fn parse_fragments(
                 result.push(FormattedFragment::Url {
                     text: word.to_string(),
                 });
-            } else if is_emoji(word) {
-                result.push(FormattedFragment::Emoji {
-                    text: word.to_string(),
-                });
             } else if let Some(dict) = emote_dict {
                 if let Some(cached_emote) = dict.get(*word) {
                     result.push(FormattedFragment::Custom {
@@ -299,9 +336,10 @@ fn parse_fragments(
                 }
             }
 
-            result.push(FormattedFragment::Text {
-                text: word.to_string(),
-            });
+            // Not a URL and not a Custom Emote -> Send through the Emoji extractor
+            let parts = split_emojis_and_text(word);
+            result.extend(parts);
+
             if i < words.len() - 1 {
                 result.push(FormattedFragment::Text {
                     text: " ".to_string(),

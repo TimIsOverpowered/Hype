@@ -2,12 +2,12 @@ use std::collections::VecDeque;
 use std::io::Write;
 
 use skia_safe::{
-    canvas::SrcRectConstraint,
+    canvas::{SaveLayerRec, SrcRectConstraint},
     textlayout::{
         FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, PlaceholderAlignment,
         PlaceholderStyle, TextBaseline, TextStyle,
     },
-    Canvas, Color, FontMgr, FontStyle, Paint, Point, Rect,
+    BlendMode, Canvas, Color, FontMgr, FontStyle, Paint, Point, Rect,
 };
 use tauri::AppHandle;
 use tauri::Emitter;
@@ -17,7 +17,7 @@ use crate::media::chat::models::{ChatRenderConfig, FormattedFragment, FormattedM
 
 const MESSAGE_PADDING_X: f32 = 8.0;
 const MESSAGE_PADDING_Y: f32 = 3.0;
-const MESSAGE_GAP: f32 = 4.0;
+const MESSAGE_GAP: f32 = 16.0;
 
 #[derive(Clone, serde::Serialize)]
 pub struct RenderProgressPayload {
@@ -121,7 +121,7 @@ fn build_paragraph_for_message(
     let mut placeholders = Vec::new();
 
     let mut font_list: Vec<&str> = config.font_family.split(',').map(|s| s.trim()).collect();
-    font_list.extend(["Arial", "Segoe UI", "Helvetica", "San Francisco", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji"]);
+    font_list.extend(["Arial", "Segoe UI", "Helvetica", "San Francisco"]);
 
     if config.show_badges {
         if let Some(badges) = &msg.badges {
@@ -208,7 +208,25 @@ fn build_paragraph_for_message(
                     builder.add_text(text);
                 }
             }
-            FormattedFragment::Emoji { text } => { builder.add_text(text); }
+            FormattedFragment::Emoji { text } => {
+                let id = crate::media::chat::assets::to_twemoji_id(text);
+                let key = format!("twemoji:{}", id);
+
+                if let Some(_emote_img) = asset_manager.get_emote(&key) {
+                    let placeholder_size = config.font_size * 1.3;
+                    let ph_style = PlaceholderStyle::new(
+                        placeholder_size,
+                        placeholder_size,
+                        PlaceholderAlignment::Middle,
+                        TextBaseline::Alphabetic,
+                        0.0,
+                    );
+                    builder.add_placeholder(&ph_style);
+                    placeholders.push(PlaceholderData::Emote(key));
+                } else {
+                    builder.add_text(text);
+                }
+            }
             FormattedFragment::Url { text } => {
                 let mut url_style = TextStyle::new();
                 url_style.set_color(if force_white_mask { Color::WHITE } else { Color::from_rgb(0x58, 0xA6, 0xFF) });
@@ -234,12 +252,10 @@ fn render_frame(
     asset_manager: &RenderAssetManager,
     elapsed_ms: u32,
     height: f32,
-    _force_white_mask: bool,
+    force_white_mask: bool,
 ) {
     let mut paint = Paint::default();
     paint.set_anti_alias(true);
-
-
 
     let mut draw_y = height - 20.0;
 
@@ -262,7 +278,19 @@ fn render_frame(
                 PlaceholderData::Badge(key) => {
                     if let Some(badge_img) = asset_manager.get_badge(key) {
                         let src_rect = Rect::from_xywh(0.0, 0.0, badge_img.width() as f32, badge_img.height() as f32);
-                        canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &paint);
+                        
+                        if force_white_mask {
+                            let rec = SaveLayerRec::default().bounds(&dst_rect);
+                            canvas.save_layer(&rec);
+                            canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &Paint::default());
+                            let mut tint = Paint::default();
+                            tint.set_color(Color::WHITE);
+                            tint.set_blend_mode(BlendMode::SrcIn);
+                            canvas.draw_rect(&dst_rect, &tint);
+                            canvas.restore();
+                        } else {
+                            canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &paint);
+                        }
                     }
                 }
                 PlaceholderData::Emote(key) => {
@@ -275,7 +303,19 @@ fn render_frame(
                         } else {
                             dst_rect
                         };
-                        canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &paint);
+                        
+                        if force_white_mask {
+                            let rec = SaveLayerRec::default().bounds(&final_dst);
+                            canvas.save_layer(&rec);
+                            canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &Paint::default());
+                            let mut tint = Paint::default();
+                            tint.set_color(Color::WHITE);
+                            tint.set_blend_mode(BlendMode::SrcIn);
+                            canvas.draw_rect(&final_dst, &tint);
+                            canvas.restore();
+                        } else {
+                            canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &paint);
+                        }
                     }
                 }
             }
