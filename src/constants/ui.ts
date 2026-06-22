@@ -32,7 +32,7 @@ export const DEFAULT_CHAT_WIDTH_MAX = 800;
 export const DEFAULT_CHAT_WIDTH = 340;
 
 // Chat UI
-export const DEFAULT_CHAT_FONT_FAMILY = 'Inter';
+export const DEFAULT_CHAT_FONT_FAMILY = 'Roboto';
 export const DEFAULT_CHAT_FONT_SIZE = 14;
 export const CHAT_SKELETON_COUNT = 24;
 export const CHAT_MAX_MESSAGES = 1500;

@@ -10,7 +10,7 @@ export const DEFAULT_RENDER_SETTINGS: ChatRenderSettings = {
   fps: 60,
   generateMask: false,
   backgroundColor: '#000000',
-  fontFamily: 'Inter',
+  fontFamily: 'Roboto',
   fontColor: '#ffffff',
   fontSize: 24,
   showBadges: true,

@@ -917,7 +917,7 @@ export default function ChatReplay({
 
   const chatWidth = chatWidthProp ?? chatSettings?.chatWidth;
   const showTimestamp = chatSettings?.showTimestamp ?? false;
-  const fontFamily = chatSettings?.fontFamily ?? 'Inter, sans-serif';
+  const fontFamily = chatSettings?.fontFamily ?? 'Roboto, sans-serif';
   const messageFontSize = chatSettings?.messageFontSize ?? 14;
 
   const [badgeState, setBadgeState] = useState<BadgeRef | null>(null);
