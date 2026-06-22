@@ -9,6 +9,7 @@ import { DEFAULT_RETRY_COUNT, STALE_TIME_5MIN } from './constants/auth';
 import { JobQueueProvider } from './contexts/JobQueueContext';
 import ChannelPage from './pages/ChannelPage';
 import HomePage from './pages/HomePage';
+import LandingPage from './pages/LandingPage';
 import VODPage from './pages/VODPage';
 
 const queryClient = new QueryClient({
@@ -29,8 +30,9 @@ function App() {
           <DeepLinkHandler />
           <Routes>
             <Route element={<AppLayout />}>
-              <Route index element={<HomePage />} />
-              <Route path="home" element={<HomePage />} />
+              <Route index element={<LandingPage />} />
+              <Route path="home" element={<LandingPage />} />
+              <Route path="browse" element={<HomePage />} />
               <Route path="channel/:channel" element={<ChannelPage />} />
               <Route path="vod/:vodId" element={<VODPage />} />
             </Route>

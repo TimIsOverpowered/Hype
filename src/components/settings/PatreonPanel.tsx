@@ -5,10 +5,7 @@ import { useState } from 'react';
 import { API_BASE, getToken, useUser } from '../../auth';
 import { PATREON_OAUTH_URL } from '../../constants/auth';
 
-const PERKS = [
-  'Exclusive Patreon-only perks based on your tier',
-  'Fund new features and ongoing development',
-];
+const PERKS = ['Exclusive Patreon-only perks based on your tier', 'Fund new features and ongoing development'];
 
 export default function PatreonPanel() {
   const queryClient = useQueryClient();

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { type Update, check } from '@tauri-apps/plugin-updater';
+import { check, type Update } from '@tauri-apps/plugin-updater';
 import { Activity, ChevronDown, Info, MessageSquare, RotateCcw, Settings, User, Video, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -939,9 +939,7 @@ function AboutPanel() {
       <div className="flex w-full flex-col items-center gap-3 rounded-xl border border-border bg-surface p-6 text-center shadow-sm">
         {updateStatus === 'idle' || updateStatus === 'up-to-date' ? (
           <>
-            {updateStatus === 'up-to-date' && (
-              <p className="text-sm text-text-secondary">Hype is up to date.</p>
-            )}
+            {updateStatus === 'up-to-date' && <p className="text-sm text-text-secondary">Hype is up to date.</p>}
             <button
               type="button"
               onClick={checkForUpdate}
@@ -962,9 +960,7 @@ function AboutPanel() {
           </div>
         ) : updateStatus === 'available' ? (
           <>
-            <p className="text-sm font-medium text-text-primary">
-              New update available: v{updateInstance?.version}
-            </p>
+            <p className="text-sm font-medium text-text-primary">New update available: v{updateInstance?.version}</p>
             <button
               type="button"
               onClick={installUpdate}

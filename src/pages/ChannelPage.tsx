@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getNextVods, getVods } from '../api/twitch';
 import { getToken } from '../auth';
 import { INTERSECTION_OBSERVER_MARGIN } from '../constants/ui';
+import { useRecentChannels } from '../hooks/useRecentChannels';
 import type { VodEdge, VodPage } from '../types/twitch';
 import { toHHMMSS } from '../utils/time';
 
@@ -72,6 +73,7 @@ export default function ChannelPage() {
   const { channel } = useParams() as { channel: string };
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const { addRecentChannel } = useRecentChannels();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useInfiniteQuery<
     VodPage,
@@ -108,6 +110,16 @@ export default function ChannelPage() {
   const vods =
     data?.pages.flatMap((p: VodPage) => p.edges.filter((v: VodEdge) => v.node.broadcastType === 'ARCHIVE')) ?? [];
   const twitchUser = data?.pages[0]?.user;
+
+  useEffect(() => {
+    if (twitchUser?.login) {
+      addRecentChannel({
+        channel: twitchUser.login,
+        displayName: twitchUser.displayName,
+        profileImageURL: twitchUser.profileImageURL ?? null,
+      });
+    }
+  }, [twitchUser, addRecentChannel]);
 
   if (!getToken()) {
     return (
