@@ -56,7 +56,6 @@ fn hex_color_to_skia(color_hex: &str) -> Color {
 enum PlaceholderData {
     Badge(String),
     Emote(String),
-    Spacer,
 }
 
 struct MessageLayout {
@@ -75,13 +74,17 @@ fn build_paragraph_for_message(
     let mut builder = ParagraphBuilder::new(&ParagraphStyle::new(), fc.clone());
     let mut placeholders = Vec::new();
 
+    // Force strict OS font fallbacks to prevent 0-width Skia engine collapse
     let mut font_list: Vec<&str> = config.font_family.split(',').map(|s| s.trim()).collect();
-    if !font_list.contains(&"sans-serif") {
-        font_list.push("sans-serif");
-    }
-    if !font_list.contains(&"emoji") {
-        font_list.push("emoji");
-    }
+    font_list.extend([
+        "Arial", 
+        "Segoe UI", 
+        "Helvetica", 
+        "San Francisco", 
+        "Segoe UI Emoji", 
+        "Apple Color Emoji", 
+        "Noto Color Emoji"
+    ]);
 
     if config.show_badges {
         if let Some(badges) = &msg.badges {
@@ -99,15 +102,13 @@ fn build_paragraph_for_message(
                     builder.add_placeholder(&ph_style);
                     placeholders.push(PlaceholderData::Badge(key));
 
-                    let gap_style = PlaceholderStyle::new(
-                        config.font_size * 0.3,
-                        0.0,
-                        PlaceholderAlignment::Baseline,
-                        TextBaseline::Alphabetic,
-                        0.0,
-                    );
-                    builder.add_placeholder(&gap_style);
-                    placeholders.push(PlaceholderData::Spacer);
+                    // Use physical text spaces instead of 0-height custom placeholders
+                    let mut spacer_style = TextStyle::new();
+                    spacer_style.set_font_size(config.font_size * 0.3);
+                    spacer_style.set_font_families(&font_list);
+                    builder.push_style(&spacer_style);
+                    builder.add_text(" ");
+                    builder.pop();
                 }
             }
         }
@@ -231,7 +232,6 @@ fn render_frame(
     active_messages: &VecDeque<MessageLayout>,
     asset_manager: &RenderAssetManager,
     elapsed_ms: u32,
-    _current_time_sec: f64,
     height: f32,
 ) {
     let mut paint = Paint::default();
@@ -239,12 +239,11 @@ fn render_frame(
 
     let mut draw_y = height - 20.0;
 
-    // Iterate BACKWARDS (newest messages first) so they stack upward
     for msg in active_messages.iter().rev() {
         draw_y -= msg.total_height;
 
         if draw_y < -100.0 {
-            break; // Stop drawing once we go off the top of the screen
+            break; 
         }
 
         msg.para.paint(
@@ -305,7 +304,6 @@ fn render_frame(
                         );
                     }
                 }
-                PlaceholderData::Spacer => {}
             }
         }
     }
@@ -330,39 +328,30 @@ pub fn render_chat_video(
         .ok_or("Failed to create Skia surface")?;
 
     let ffmpeg_path = ffmpeg_sidecar::paths::ffmpeg_path();
+    let enc_args = vec![
+        "-y".to_string(),
+        "-f".to_string(), "rawvideo".to_string(),
+        "-pixel_format".to_string(), "rgba".to_string(), // Explicitly force RGBA byte streams
+        "-video_size".to_string(), format!("{}x{}", config.width, config.height),
+        "-framerate".to_string(), config.fps.to_string(),
+        "-thread_queue_size".to_string(), "1024".to_string(),
+        "-i".to_string(), "-".to_string(),
+        
+        "-c:v".to_string(), "libvpx-vp9".to_string(),
+        "-pix_fmt".to_string(), "yuva420p".to_string(),
+        "-auto-alt-ref".to_string(), "0".to_string(), // Keep alpha stable across keyframes
+        "-metadata:s:v:0".to_string(), "alpha_mode=1".to_string(), // Required WebM transparency flag
+        "-crf".to_string(), "18".to_string(),
+        "-b:v".to_string(), "0".to_string(),
+        "-cpu-used".to_string(), "4".to_string(), // Balances encoding speed with crisp anti-aliasing
+        "-deadline".to_string(), "realtime".to_string(),
+        "-row-mt".to_string(), "1".to_string(),
+        "-threads".to_string(), "0".to_string(),
+        output_path.to_string(),
+    ];
+
     let mut child = std::process::Command::new(&ffmpeg_path)
-        .args([
-            "-y",
-            "-f",
-            "rawvideo",
-            "-pixel_format",
-            "bgra",
-            "-video_size",
-            &format!("{}x{}", config.width, config.height),
-            "-framerate",
-            &config.fps.to_string(),
-            "-thread_queue_size",
-            "1024",
-            "-i",
-            "-",
-            "-c:v",
-            "libvpx-vp9",
-            "-pix_fmt",
-            "yuva420p",
-            "-crf",
-            "18",
-            "-b:v",
-            "0",
-            "-cpu-used",
-            "6",
-            "-deadline",
-            "realtime",
-            "-row-mt",
-            "1",
-            "-threads",
-            "0",
-            output_path,
-        ])
+        .args(&enc_args)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -422,9 +411,17 @@ pub fn render_chat_video(
     });
 
     let mut frame_buf = vec![0u8; config.width as usize * config.height as usize * 4];
+    
+    // Explicit read mapping to extract pure, unpremultiplied RGBA pixels
+    let read_info = skia_safe::ImageInfo::new(
+        (config.width, config.height),
+        skia_safe::ColorType::RGBA8888,
+        skia_safe::AlphaType::Unpremul,
+        None,
+    );
 
     let bg_color = if config.transparent_background {
-        Color::TRANSPARENT
+        Color::from_argb(0x00, 0x00, 0x00, 0x00)
     } else {
         hex_color_to_skia(&config.background_color)
     };
@@ -439,7 +436,6 @@ pub fn render_chat_video(
         let current_time_sec = start_sec + (frame_idx as f64 / config.fps as f64);
         let elapsed_ms = (frame_idx as u32) * (1000 / config.fps as u32);
 
-        // 1. INGEST: Lazily build paragraphs ONLY when they appear on screen
         while next_msg_idx < filtered_messages.len()
             && filtered_messages[next_msg_idx].content_offset_seconds <= current_time_sec
         {
@@ -462,7 +458,6 @@ pub fn render_chat_video(
             next_msg_idx += 1;
         }
 
-        // 2. PRUNE: Delete paragraphs from RAM the moment they scroll off the top
         let mut accumulated_height = 0.0;
         let mut keep_count = 0;
         for msg in layout_queue.iter().rev() {
@@ -476,21 +471,16 @@ pub fn render_chat_video(
             layout_queue.pop_front();
         }
 
-        // 3. RENDER: Draw only the visible messages
         render_frame(
             &canvas,
             &layout_queue,
             &asset_manager,
             elapsed_ms,
-            current_time_sec,
             config.height as f32,
         );
 
-        let image = surface.image_snapshot();
-        if let Some(pixmap) = image.peek_pixels() {
-            if let Some(bytes) = pixmap.bytes() {
-                frame_buf.copy_from_slice(bytes);
-            }
+        let row_bytes = (config.width * 4) as usize;
+        if surface.read_pixels(&read_info, &mut frame_buf, row_bytes, (0, 0)) {
             if let Err(e) = stdin.write_all(&frame_buf) {
                 eprintln!("FFmpeg stdin closed early: {}", e);
                 break;
