@@ -32,6 +32,8 @@ Zero quality loss. No duration limits. Blazing fast.
 ### Chat Renderer
 Generate a chat overlay video alongside your Clip/VOD. Save yourself the screen recording.
 
+<video src="https://github.com/user-attachments/assets/a14411bc-3975-41e9-97d8-405d9cf4c2f9" controls>
+
 ### VOD Insights
 Total messages, top emotes, and top chat spikes. Instant at-a-glance stats for any VOD.
 
