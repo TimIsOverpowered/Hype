@@ -24,10 +24,11 @@ export default function JobQueueDropdown() {
     return () => document.removeEventListener('mousedown', handler);
   }, [open, handleClose]);
 
-  const activeJobs = Array.from(jobs.values()).filter((j) => j.status === 'running');
-  const completedJobs = Array.from(jobs.values()).filter((j) => j.status === 'completed');
-  const failedJobs = Array.from(jobs.values()).filter((j) => j.status === 'failed');
-  const cancelledJobs = Array.from(jobs.values()).filter((j) => j.status === 'cancelled');
+  const allJobs = Object.values(jobs);
+  const activeJobs = allJobs.filter((j) => j.status === 'running');
+  const completedJobs = allJobs.filter((j) => j.status === 'completed');
+  const failedJobs = allJobs.filter((j) => j.status === 'failed');
+  const cancelledJobs = allJobs.filter((j) => j.status === 'cancelled');
 
   const activeCount = activeJobs.length + failedJobs.length;
 

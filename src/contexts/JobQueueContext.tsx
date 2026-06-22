@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { toast } from 'sonner';
 import { DEFAULT_RENDER_SETTINGS } from '../hooks/useChatRenderSettings';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
@@ -17,8 +17,45 @@ export interface Job {
   error: string | null;
 }
 
+type JobsRecord = Record<string, Job>;
+
+type JobAction =
+  | { type: 'UPSERT'; job: Job }
+  | { type: 'UPSERT_PROGRESS'; id: string; progress: number }
+  | { type: 'UPSERT_STATUS'; id: string; status: JobStatus; progress?: number; error?: string | null }
+  | { type: 'REMOVE'; id: string };
+
+function jobsReducer(state: JobsRecord, action: JobAction): JobsRecord {
+  switch (action.type) {
+    case 'UPSERT':
+      return { ...state, [action.job.id]: action.job };
+    case 'UPSERT_PROGRESS': {
+      const existing = state[action.id];
+      if (!existing) return state;
+      return { ...state, [action.id]: { ...existing, progress: action.progress } };
+    }
+    case 'UPSERT_STATUS': {
+      const existing = state[action.id];
+      if (!existing) return state;
+      return {
+        ...state,
+        [action.id]: {
+          ...existing,
+          status: action.status,
+          progress: action.progress ?? existing.progress,
+          error: action.error ?? existing.error,
+        },
+      };
+    }
+    case 'REMOVE': {
+      const { [action.id]: _, ...rest } = state;
+      return rest;
+    }
+  }
+}
+
 interface JobQueueState {
-  jobs: Map<string, Job>;
+  jobs: JobsRecord;
   submitJob: (
     type: JobType,
     m3u8Url: string,
@@ -41,7 +78,7 @@ interface JobQueueState {
 const JobQueueContext = createContext<JobQueueState | null>(null);
 
 export function JobQueueProvider({ children }: { children: React.ReactNode }) {
-  const [jobs, setJobs] = useState<Map<string, Job>>(new Map());
+  const [jobs, dispatch] = useReducer(jobsReducer, {});
   const toastedRef = useRef(new Set<string>());
 
   const fetchJobs = useCallback(async () => {
@@ -57,24 +94,32 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
             error: string | null;
           }>
         >('list_jobs');
-      const map = new Map<string, Job>();
+      dispatch({
+        type: 'UPSERT',
+        job: {
+          id: 'FETCH_MARKER',
+          job_type: 'clip' as JobType,
+          name: '',
+          status: 'running',
+          progress: 0,
+          error: null,
+        },
+      });
       for (const j of list) {
-        map.set(j.id, {
-          id: j.id,
-          job_type: j.job_type as JobType,
-          name: j.name,
-          status: j.status as JobStatus,
-          progress: j.progress,
-          error: j.error,
+        dispatch({
+          type: 'UPSERT',
+          job: {
+            id: j.id,
+            job_type: j.job_type as JobType,
+            name: j.name,
+            status: j.status as JobStatus,
+            progress: j.progress,
+            error: j.error,
+          },
         });
       }
-      setJobs((prev) => {
-        const next = new Map(prev);
-        for (const [id, job] of map) {
-          next.set(id, job);
-        }
-        return next;
-      });
+      // Remove the marker to purge stale jobs
+      dispatch({ type: 'REMOVE', id: 'FETCH_MARKER' });
     } catch {
       // ignore
     }
@@ -127,85 +172,35 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       };
 
       await listenFor('clip-progress', (job) => {
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(job.id);
-          if (existing) {
-            next.set(job.id, { ...existing, progress: job.progress });
-          }
-          return next;
-        });
+        dispatch({ type: 'UPSERT_PROGRESS', id: job.id, progress: job.progress });
       });
 
       await listenFor('clip-completed', (job) => {
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(job.id);
-          if (existing) {
-            next.set(job.id, { ...existing, status: 'completed', progress: 100 });
-          }
-          return next;
-        });
+        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'completed', progress: 100 });
         showToast(job.id, 'Clip completed', job.name, 'success');
       });
 
       await listenFor('clip-failed', (job) => {
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(job.id);
-          if (existing) {
-            next.set(job.id, { ...existing, status: 'failed', progress: 100, error: job.error });
-          }
-          return next;
-        });
+        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'failed', progress: 100, error: job.error });
         showToast(job.id, 'Clip failed', job.error ?? 'Unknown error', 'error');
       });
 
       await listenFor('download-progress', (job) => {
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(job.id);
-          if (existing) {
-            next.set(job.id, { ...existing, progress: job.progress });
-          }
-          return next;
-        });
+        dispatch({ type: 'UPSERT_PROGRESS', id: job.id, progress: job.progress });
       });
 
       await listenFor('download-completed', (job) => {
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(job.id);
-          if (existing) {
-            next.set(job.id, { ...existing, status: 'completed', progress: 100 });
-          }
-          return next;
-        });
+        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'completed', progress: 100 });
         showToast(job.id, 'Download completed', job.name, 'success');
       });
 
       await listenFor('download-failed', (job) => {
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(job.id);
-          if (existing) {
-            next.set(job.id, { ...existing, status: 'failed', progress: 100, error: job.error });
-          }
-          return next;
-        });
+        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'failed', progress: 100, error: job.error });
         showToast(job.id, 'Download failed', job.error ?? 'Unknown error', 'error');
       });
 
       const unlistenChatProgress = await listen<{ job_id: string; progress: number }>('chat-render-progress', (e) => {
-        const data = e.payload;
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(data.job_id);
-          if (existing) {
-            next.set(data.job_id, { ...existing, progress: data.progress });
-          }
-          return next;
-        });
+        dispatch({ type: 'UPSERT_PROGRESS', id: e.payload.job_id, progress: e.payload.progress });
       });
       unlistens.push(unlistenChatProgress);
 
@@ -213,14 +208,10 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         'asset-preload-progress',
         (e) => {
           const data = e.payload;
-          setJobs((prev) => {
-            const next = new Map(prev);
-            const existing = next.get(data.job_id);
-            if (existing) {
-              const scaled = 5 + (data.loaded / Math.max(data.total, 1)) * 15;
-              next.set(data.job_id, { ...existing, progress: scaled });
-            }
-            return next;
+          dispatch({
+            type: 'UPSERT_PROGRESS',
+            id: data.job_id,
+            progress: 5 + (data.loaded / Math.max(data.total, 1)) * 15,
           });
         },
       );
@@ -229,32 +220,16 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       const unlistenChatComplete = await listen<{ job_id: string; output_path: string }>(
         'chat-render-complete',
         (e) => {
-          const data = e.payload;
-          setJobs((prev) => {
-            const next = new Map(prev);
-            const existing = next.get(data.job_id);
-            if (existing) {
-              next.set(data.job_id, { ...existing, status: 'completed', progress: 100 });
-            }
-            return next;
-          });
-          const name = data.output_path.split('/').pop() || 'Chat render completed';
-          showToast(data.job_id, 'Chat render completed', name, 'success');
+          dispatch({ type: 'UPSERT_STATUS', id: e.payload.job_id, status: 'completed', progress: 100 });
+          const name = e.payload.output_path.split('/').pop() || 'Chat render completed';
+          showToast(e.payload.job_id, 'Chat render completed', name, 'success');
         },
       );
       unlistens.push(unlistenChatComplete);
 
       const unlistenChatFailed = await listen<{ job_id: string; error: string }>('chat-render-failed', (e) => {
-        const data = e.payload;
-        setJobs((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(data.job_id);
-          if (existing) {
-            next.set(data.job_id, { ...existing, status: 'failed', progress: 100, error: data.error });
-          }
-          return next;
-        });
-        showToast(data.job_id, 'Chat render failed', data.error ?? 'Unknown error', 'error');
+        dispatch({ type: 'UPSERT_STATUS', id: e.payload.job_id, status: 'failed', progress: 100, error: e.payload.error });
+        showToast(e.payload.job_id, 'Chat render failed', e.payload.error ?? 'Unknown error', 'error');
       });
       unlistens.push(unlistenChatFailed);
 
@@ -304,11 +279,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       error: null,
     };
 
-    setJobs((prev) => {
-      const next = new Map(prev);
-      next.set(newJob.id, newJob);
-      return next;
-    });
+    dispatch({ type: 'UPSERT', job: newJob });
 
     const typeLabel = type === 'clip' ? 'Clip' : 'Download';
     showToast(newJob.id, `${typeLabel} started`, newJob.name, 'info');
@@ -331,35 +302,17 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           },
     );
 
-    setJobs((prev) => {
-      const next = new Map(prev);
-      const job = next.get(newJob.id);
-      if (job) {
-        next.delete(newJob.id);
-        next.set(job_id, { ...newJob, id: job_id, status: 'running', progress: 0 });
-      }
-      return next;
-    });
+    dispatch({ type: 'REMOVE', id: newJob.id });
+    dispatch({ type: 'UPSERT', job: { ...newJob, id: job_id, status: 'running', progress: 0 } });
 
     return job_id;
   };
 
   const cancelJob = async (id: string) => {
-    let shouldShowToast = false;
-    setJobs((prev) => {
-      const next = new Map(prev);
-      const job = next.get(id);
-      if (job && job.status === 'running') {
-        next.set(id, { ...job, status: 'cancelled' as const });
-        shouldShowToast = true;
-      }
-      return next;
-    });
-    if (shouldShowToast) {
-      const job = jobs.get(id);
-      if (job) {
-        showToast(id, 'Job cancelled', job.name, 'info');
-      }
+    dispatch({ type: 'UPSERT_STATUS', id, status: 'cancelled' });
+    const job = jobs[id];
+    if (job) {
+      showToast(id, 'Job cancelled', job.name, 'info');
     }
     try {
       await invoke('cancel_job', { id });
@@ -369,11 +322,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeJob = async (id: string) => {
-    setJobs((prev) => {
-      const next = new Map(prev);
-      next.delete(id);
-      return next;
-    });
+    dispatch({ type: 'REMOVE', id });
     await invoke('remove_job', { id });
   };
 
