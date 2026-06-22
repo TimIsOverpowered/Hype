@@ -58,7 +58,12 @@ jobs:
 
       - name: Generate changelog
         run: |
-          git log --oneline $(git describe --tags --abbrev=0 HEAD^)..HEAD > RELEASE_NOTES.md || echo "Initial release" > RELEASE_NOTES.md
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+          if [ -n "$PREV_TAG" ]; then
+            git log --oneline ${PREV_TAG}..HEAD > RELEASE_NOTES.md
+          else
+            git log --oneline --first-parent v2 --not v1 > RELEASE_NOTES.md
+          fi
 
       - uses: tauri-apps/tauri-action@v0
         env:
