@@ -61,7 +61,7 @@ async fn aggregate_clips_cmd(
 }
 
 pub use crate::media::chat::assets::preload_render_assets;
-pub use crate::media::chat::renderer::{render_chat_video_cmd, render_chat_video_orchestrator_cmd};
+pub use crate::media::chat::renderer::render_chat_video_orchestrator_cmd;
 
 #[tauri::command]
 fn show_window(app: AppHandle) -> Result<(), ()> {
@@ -133,7 +133,6 @@ pub fn run(debug: bool) {
             media::clipper::list_jobs,
             media::clipper::remove_job,
             preload_render_assets,
-            render_chat_video_cmd,
             render_chat_video_orchestrator_cmd,
         ])
         .setup(move |app| {

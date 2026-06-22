@@ -567,8 +567,14 @@ function RenderSettingsTabContent({
 
   const handleChange = <K extends keyof ChatRenderSettings>(key: K, value: ChatRenderSettings[K]) => {
     const nextForm = { ...form, [key]: value };
+    if (key === 'generateMask' && value === true) {
+      nextForm.backgroundColor = '#000000';
+    }
     setForm(nextForm);
     onSave({ [key]: value });
+    if (key === 'generateMask' && value === true) {
+      onSave({ backgroundColor: '#000000' });
+    }
   };
 
   const handleReset = <K extends keyof ChatRenderSettings>(key: K) => {
@@ -720,21 +726,21 @@ function RenderSettingsTabContent({
           </div>
           <div
             className={`flex h-10 w-full items-center rounded-md border border-border bg-background px-2 transition-all ${
-              form.transparentBackground ? 'pointer-events-none opacity-25 grayscale' : 'focus-within:border-primary'
+              form.generateMask ? 'pointer-events-none opacity-25 grayscale' : 'focus-within:border-primary'
             }`}
           >
             <input
               type="color"
               value={form.backgroundColor}
               onChange={(e) => handleChange('backgroundColor', e.target.value)}
-              disabled={form.transparentBackground}
+              disabled={form.generateMask}
               className="h-6 w-6 shrink-0 cursor-pointer appearance-none rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-none"
             />
             <input
               type="text"
               value={form.backgroundColor}
               onChange={(e) => handleChange('backgroundColor', e.target.value)}
-              disabled={form.transparentBackground}
+              disabled={form.generateMask}
               spellCheck={false}
               className="ml-2 w-full bg-transparent text-sm font-medium uppercase text-text-primary outline-none disabled:cursor-not-allowed"
             />
@@ -743,18 +749,23 @@ function RenderSettingsTabContent({
             <label className="relative inline-flex cursor-pointer items-center gap-2 text-xs text-text-secondary transition-colors hover:text-text-primary">
               <input
                 type="checkbox"
-                checked={form.transparentBackground}
-                onChange={(e) => handleChange('transparentBackground', e.target.checked)}
+                checked={form.generateMask}
+                onChange={(e) => handleChange('generateMask', e.target.checked)}
                 className="peer sr-only"
               />
               <div className="h-4 w-7 rounded-full bg-border transition-colors after:absolute after:top-[2px] after:left-[2px] after:h-3 after:w-3 after:rounded-full after:bg-text-secondary after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-3 peer-checked:after:bg-text-primary" />
-              <span>Transparent</span>
+              <span>Generate Mask</span>
             </label>
             <ResetButton
-              onClick={() => handleReset('transparentBackground')}
-              disabled={form.transparentBackground === DEFAULT_RENDER_SETTINGS.transparentBackground}
+              onClick={() => handleReset('generateMask')}
+              disabled={form.generateMask === DEFAULT_RENDER_SETTINGS.generateMask}
             />
           </div>
+          {form.generateMask && (
+            <p className="mt-1 text-[11px] text-text-hint">
+              Background is forced to black to generate a clean Track Matte.
+            </p>
+          )}
         </div>
       </div>
 

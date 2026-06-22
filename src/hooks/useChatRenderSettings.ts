@@ -8,7 +8,7 @@ export const DEFAULT_RENDER_SETTINGS: ChatRenderSettings = {
   width: 400,
   height: 1080,
   fps: 60,
-  transparentBackground: true,
+  generateMask: false,
   backgroundColor: '#000000',
   fontFamily: 'Inter',
   fontColor: '#ffffff',

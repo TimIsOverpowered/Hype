@@ -15,7 +15,7 @@ export interface ChatRenderSettings {
   width: number;
   height: number;
   fps: number;
-  transparentBackground: boolean;
+  generateMask: boolean;
   backgroundColor: string;
   fontFamily: string;
   fontColor: string;

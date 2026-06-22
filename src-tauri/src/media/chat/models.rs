@@ -263,7 +263,7 @@ pub struct ChatRenderConfig {
     pub width: i32,
     pub height: i32,
     pub fps: i32,
-    pub transparent_background: bool,
+    pub generate_mask: bool,
     pub background_color: String,
     pub font_family: String,
     pub font_color: String,

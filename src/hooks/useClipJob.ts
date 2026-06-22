@@ -71,7 +71,7 @@ export function useClipJob(): UseClipJobResult {
       await submitJob(type, m3u8Url, durationSeconds, outputPath, isFmp4, startSeconds);
 
       if (chatOptions?.includeChat) {
-        const chatPath = `${outputPath.replace(/\.[^/.]+$/, '')}_chat.webm`;
+        const chatPath = `${outputPath.replace(/\.[^/.]+$/, '')}_chat.mp4`;
         await renderChatOverlay(chatOptions.vodId, chatOptions.broadcasterId, startSeconds, durationSeconds, chatPath);
       }
     },
