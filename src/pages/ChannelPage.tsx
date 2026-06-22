@@ -22,7 +22,7 @@ function VodCardSkeleton() {
 function VodCard({ vod, displayName }: { vod: VodEdge; displayName?: string }) {
   const navigate = useNavigate();
 
-  if (vod.node.broadcastType !== 'ARCHIVE') return null;
+  if (vod.node.broadcastType !== 'ARCHIVE' && vod.node.broadcastType !== 'HIGHLIGHT') return null;
 
   const thumbnail = vod.node.previewThumbnailURL;
   const duration = toHHMMSS(vod.node.lengthSeconds);
@@ -58,6 +58,9 @@ function VodCard({ vod, displayName }: { vod: VodEdge; displayName?: string }) {
             {date}
           </div>
         )}
+        <div className="absolute top-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+          {vod.node.broadcastType === 'HIGHLIGHT' ? 'Highlight' : 'Archive'}
+        </div>
       </div>
       <div className="min-w-0">
         <p className="truncate text-xs font-medium text-text-secondary group-hover:text-text-primary">
@@ -108,7 +111,11 @@ export default function ChannelPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const vods =
-    data?.pages.flatMap((p: VodPage) => p.edges.filter((v: VodEdge) => v.node.broadcastType === 'ARCHIVE')) ?? [];
+    data?.pages
+      .flatMap((p: VodPage) =>
+        p.edges.filter((v: VodEdge) => v.node.broadcastType === 'ARCHIVE' || v.node.broadcastType === 'HIGHLIGHT'),
+      )
+      ?? [];
   const twitchUser = data?.pages[0]?.user;
 
   useEffect(() => {

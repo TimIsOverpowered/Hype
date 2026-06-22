@@ -27,6 +27,7 @@ export default function VODPage() {
     title: string;
     lengthSeconds: number;
     broadcasterName: string;
+    broadcastType: string;
   } | null>(null);
   const [broadcasterId, setBroadcasterId] = useState<string | undefined>();
   const [isWhitelisted, setIsWhitelisted] = useState<boolean | undefined>(undefined);
@@ -121,6 +122,7 @@ export default function VODPage() {
         title: vod.title,
         lengthSeconds: vod.lengthSeconds,
         broadcasterName: vod.creator.login ?? '',
+        broadcastType: vod.broadcastType,
       });
       setM3u8Url(m3u8);
       setVariants(m3u8Variants);
@@ -288,6 +290,7 @@ export default function VODPage() {
               duration={vodInfo?.lengthSeconds ?? 0}
               currentTime={currentTime}
               isWhitelisted={isWhitelisted}
+              isHighlight={vodInfo?.broadcastType === 'HIGHLIGHT'}
               onClipStart={(hms: string) => setClipStart(hms)}
               onClipEnd={(hms: string) => setClipEnd(hms)}
               chapters={chapterEdges}

@@ -68,6 +68,7 @@ interface VodGraphProps {
   readonly duration?: number;
   readonly currentTime?: number;
   readonly isWhitelisted?: boolean | undefined;
+  readonly isHighlight?: boolean;
   readonly onClipStart?: (hms: string) => void;
   readonly onClipEnd?: (hms: string) => void;
   readonly chapters?: readonly ChapterEdge[];
@@ -340,6 +341,7 @@ const VodGraph = memo(function VodGraph({
   duration: propDuration,
   currentTime,
   isWhitelisted,
+  isHighlight,
   onClipStart,
   onClipEnd,
   chapters,
@@ -555,7 +557,7 @@ const VodGraph = memo(function VodGraph({
   );
 
   useEffect(() => {
-    if (!vodId || propDurationRef.current <= 0 || isWhitelisted !== true || !emotesLoaded) return;
+    if (!vodId || propDurationRef.current <= 0 || isWhitelisted !== true || !emotesLoaded || isHighlight) return;
     runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
   }, [
     vodId,
@@ -566,10 +568,11 @@ const VodGraph = memo(function VodGraph({
     interval,
     isWhitelisted,
     emotesLoaded,
+    isHighlight,
   ]);
 
   useEffect(() => {
-    if (vodId && propDurationRef.current > 0 && !fetchedRef.current && isWhitelisted === true && emotesLoaded) {
+    if (vodId && propDurationRef.current > 0 && !fetchedRef.current && isWhitelisted === true && emotesLoaded && !isHighlight) {
       runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
     }
   }, [
@@ -581,6 +584,7 @@ const VodGraph = memo(function VodGraph({
     userSearchThreshold,
     interval,
     emotesLoaded,
+    isHighlight,
   ]);
 
   const handleChartClick = useCallback(
@@ -893,6 +897,29 @@ const VodGraph = memo(function VodGraph({
                 <p className="text-sm text-yellow-400">This streamer is not whitelisted</p>
               </div>
             </div>
+          ) : isHighlight ? (
+            <div className="flex h-full w-full flex-col items-center justify-center">
+              <div className="flex items-center gap-1.5 rounded-md border border-yellow-900/40 bg-yellow-950/30 px-4 py-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-yellow-500"
+                >
+                  <title>Warning</title>
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <p className="text-sm text-yellow-400">Graph data not available for highlights</p>
+              </div>
+            </div>
           ) : !hasStarted || (isLoading && !error) ? (
             <SkeletonGraph />
           ) : graphData.length === 0 ? (
@@ -922,7 +949,7 @@ const VodGraph = memo(function VodGraph({
               <div className="h-24 w-full bg-white/5 rounded" />
               <div className="h-32 w-full bg-white/5 rounded" />
             </div>
-          ) : error || isWhitelisted === false ? (
+) : error || isWhitelisted === false || isHighlight ? (
             <span className="text-xs text-text-hint">No insights available</span>
           ) : (
             <div className="flex flex-col h-full min-h-0 gap-4 overflow-y-auto chat-scrollbar pr-1">
