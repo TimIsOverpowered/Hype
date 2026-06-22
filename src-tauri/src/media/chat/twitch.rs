@@ -316,6 +316,12 @@ fn parse_fragments(
                 result.push(FormattedFragment::Url {
                     text: word.to_string(),
                 });
+                if i < words.len() - 1 {
+                    result.push(FormattedFragment::Text {
+                        text: " ".to_string(),
+                    });
+                }
+                continue;
             } else if let Some(dict) = emote_dict {
                 if let Some(cached_emote) = dict.get(*word) {
                     result.push(FormattedFragment::Custom {
