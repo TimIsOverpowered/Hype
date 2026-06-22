@@ -1,5 +1,17 @@
 import Hls from 'hls.js';
-import { Check, ChevronLeft, Loader2, Maximize, Minimize, Pause, Play, Settings, Volume2, VolumeX } from 'lucide-react';
+import {
+  Check,
+  ChevronLeft,
+  Library,
+  Loader2,
+  Maximize,
+  Minimize,
+  Pause,
+  Play,
+  Settings,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { TheatreModeIcon } from '../../assets/icons';
 import { TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
@@ -8,12 +20,13 @@ import { useAutoHideControls, useTooltipControls } from '../../hooks/usePlayerCo
 import { usePlayerSettings } from '../../hooks/usePlayerSettings';
 import { TauriHlsLoader } from '../../media/TauriHlsLoader';
 import type { M3u8Variant } from '../../types/twitch';
-import { formatTime, getCurrentChapter } from '../../utils/time';
+import { formatTime, getCurrentChapter, humanizeDuration } from '../../utils/time';
 
 interface ChapterInfo {
   readonly positionMilliseconds: number;
   readonly durationMilliseconds: number;
   readonly game?: string;
+  readonly boxArtURL?: string;
 }
 
 interface VideoPlayerProps {
@@ -146,6 +159,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     setSettingsAnchorEl(null);
     setShowQualityMenu(false);
   }, []);
+
+  const [showChaptersMenu, setShowChaptersMenu] = useState(false);
+  const chaptersAnchorEl = useRef<HTMLButtonElement>(null);
+  const chaptersMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (!showChaptersMenu) return;
+      if (chaptersAnchorEl.current?.contains(e.target as Node)) return;
+      if (chaptersMenuRef.current?.contains(e.target as Node)) return;
+      setShowChaptersMenu(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showChaptersMenu]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -617,6 +645,15 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                 </div>
 
                 <div className="relative flex items-center" style={{ gap: '6px' }}>
+                  <button
+                    ref={chaptersAnchorEl}
+                    type="button"
+                    onClick={() => setShowChaptersMenu((v) => !v)}
+                    className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                    title="Chapters"
+                  >
+                    <Library className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </button>
                   <div className="relative">
                     <button
                       type="button"
@@ -769,6 +806,51 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                       <Maximize className="h-5 w-5 sm:h-6 sm:w-6" />
                     )}
                   </button>
+
+                  {showChaptersMenu && (
+                    <div
+                      ref={chaptersMenuRef}
+                      className="absolute right-0 bottom-full mb-3 w-60 overflow-hidden rounded-xl border border-[#222230] bg-[#16161e] shadow-xl"
+                      style={{ animation: 'fadeIn 0.2s ease-out' }}
+                    >
+                      <div className="border-b border-[#222230] px-4 py-2.5">
+                        <h3 className="text-center text-sm font-medium text-[#f0f0f5]">Chapters</h3>
+                      </div>
+                      <div
+                        className="max-h-60 overflow-y-auto p-1.5"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#222230 transparent' }}
+                      >
+                        {chapters?.map((ch) => (
+                          <button
+                            key={ch.positionMilliseconds}
+                            type="button"
+                            onClick={() => {
+                              const video = videoRef.current;
+                              if (video) video.currentTime = ch.positionMilliseconds / 1000;
+                              setShowChaptersMenu(false);
+                            }}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[#222230]/60"
+                          >
+                            <div className="flex h-[53px] w-[40px] shrink-0 items-center justify-center overflow-hidden rounded bg-[#222230]">
+                              {ch.boxArtURL ? (
+                                <img src={ch.boxArtURL} alt="" className="h-[53px] w-[40px] object-cover" />
+                              ) : (
+                                <Library className="h-5 w-5 text-[#9ca3af]" />
+                              )}
+                            </div>
+                            <div className="flex min-w-0 flex-1 flex-col">
+                              <span className="break-words text-sm font-medium text-[#f0f0f5]">
+                                {ch.game || 'Unknown Chapter'}
+                              </span>
+                              <span className="text-xs text-[#9ca3af]">
+                                {humanizeDuration(ch.durationMilliseconds)}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {settingsAnchorEl && (
                     <div

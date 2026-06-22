@@ -218,6 +218,7 @@ export default function VODPage() {
               positionMilliseconds: e.node.positionMilliseconds,
               durationMilliseconds: e.node.durationMilliseconds,
               game: e.node.details?.game?.displayName,
+              boxArtURL: e.node.details?.game?.boxArtURL,
             }))}
           />
         </div>

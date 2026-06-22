@@ -27,6 +27,21 @@ export function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+export function humanizeDuration(ms: number): string {
+  if (ms <= 0) return '0 seconds';
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
+  if (seconds > 0) parts.push(`${seconds} ${seconds === 1 ? 'second' : 'seconds'}`);
+  if (parts.length === 0) return '0 seconds';
+  const limited = parts.slice(0, 2);
+  return limited.join(', ');
+}
+
 export function getCurrentChapter(
   timeSeconds: number,
   chapters: readonly { positionMilliseconds: number; durationMilliseconds: number; game?: string }[] | undefined,
