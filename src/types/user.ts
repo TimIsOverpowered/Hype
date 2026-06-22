@@ -15,5 +15,4 @@ export interface User {
   readonly whitelists: WhitelistEntry[];
   readonly max_whitelist_channels: number;
   readonly admin: boolean;
-  readonly whitelist: boolean;
 }

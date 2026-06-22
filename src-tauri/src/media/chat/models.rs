@@ -254,3 +254,24 @@ pub struct ClipPayload {
     pub slug: String,
     pub duration: f64,
 }
+
+// ─── Chat Render Configuration ──────────────────────────────────────────────
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatRenderConfig {
+    pub width: i32,
+    pub height: i32,
+    pub fps: i32,
+    pub transparent_background: bool,
+    pub background_color: String,
+    pub font_family: String,
+    pub font_color: String,
+    pub font_size: f32,
+    pub show_badges: bool,
+    pub enable_bttv: bool,
+    pub enable_ffz: bool,
+    pub enable7tv: bool,
+    pub ignored_users: String,
+    pub banned_words: String,
+}

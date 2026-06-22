@@ -1,4 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
+import { DEFAULT_RENDER_SETTINGS } from '../hooks/useChatRenderSettings';
+import { safeLocalStorage } from '../utils/safeLocalStorage';
 import { listen } from '@tauri-apps/api/event';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -33,7 +35,6 @@ interface JobQueueState {
     startSec: number,
     durationSec: number,
     outputPath: string,
-    fps: number,
   ) => Promise<string>;
 }
 
@@ -378,10 +379,12 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
     startSec: number,
     durationSec: number,
     outputPath: string,
-    fps: number,
   ): Promise<string> => {
     const name = outputPath.split('/').pop() || 'chat-render.webm';
     showToast('chat-render', 'Chat render started', name, 'info');
+
+    const saved = safeLocalStorage.getItem('chat-render-settings');
+    const config = saved ? { ...DEFAULT_RENDER_SETTINGS, ...JSON.parse(saved) } : DEFAULT_RENDER_SETTINGS;
 
     const { job_id } = await invoke<SubmitJobResponse>('render_chat_video_orchestrator_cmd', {
       vodId,
@@ -389,7 +392,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       startSec,
       durationSec,
       outputPath,
-      fps,
+      config,
     });
 
     await fetchJobs();

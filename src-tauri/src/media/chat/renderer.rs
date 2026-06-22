@@ -12,14 +12,10 @@ use tauri::AppHandle;
 use tauri::Emitter;
 
 use crate::media::chat::assets::{RENDER_ASSET_CACHE, RenderAssetManager};
-use crate::media::chat::models::{FormattedFragment, FormattedMessage};
+use crate::media::chat::models::{ChatRenderConfig, FormattedFragment, FormattedMessage};
 
-const CHAT_WIDTH: i32 = 400;
-const CHAT_HEIGHT: i32 = 1080;
 const MESSAGE_PADDING_X: f32 = 8.0;
 const MESSAGE_PADDING_Y: f32 = 3.0;
-const BASE_FONT_SIZE: f32 = 16.0;
-const USERNAME_FONT_SIZE: f32 = 16.0;
 const MESSAGE_GAP: f32 = 4.0;
 
 
@@ -69,54 +65,76 @@ fn build_paragraph_for_message(
     username_color: Color,
     asset_manager: &RenderAssetManager,
     fc: &FontCollection,
+    config: &ChatRenderConfig,
 ) -> (Paragraph, Vec<PlaceholderData>) {
     let mut builder = ParagraphBuilder::new(&ParagraphStyle::new(), fc.clone());
     let mut placeholders = Vec::new();
 
-    // 1. Draw Badges first
-    if let Some(badges) = &msg.badges {
-        for badge in badges {
-            let key = format!("{}--{}", badge.set_id, badge.version);
-            if asset_manager.get_badge(&key).is_some() {
-                let ph_style = PlaceholderStyle::new(
-                    BASE_FONT_SIZE,
-                    BASE_FONT_SIZE,
-                    PlaceholderAlignment::Middle,
-                    TextBaseline::Alphabetic,
-                    0.0,
-                );
-                builder.add_placeholder(&ph_style);
-                placeholders.push(PlaceholderData::Badge(key));
+    let mut font_list: Vec<&str> = config.font_family.split(',').map(|s| s.trim()).collect();
+    if !font_list.contains(&"sans-serif") {
+        font_list.push("sans-serif");
+    }
+    if !font_list.contains(&"emoji") {
+        font_list.push("emoji");
+    }
+
+    if config.show_badges {
+        if let Some(badges) = &msg.badges {
+            for badge in badges {
+                let key = format!("{}--{}", badge.set_id, badge.version);
+                if asset_manager.get_badge(&key).is_some() {
+                    let ph_style = PlaceholderStyle::new(
+                        config.font_size,
+                        config.font_size,
+                        PlaceholderAlignment::Middle,
+                        TextBaseline::Alphabetic,
+                        0.0,
+                    );
+                    builder.add_placeholder(&ph_style);
+                    placeholders.push(PlaceholderData::Badge(key));
+                }
             }
         }
     }
 
-    // 2. Draw Username
     let mut username_style = TextStyle::new();
     username_style.set_color(username_color);
-    username_style.set_font_size(USERNAME_FONT_SIZE);
+    username_style.set_font_size(config.font_size);
     username_style.set_font_style(FontStyle::bold());
+    username_style.set_font_families(&font_list);
     builder.push_style(&username_style);
     builder.add_text(&msg.display_name);
     builder.add_text(": ");
     builder.pop();
 
-    // 3. Draw Message Fragments
     let mut msg_style = TextStyle::new();
-    msg_style.set_color(Color::from_rgb(0xFF, 0xFF, 0xFF));
-    msg_style.set_font_size(BASE_FONT_SIZE);
+    msg_style.set_color(hex_color_to_skia(&config.font_color));
+    msg_style.set_font_size(config.font_size);
+    msg_style.set_font_families(&font_list);
     builder.push_style(&msg_style);
 
     for fragment in &msg.fragments {
         match fragment {
-            FormattedFragment::Custom { id, .. } => {
-                let key = format!("{}:{}", fragment_to_provider(fragment), id);
-                if let Some(emote_img) = asset_manager.get_emote(&key) {
+            FormattedFragment::Custom { id, code, provider, .. } => {
+                let mut should_render = true;
+                if provider == "7TV" && !config.enable7tv {
+                    should_render = false;
+                }
+                if provider == "BTTV" && !config.enable_bttv {
+                    should_render = false;
+                }
+                if provider == "FFZ" && !config.enable_ffz {
+                    should_render = false;
+                }
+
+                let key = format!("{}:{}", provider, id);
+                if should_render && asset_manager.get_emote(&key).is_some() {
+                    let emote_img = asset_manager.get_emote(&key).unwrap();
                     let frame = emote_img.get_frame_for_time(0);
                     let src_w = frame.width() as f32;
                     let src_h = frame.height() as f32;
 
-                    let placeholder_h = BASE_FONT_SIZE * 1.8;
+                    let placeholder_h = config.font_size * 1.8;
                     let is_zw = asset_manager.is_zero_width(&key);
 
                     let placeholder_w = if is_zw {
@@ -124,7 +142,7 @@ fn build_paragraph_for_message(
                     } else if src_h > 0.0 {
                         (src_w / src_h) * placeholder_h
                     } else {
-                        BASE_FONT_SIZE * 1.8
+                        config.font_size * 1.8
                     };
 
                     let ph_style = PlaceholderStyle::new(
@@ -136,6 +154,8 @@ fn build_paragraph_for_message(
                     );
                     builder.add_placeholder(&ph_style);
                     placeholders.push(PlaceholderData::Emote(key));
+                } else {
+                    builder.add_text(code);
                 }
             }
             FormattedFragment::Twitch { emote_id, text } => {
@@ -144,11 +164,11 @@ fn build_paragraph_for_message(
                     let frame = emote_img.get_frame_for_time(0);
                     let src_w = frame.width() as f32;
                     let src_h = frame.height() as f32;
-                    let placeholder_h = BASE_FONT_SIZE * 1.8;
+                    let placeholder_h = config.font_size * 1.8;
                     let placeholder_w = if src_h > 0.0 {
                         (src_w / src_h) * placeholder_h
                     } else {
-                        BASE_FONT_SIZE * 1.8
+                        config.font_size * 1.8
                     };
 
                     let ph_style = PlaceholderStyle::new(
@@ -170,7 +190,7 @@ fn build_paragraph_for_message(
             FormattedFragment::Url { text } => {
                 let mut url_style = TextStyle::new();
                 url_style.set_color(Color::from_rgb(0x58, 0xA6, 0xFF));
-                url_style.set_font_size(BASE_FONT_SIZE);
+                url_style.set_font_size(config.font_size);
                 url_style.set_font_families(&["monospace"]);
                 builder.push_style(&url_style);
                 builder.add_text(text);
@@ -184,28 +204,24 @@ fn build_paragraph_for_message(
 
     builder.pop();
     let mut para = builder.build();
-    para.layout(CHAT_WIDTH as f32 - MESSAGE_PADDING_X * 2.0);
-    (para, placeholders)
+    para.layout(config.width as f32 - MESSAGE_PADDING_X * 2.0);
+        (para, placeholders)
 }
 
-fn fragment_to_provider(fragment: &FormattedFragment) -> &str {
-    match fragment {
-        FormattedFragment::Custom { provider, .. } => provider,
-        _ => "",
-    }
-}
+
+
 
 fn layout_messages(
     messages: &[FormattedMessage],
     asset_manager: &RenderAssetManager,
     fc: &FontCollection,
-    _container_width: f32,
+    config: &ChatRenderConfig,
 ) -> Vec<MessageLayout> {
     let mut layouts = Vec::new();
 
     for msg in messages {
         let user_color = hex_color_to_skia(&msg.user_color);
-        let (para, placeholders) = build_paragraph_for_message(msg, user_color, asset_manager, fc);
+        let (para, placeholders) = build_paragraph_for_message(msg, user_color, asset_manager, fc, config);
 
         let total_height = para.height() + MESSAGE_GAP;
 
@@ -226,11 +242,14 @@ fn render_frame(
     asset_manager: &RenderAssetManager,
     elapsed_ms: u32,
     _current_time_sec: f64,
+    height: f32,
 ) {
     let mut paint = Paint::default();
     paint.set_anti_alias(true);
 
-    let mut draw_y = CHAT_HEIGHT as f32 - 20.0;
+    const PLACEHOLDER_SIZE: f32 = 1.8 * 16.0;
+
+    let mut draw_y = height - 20.0;
 
     // Iterate BACKWARDS (newest messages first) so they stack upward
     for msg in active_messages.iter().rev() {
@@ -264,8 +283,9 @@ fn render_frame(
                         let frame = emote_img.get_frame_for_time(elapsed_ms);
                         let src_rect = Rect::from_xywh(0.0, 0.0, frame.width() as f32, frame.height() as f32);
 
+                        let ph_size = PLACEHOLDER_SIZE;
                         let final_dst = if asset_manager.is_zero_width(key) {
-                            Rect::from_xywh(px - (BASE_FONT_SIZE * 1.8), py, BASE_FONT_SIZE * 1.8, dst_rect.height())
+                            Rect::from_xywh(px - ph_size, py, ph_size, dst_rect.height())
                         } else {
                             dst_rect
                         };
@@ -284,16 +304,16 @@ pub fn render_chat_video(
     output_path: &str,
     start_sec: f64,
     duration_sec: f64,
-    fps: i32,
+    config: ChatRenderConfig,
     app: Option<AppHandle>,
     job_id: Option<String>,
 ) -> Result<(), String> {
-    let total_frames = (duration_sec * fps as f64) as usize;
+    let total_frames = (duration_sec * config.fps as f64) as usize;
     if total_frames == 0 {
         return Err("Duration is zero or negative".to_string());
     }
 
-    let mut surface = skia_safe::surfaces::raster_n32_premul((CHAT_WIDTH, CHAT_HEIGHT))
+    let mut surface = skia_safe::surfaces::raster_n32_premul((config.width, config.height))
         .ok_or("Failed to create Skia surface")?;
 
     let ffmpeg_path = ffmpeg_sidecar::paths::ffmpeg_path();
@@ -302,8 +322,8 @@ pub fn render_chat_video(
             "-y",
             "-f", "rawvideo",
             "-pixel_format", "bgra",
-            "-video_size", &format!("{}x{}", CHAT_WIDTH, CHAT_HEIGHT),
-            "-framerate", &fps.to_string(),
+            "-video_size", &format!("{}x{}", config.width, config.height),
+            "-framerate", &config.fps.to_string(),
             "-thread_queue_size", "1024",
             "-i", "-",
             "-c:v", "libvpx-vp9",
@@ -327,28 +347,50 @@ pub fn render_chat_video(
     let mut fc = FontCollection::new();
     fc.set_default_font_manager(font_mgr, None);
 
-    let sorted_messages: Vec<FormattedMessage> = {
-        let mut sorted = messages;
-        sorted.sort_by(|a, b| a.content_offset_seconds.partial_cmp(&b.content_offset_seconds).unwrap_or(std::cmp::Ordering::Equal));
-        sorted
-    };
+    let ignored_users: Vec<String> = config.ignored_users.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
+    let banned_words: Vec<String> = config.banned_words.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
 
-    let container_width = CHAT_WIDTH as f32;
+    let mut filtered_messages: Vec<FormattedMessage> = messages.into_iter().filter(|msg| {
+        if ignored_users.contains(&msg.display_name.to_lowercase()) {
+            return false;
+        }
+
+        let msg_text = msg.fragments.iter().filter_map(|f| match f {
+            FormattedFragment::Text { text } => Some(text.as_str()),
+            _ => None
+        }).collect::<Vec<_>>().join(" ").to_lowercase();
+
+        for word in &banned_words {
+            if msg_text.contains(word) {
+                return false;
+            }
+        }
+        true
+    }).collect();
+
+    filtered_messages.sort_by(|a, b| a.content_offset_seconds.partial_cmp(&b.content_offset_seconds).unwrap_or(std::cmp::Ordering::Equal));
+
     let all_layouts = layout_messages(
-        &sorted_messages,
+        &filtered_messages,
         &asset_manager,
         &fc,
-        container_width,
+        &config,
     );
 
-    let mut frame_buf = vec![0u8; CHAT_WIDTH as usize * CHAT_HEIGHT as usize * 4];
+    let mut frame_buf = vec![0u8; config.width as usize * config.height as usize * 4];
+
+    let bg_color = if config.transparent_background {
+        Color::TRANSPARENT
+    } else {
+        hex_color_to_skia(&config.background_color)
+    };
 
     for frame_idx in 0..total_frames {
         let canvas = surface.canvas();
-        canvas.clear(Color::TRANSPARENT);
+        canvas.clear(bg_color);
 
-        let current_time_sec = start_sec + (frame_idx as f64 / fps as f64);
-        let elapsed_ms = (frame_idx as u32) * (1000 / fps as u32);
+        let current_time_sec = start_sec + (frame_idx as f64 / config.fps as f64);
+        let elapsed_ms = (frame_idx as u32) * (1000 / config.fps as u32);
 
         let active_messages: Vec<&MessageLayout> = all_layouts
             .iter()
@@ -361,6 +403,7 @@ pub fn render_chat_video(
             &asset_manager,
             elapsed_ms,
             current_time_sec,
+            config.height as f32,
         );
 
         let image = surface.image_snapshot();
@@ -414,7 +457,7 @@ pub async fn render_chat_video_cmd(
     output_path: String,
     start_sec: f64,
     duration_sec: f64,
-    fps: i32,
+    config: ChatRenderConfig,
     app: AppHandle,
 ) -> Result<String, String> {
     let job_id = uuid::Uuid::new_v4().to_string();
@@ -431,6 +474,7 @@ pub async fn render_chat_video_cmd(
         let asset_manager_inner = asset_manager;
         let app_inner = app_clone.clone();
         let job_id_inner = job_id_clone.clone();
+        let config_inner = config.clone();
 
         let render_result = tokio::task::spawn_blocking(move || {
             render_chat_video(
@@ -439,7 +483,7 @@ pub async fn render_chat_video_cmd(
                 &output_path_clone,
                 start_sec,
                 duration_sec,
-                fps,
+                config_inner,
                 Some(app_inner),
                 Some(job_id_inner),
             )
@@ -519,7 +563,7 @@ pub async fn render_chat_video_orchestrator_cmd(
     start_sec: f64,
     duration_sec: f64,
     output_path: String,
-    fps: i32,
+    config: ChatRenderConfig,
     app: AppHandle,
 ) -> Result<crate::media::clipper::SubmitJobResponse, String> {
     let queue = crate::media::job_queue::get_queue();
@@ -536,6 +580,7 @@ pub async fn render_chat_video_orchestrator_cmd(
     let job_id_clone = job_id.clone();
     let vod_id_clone = vod_id.clone();
     let broadcaster_id_clone = broadcaster_id.clone();
+    let config_clone = config.clone();
 
     tauri::async_runtime::spawn(async move {
         let messages = match fetch_all_messages_for_window(&vod_id_clone, &broadcaster_id_clone, start_sec, duration_sec).await {
@@ -568,6 +613,7 @@ pub async fn render_chat_video_orchestrator_cmd(
         let messages_inner = messages;
         let app_inner = app_clone.clone();
         let job_id_inner = job_id_clone.clone();
+        let config_inner = config_clone;
 
         let render_result = tokio::task::spawn_blocking(move || {
             let manager_guard = asset_cache_clone.blocking_read();
@@ -577,7 +623,7 @@ pub async fn render_chat_video_orchestrator_cmd(
                 &output_path_clone,
                 start_sec,
                 duration_sec,
-                fps,
+                config_inner,
                 Some(app_inner),
                 Some(job_id_inner),
             )

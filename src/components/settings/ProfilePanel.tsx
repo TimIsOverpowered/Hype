@@ -15,14 +15,18 @@ export default function ProfilePanel() {
 
   if (!user) return null;
 
-  const isVip = (user.patreon && user.patreon.tier >= 1 && user.patreon.isPatron) || user.whitelist || user.admin;
+  const getStatus = () => {
+    if (user.admin) return 'Admin';
+    if (user.patreon?.isPatron && user.patreon.tier >= 1) return 'Patron';
+    return 'Free';
+  };
 
   return (
     <div className="max-w-2xl">
       <div className="rounded-lg border border-border bg-surface p-4">
         <UserInfoRow label="Username" value={user.display_name} />
         <div className="border-t border-border" />
-        <UserInfoRow label="Status" value={isVip ? 'VIP' : 'Free'} />
+        <UserInfoRow label="Status" value={getStatus()} />
       </div>
 
       <div className="mt-6">

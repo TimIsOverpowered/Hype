@@ -4,15 +4,12 @@ import { useEffect, useState } from 'react';
 import { getUsers } from '../../api/twitch';
 import { API_BASE, getToken, useUser } from '../../auth';
 import type { TwitchUser } from '../../types/twitch';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface WhitelistResponse {
   readonly error: boolean;
   readonly message?: string;
   readonly whitelist?: { id: string; channel: string };
-}
-
-interface UserUpdate {
-  readonly whitelists: { id: string; channel: string }[];
 }
 
 export default function WhitelistPanel() {
@@ -23,6 +20,8 @@ export default function WhitelistPanel() {
   const [message, setMessage] = useState('');
   const [twitchUsers, setTwitchUsers] = useState<TwitchUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteChannel, setDeleteChannel] = useState<string | null>(null);
 
   const whitelists = user?.whitelists ?? [];
 
@@ -61,13 +60,7 @@ export default function WhitelistPanel() {
       } else {
         setSuccess(true);
         setMessage(data.message ?? '');
-        queryClient.setQueryData(['user'], (old: UserUpdate | undefined) => {
-          if (!old) return old;
-          if (data.whitelist) {
-            return { ...old, whitelists: [...old.whitelists, data.whitelist] };
-          }
-          return old;
-        });
+        queryClient.invalidateQueries({ queryKey: ['user'] });
       }
     },
     onError: () => {
@@ -85,14 +78,11 @@ export default function WhitelistPanel() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ channel }),
+        body: JSON.stringify({ username: channel }),
       });
     },
-    onSuccess: (_, channel) => {
-      queryClient.setQueryData(['user'], (old: UserUpdate | undefined) => {
-        if (!old) return old;
-        return { ...old, whitelists: old.whitelists.filter((w) => w.channel !== channel) };
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (err) => {
       console.error(err);
@@ -101,7 +91,7 @@ export default function WhitelistPanel() {
 
   if (!user) return null;
 
-  const isVip = (user.patreon && user.patreon.tier >= 1 && user.patreon.isPatron) || user.whitelist || user.admin;
+  const isVip = (user.patreon && user.patreon.tier >= 1 && user.patreon.isPatron) || user.admin;
 
   const handleAdd = () => {
     if (!isVip || whitelistMutation.isPending || !input.trim()) return;
@@ -110,8 +100,8 @@ export default function WhitelistPanel() {
   };
 
   const handleDelete = (channel: string) => {
-    if (!window.confirm(`Remove ${channel} from your whitelist?`)) return;
-    deleteMutation.mutate(channel);
+    setDeleteChannel(channel);
+    setShowDeleteConfirm(true);
   };
 
   return (
@@ -215,6 +205,25 @@ export default function WhitelistPanel() {
           {whitelists.length === 0 && <p className="py-1 text-xs text-text-hint">No whitelisted channels</p>}
         </div>
       </div>
+
+      {showDeleteConfirm && deleteChannel && (
+        <ConfirmDialog
+          config={{
+            title: 'Remove Whitelist?',
+            message: `Are you sure you want to remove ${deleteChannel} from your whitelist?`,
+            confirmLabel: 'Remove',
+          }}
+          onConfirm={() => {
+            deleteMutation.mutate(deleteChannel);
+            setShowDeleteConfirm(false);
+            setDeleteChannel(null);
+          }}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setDeleteChannel(null);
+          }}
+        />
+      )}
     </div>
   );
 }

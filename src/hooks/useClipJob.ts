@@ -78,7 +78,6 @@ export function useClipJob(): UseClipJobResult {
           startSeconds,
           durationSeconds,
           chatPath,
-          60,
         );
       }
     },
