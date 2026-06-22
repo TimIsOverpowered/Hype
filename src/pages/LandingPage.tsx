@@ -19,8 +19,8 @@ export default function LandingPage() {
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-text-primary mb-2">Finding the Hype</h1>
             <p className="text-sm text-text-secondary max-w-xl mx-auto mb-4">
-              Your ultimate Twitch companion. Download VODs, clip highlights, render chat, search keywords, and explore
-              your stream data with powerful graphs.
+              Your ultimate Twitch companion. Download VODs, clip highlights, render chat, search keywords, and
+              visualize chat activity and discover the best moments.
             </p>
             <Link
               to="/browse"
