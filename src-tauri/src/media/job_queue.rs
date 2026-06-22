@@ -144,7 +144,7 @@ impl JobQueue {
             #[cfg(windows)]
             {
                 if let Some(pid) = child.id() {
-                    let _ = std::process::Command::new("taskkill")
+                    let _ = crate::media::build_std_command("taskkill")
                         .args(&["/F", "/T", "/PID", &pid.to_string()])
                         .output();
                 }
