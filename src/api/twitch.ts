@@ -41,17 +41,16 @@ async function gqlPost<T>(clientId: string, body: Record<string, unknown>): Prom
 export async function getUsers(channels: string[]): Promise<TwitchUser[]> {
   if (channels.length === 0) return [];
 
-  const loginList = channels.map((c) => `"${c}"`).join(', ');
-  const query = `{ users(logins: [${loginList}]) { id login displayName profileImageURL(width: 300) } }`;
-
-  const response = await fetch(GQL_URL, {
-    method: 'POST',
-    headers: buildHeaders(PRIMARY_CLIENT_ID),
-    body: JSON.stringify({ query }),
+  const data = await gqlPost<{ users: TwitchUser[] }>(PRIMARY_CLIENT_ID, {
+    query: `
+      query GetUsers($logins: [String!]!) {
+        users(logins: $logins) { id login displayName profileImageURL(width: 300) }
+      }
+    `,
+    variables: { logins: channels },
   });
 
-  const json: GqlResponse<{ users: TwitchUser[] }> = await response.json();
-  return json.data?.users ?? [];
+  return data.users ?? [];
 }
 
 type VodEdgeRaw = {
@@ -115,22 +114,29 @@ function mapEdges(edges: VodEdgeRaw[]) {
 }
 
 export async function getVods(channel: string): Promise<VodPage> {
-  const query = `query { user(login: "${channel}") { id login displayName profileImageURL(width: 300) videos(first: 100) { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
-
-  const response = await fetch(GQL_URL, {
-    method: 'POST',
-    headers: buildHeaders(BACKUP_CLIENT_ID),
-    body: JSON.stringify({ query }),
+  const data = await gqlPost<VodsResponse>(BACKUP_CLIENT_ID, {
+    query: `
+      query GetUserVods($login: String!) {
+        user(login: $login) {
+          id login displayName profileImageURL(width: 300)
+          videos(first: 100) {
+            edges {
+              cursor
+              node {
+                id title viewCount createdAt lengthSeconds broadcastType
+                previewThumbnailURL(width: 320, height: 180)
+                creator { login }
+              }
+            }
+            pageInfo { hasNextPage }
+          }
+        }
+      }
+    `,
+    variables: { login: channel },
   });
 
-  const json: GqlResponse<VodsResponse> = await response.json();
-
-  if (json.errors) {
-    const messages = json.errors.map((e) => e.message);
-    throw new Error(`GQL request failed: ${messages.join(', ')}`);
-  }
-
-  const user = json.data?.user;
+  const user = data.user;
   if (!user) {
     throw new Error(`User "${channel}" not found`);
   }
@@ -148,22 +154,28 @@ export async function getVods(channel: string): Promise<VodPage> {
 }
 
 export async function getNextVods(channel: string, cursor: string): Promise<VodPage> {
-  const query = `query { user(login: "${channel}") { videos(first: 25, after: "${cursor}") { edges { cursor node { id creator { login } title viewCount createdAt lengthSeconds broadcastType previewThumbnailURL(width: 320, height: 180) } } pageInfo { hasNextPage } } }}`;
-
-  const response = await fetch(GQL_URL, {
-    method: 'POST',
-    headers: buildHeaders(BACKUP_CLIENT_ID),
-    body: JSON.stringify({ query }),
+  const data = await gqlPost<VodsOnlyResponse>(BACKUP_CLIENT_ID, {
+    query: `
+      query GetUserVodPage($login: String!, $cursor: Cursor!) {
+        user(login: $login) {
+          videos(first: 25, after: $cursor) {
+            edges {
+              cursor
+              node {
+                id title viewCount createdAt lengthSeconds broadcastType
+                previewThumbnailURL(width: 320, height: 180)
+                creator { login }
+              }
+            }
+            pageInfo { hasNextPage }
+          }
+        }
+      }
+    `,
+    variables: { login: channel, cursor },
   });
 
-  const json: GqlResponse<VodsOnlyResponse> = await response.json();
-
-  if (json.errors) {
-    const messages = json.errors.map((e) => e.message);
-    throw new Error(`GQL request failed: ${messages.join(', ')}`);
-  }
-
-  const user = json.data?.user;
+  const user = data.user;
   if (!user) {
     throw new Error(`User "${channel}" not found`);
   }
@@ -198,22 +210,20 @@ type GetVodResponse = {
 };
 
 export async function getVod(vodId: string): Promise<VodNode> {
-  const query = `query { video(id: "${vodId}") { id title lengthSeconds broadcastType previewThumbnailURL(width: 1920, height: 1080) creator { id login displayName createdAt profileImageURL(width: 50) } }}`;
-
-  const response = await fetch(GQL_URL, {
-    method: 'POST',
-    headers: buildHeaders(PRIMARY_CLIENT_ID),
-    body: JSON.stringify({ query }),
+  const data = await gqlPost<GetVodResponse>(PRIMARY_CLIENT_ID, {
+    query: `
+      query GetVideo($id: ID!) {
+        video(id: $id) {
+          id title lengthSeconds broadcastType
+          previewThumbnailURL(width: 1920, height: 1080)
+          creator { id login displayName createdAt profileImageURL(width: 50) }
+        }
+      }
+    `,
+    variables: { id: vodId },
   });
 
-  const json: GqlResponse<GetVodResponse> = await response.json();
-
-  if (json.errors) {
-    const messages = json.errors.map((e) => e.message);
-    throw new Error(`GQL request failed: ${messages.join(', ')}`);
-  }
-
-  const video = json.data?.video;
+  const video = data.video;
   if (!video) {
     throw new Error(`VOD "${vodId}" not found`);
   }
