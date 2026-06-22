@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS = {
 
 interface StoredSettings {
   interval?: number;
+  showGraph?: boolean;
+  showInsights?: boolean;
 }
 
 function loadStoredInterval(): number {
@@ -26,6 +28,18 @@ function loadStoredInterval(): number {
   return DEFAULT_SETTINGS.interval;
 }
 
+function loadStoredBoolean(key: 'showGraph' | 'showInsights'): boolean {
+  const saved = safeLocalStorage.getItem(STORAGE_KEY);
+  if (!saved) return true;
+  try {
+    const settings: StoredSettings = JSON.parse(saved);
+    return settings[key] !== false;
+  } catch {
+    console.error('Failed to parse graph settings from localStorage');
+  }
+  return true;
+}
+
 interface GraphSettingsValue {
   interval: number;
   setInterval: (v: number) => void;
@@ -33,6 +47,12 @@ interface GraphSettingsValue {
   minInterval: number;
   maxInterval: number;
   step: number;
+  showGraph: boolean;
+  setShowGraph: (v: boolean) => void;
+  resetShowGraph: () => void;
+  showInsights: boolean;
+  setShowInsights: (v: boolean) => void;
+  resetShowInsights: () => void;
   messageThreshold: number | null;
   setMessageThreshold: (v: number | null) => void;
   resetMessageThreshold: () => void;
@@ -54,6 +74,8 @@ export function GraphSettingsProvider({ children }: { children: React.ReactNode 
   const [searchThreshold, setSearchThresholdState] = useState<number | null>(null);
   const [effectiveMessageThreshold, setEffectiveMessageThresholdState] = useState<number | null>(null);
   const [effectiveSearchThreshold, setEffectiveSearchThresholdState] = useState<number | null>(1);
+  const [showGraph, setShowGraphState] = useState(() => loadStoredBoolean('showGraph'));
+  const [showInsights, setShowInsightsState] = useState(() => loadStoredBoolean('showInsights'));
 
   const persistSettings = useCallback((updates: Partial<StoredSettings>) => {
     const saved = safeLocalStorage.getItem(STORAGE_KEY);
@@ -108,11 +130,39 @@ export function GraphSettingsProvider({ children }: { children: React.ReactNode 
     setSearchThresholdState(null);
   }, []);
 
+  const handleSetShowGraph = useCallback(
+    (v: boolean) => {
+      setShowGraphState(v);
+      persistSettings({ showGraph: v });
+    },
+    [persistSettings],
+  );
+
+  const handleResetShowGraph = useCallback(() => {
+    setShowGraphState(true);
+    persistSettings({ showGraph: true });
+  }, [persistSettings]);
+
+  const handleSetShowInsights = useCallback(
+    (v: boolean) => {
+      setShowInsightsState(v);
+      persistSettings({ showInsights: v });
+    },
+    [persistSettings],
+  );
+
+  const handleResetShowInsights = useCallback(() => {
+    setShowInsightsState(true);
+    persistSettings({ showInsights: true });
+  }, [persistSettings]);
+
   const handleResetAll = useCallback(() => {
     setIntervalState(DEFAULT_SETTINGS.interval);
     setMessageThresholdState(null);
     setSearchThresholdState(null);
-    persistSettings({ interval: DEFAULT_SETTINGS.interval });
+    setShowGraphState(true);
+    setShowInsightsState(true);
+    persistSettings({ interval: DEFAULT_SETTINGS.interval, showGraph: true, showInsights: true });
   }, [persistSettings]);
 
   const handleSetEffectiveMessageThreshold = useCallback((v: number | null) => {
@@ -132,6 +182,12 @@ export function GraphSettingsProvider({ children }: { children: React.ReactNode 
         minInterval: DEFAULT_SETTINGS.MIN_INTERVAL,
         maxInterval: DEFAULT_SETTINGS.MAX_INTERVAL,
         step: DEFAULT_SETTINGS.STEP,
+        showGraph,
+        setShowGraph: handleSetShowGraph,
+        resetShowGraph: handleResetShowGraph,
+        showInsights,
+        setShowInsights: handleSetShowInsights,
+        resetShowInsights: handleResetShowInsights,
         messageThreshold,
         setMessageThreshold: handleSetMessageThreshold,
         resetMessageThreshold: handleResetMessageThreshold,

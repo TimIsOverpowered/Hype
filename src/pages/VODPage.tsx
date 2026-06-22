@@ -11,6 +11,7 @@ import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
 import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
+import { useGraphSettings } from '../hooks/useGraphSettings';
 import type { SerializedEmoteSet } from '../types/graph';
 import type { M3u8Variant } from '../types/twitch';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
@@ -39,6 +40,7 @@ export default function VODPage() {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showChat, setShowChat] = useState(true);
   const chatSettings = useChatSettings();
+  const graphSettings = useGraphSettings();
   const [theatreMode, setTheatreMode] = useState(() => {
     const saved = safeLocalStorage.getItem('theatre-mode');
     return saved === 'true';
@@ -173,7 +175,7 @@ export default function VODPage() {
     <div className="flex h-full w-full flex-col bg-background">
       {/* Player + Chat row */}
       <div
-        className={`relative flex w-full ${chatSettings.chatOnLeft ? 'flex-row-reverse' : ''} ${theatreMode ? 'h-full' : 'h-[50%]'}`}
+        className={`relative flex w-full min-h-0 ${chatSettings.chatOnLeft ? 'flex-row-reverse' : ''} ${theatreMode ? 'h-full' : 'flex-1'}`}
       >
         <div className="flex min-w-0 flex-1 flex-col bg-black">
           <VideoPlayer
@@ -218,7 +220,7 @@ export default function VODPage() {
       </div>
 
       {/* Clip bar + Graph + Job progress — hidden in theatre mode */}
-      <div className="theatre-hide flex min-h-0 flex-1 flex-col">
+      <div className={`theatre-hide flex min-h-0 ${graphSettings.showGraph ? 'flex-1' : ''} flex-col`}>
         <ClipBar
           vodId={vodId || ''}
           m3u8Url={m3u8Url || ''}
@@ -226,6 +228,8 @@ export default function VODPage() {
           currentTime={currentTime}
           clipStart={clipStart}
           clipEnd={clipEnd}
+          showGraph={graphSettings.showGraph}
+          onToggleGraph={() => graphSettings.setShowGraph(!graphSettings.showGraph)}
           onClip={handleClip}
           onDownload={() => setShowDownloadModal(true)}
           onSetStart={setClipStart}
@@ -241,25 +245,27 @@ export default function VODPage() {
           variants={variants}
           isLoading={false}
         />
-        <div className="border-t border-border p-3 flex flex-1 flex-col min-h-0">
-          <VodGraph
-            vodId={vodId || ''}
-            playerRef={
-              playerRef as React.RefObject<{
-                seek: (t: number) => void;
-                play: () => void;
-                pause: () => void;
-              } | null>
-            }
-            emoteData={emoteDataRef}
-            emotesLoaded={emotesLoaded}
-            duration={vodInfo?.lengthSeconds ?? 0}
-            currentTime={currentTime}
-            isWhitelisted={isWhitelisted}
-            onClipStart={(hms: string) => setClipStart(hms)}
-            onClipEnd={(hms: string) => setClipEnd(hms)}
-          />
-        </div>
+        {graphSettings.showGraph && (
+          <div className="border-t border-border p-3 flex flex-1 flex-col min-h-0">
+            <VodGraph
+              vodId={vodId || ''}
+              playerRef={
+                playerRef as React.RefObject<{
+                  seek: (t: number) => void;
+                  play: () => void;
+                  pause: () => void;
+                } | null>
+              }
+              emoteData={emoteDataRef}
+              emotesLoaded={emotesLoaded}
+              duration={vodInfo?.lengthSeconds ?? 0}
+              currentTime={currentTime}
+              isWhitelisted={isWhitelisted}
+              onClipStart={(hms: string) => setClipStart(hms)}
+              onClipEnd={(hms: string) => setClipEnd(hms)}
+            />
+          </div>
+        )}
       </div>
 
       {error && (

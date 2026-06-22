@@ -524,6 +524,52 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                     Minimum search hits per interval before the graph point is plotted.
                   </p>
                 </div>
+
+                <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+                  <div className="flex items-center gap-3 text-sm text-text-primary">
+                    <input
+                      type="checkbox"
+                      checked={graphSettings.showGraph}
+                      onChange={() => graphSettings.setShowGraph(!graphSettings.showGraph)}
+                      className="h-4 w-4 cursor-pointer accent-primary"
+                    />
+                    Show Graph
+                    <button
+                      type="button"
+                      onClick={graphSettings.resetShowGraph}
+                      className={`ml-auto shrink-0 rounded p-1 transition-colors ${
+                        graphSettings.showGraph === true
+                          ? 'cursor-not-allowed text-text-hint opacity-30'
+                          : 'hover:bg-white/5 hover:text-text-secondary'
+                      }`}
+                      title="Reset to default"
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-text-primary">
+                    <input
+                      type="checkbox"
+                      checked={graphSettings.showInsights}
+                      onChange={() => graphSettings.setShowInsights(!graphSettings.showInsights)}
+                      className="h-4 w-4 cursor-pointer accent-primary"
+                    />
+                    Show Insights Panel
+                    <button
+                      type="button"
+                      onClick={graphSettings.resetShowInsights}
+                      className={`ml-auto shrink-0 rounded p-1 transition-colors ${
+                        graphSettings.showInsights === true
+                          ? 'cursor-not-allowed text-text-hint opacity-30'
+                          : 'hover:bg-white/5 hover:text-text-secondary'
+                      }`}
+                      title="Reset to default"
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-text-hint">Toggle the graph area and insights sidebar visibility.</p>
+                </div>
               </div>
             )}
 

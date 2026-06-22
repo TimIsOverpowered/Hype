@@ -1,4 +1,15 @@
-import { Clock, Compass, Download, MessageSquare, Scissors, Search, Trash2, TrendingUp, User, BarChart3 } from 'lucide-react';
+import {
+  BarChart3,
+  Clock,
+  Compass,
+  Download,
+  MessageSquare,
+  Scissors,
+  Search,
+  Trash2,
+  TrendingUp,
+  User,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import hypeLogo from '../assets/hype-logo.svg';
 import { useRecentChannels } from '../hooks/useRecentChannels';

@@ -10,6 +10,8 @@ interface ClipBarProps {
   readonly currentTime: number;
   readonly clipStart: string;
   readonly clipEnd: string;
+  readonly showGraph: boolean;
+  readonly onToggleGraph: () => void;
   readonly onClip: (
     vodId: string,
     m3u8Url: string,
@@ -27,6 +29,8 @@ export default function ClipBar({
   vodId,
   clipStart,
   clipEnd,
+  showGraph,
+  onToggleGraph,
   onClip,
   onDownload,
   onSetStart,
@@ -202,18 +206,70 @@ export default function ClipBar({
         </span>
       </label>
 
+      {/* 6. Download Full VOD */}
+      <button
+        type="button"
+        onClick={onDownload}
+        className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 text-xs font-medium text-text-secondary transition-all hover:bg-white/10 hover:text-text-primary"
+        title="Download the entire VOD"
+      >
+        <Download size={14} />
+        Download VOD
+      </button>
+
       <div className="flex-1" />
 
-      {/* 6. Download Full VOD */}
-      <div className="border-l border-border pl-4">
+      {/* 7. Toggle Graph + Settings */}
+      <div className="flex items-center gap-1">
         <button
           type="button"
-          onClick={onDownload}
-          className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 text-xs font-medium text-text-secondary transition-all hover:bg-white/10 hover:text-text-primary"
-          title="Download the entire VOD"
+          onClick={onToggleGraph}
+          className={`flex items-center justify-center rounded-lg p-2 text-xs font-medium transition-all ${
+            showGraph
+              ? 'bg-primary/20 text-primary hover:bg-primary/30'
+              : 'bg-surface-elevated text-text-secondary hover:bg-white/10 hover:text-text-primary'
+          }`}
+          title={showGraph ? 'Hide Graph' : 'Show Graph'}
         >
-          <Download size={14} />
-          Download VOD
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <title>Toggle Graph</title>
+            <line x1="4" y1="20" x2="4" y2="4" />
+            <line x1="9" y1="20" x2="9" y2="9" />
+            <line x1="14" y1="20" x2="14" y2="14" />
+            <line x1="19" y1="20" x2="19" y2="11" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('open-global-settings', { detail: 'chat-render' }))}
+          className="flex items-center justify-center rounded-lg p-2 text-xs font-medium text-text-secondary transition-all hover:bg-white/10 hover:text-text-primary"
+          title="Chat Renderer Settings"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <title>Chat Renderer Settings</title>
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1.74-1v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
         </button>
       </div>
     </div>

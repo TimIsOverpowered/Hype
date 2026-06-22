@@ -352,6 +352,8 @@ const VodGraph = memo(function VodGraph({
     setSearchThreshold: _setSearchThreshold,
     setEffectiveMessageThreshold,
     setEffectiveSearchThreshold,
+    showInsights,
+    setShowInsights,
   } = useGraphSettings();
 
   const [activeTab, setActiveTab] = useState<GraphType>('messages');
@@ -366,7 +368,6 @@ const VodGraph = memo(function VodGraph({
   const [totalMessages, setTotalMessages] = useState<number>(0);
   const [overallTopEmotes, setOverallTopEmotes] = useState<TopEmote[]>([]);
   const [topSpikes, setTopSpikes] = useState<TopSpike[]>([]);
-  const [showInsights, setShowInsights] = useState(true);
 
   const chartInstanceRef = useRef<unknown>(null);
   const disposedRef = useRef(false);
