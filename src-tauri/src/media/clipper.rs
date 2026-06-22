@@ -108,14 +108,14 @@ async fn run_ffmpeg(
             _ => break,
         };
 
-        if total_duration.is_none() {
+        if total_duration.is_none() && event_prefix != "clip" {
             if let Some(dur) = line.split("Duration: ").nth(1) {
                 let dur_str = dur.split(',').next().unwrap_or("");
                 total_duration = Some(parse_timecode(dur_str));
             }
         }
 
-        let total = total_duration.unwrap_or(duration_hint);
+        let total = if event_prefix == "clip" { duration_hint } else { total_duration.unwrap_or(duration_hint) };
         if total <= 0.0 {
             continue;
         }
@@ -183,7 +183,7 @@ pub async fn submit_clip(
     start: f64,
     duration: f64,
     output_path: String,
-    _is_fmp4: bool,
+    is_fmp4: bool,
     app: AppHandle,
 ) -> Result<SubmitJobResponse, String> {
     let job_id = job_queue::get_queue().submit(
@@ -195,13 +195,26 @@ pub async fn submit_clip(
             .to_string(),
     );
 
-    let args: Vec<String> = vec![
+    let mut args: Vec<String> = vec![
         "-v".into(),
         "info".into(),
         "-threads".into(),
         "0".into(),
         "-thread_queue_size".into(),
         "1024".into(),
+    ];
+
+    // Keep the demuxer helper flags for reading Fragmented MP4 streams stably
+    if is_fmp4 {
+        args.extend(vec![
+            "-fflags".into(),
+            "+genpts+igndts".into(),
+            "-correct_ts_overflow".into(),
+            "1".into(),
+        ]);
+    }
+
+    args.extend(vec![
         "-ss".into(),
         start.to_string(),
         "-i".into(),
@@ -210,17 +223,22 @@ pub async fn submit_clip(
         duration.to_string(),
         "-c".into(),
         "copy".into(),
-        "-avoid_negative_ts".into(),
-        "make_zero".into(),
-        "-map_metadata".into(),
-        "0".into(),
-        "-bsf:a".into(),
-        "aac_adtstoasc".into(),
+    ]);
+
+    // Omit the ADTS bitstream translator for fMP4 streams to keep the audio pipeline clean
+    if !is_fmp4 {
+        args.extend(vec![
+            "-bsf:a".into(),
+            "aac_adtstoasc".into(),
+        ]);
+    }
+
+    args.extend(vec![
         "-movflags".into(),
         "+faststart".into(),
         "-y".into(),
         output_path,
-    ];
+    ]);
 
     let app_clone = app.clone();
     let id_clone = job_id.clone();
@@ -236,7 +254,7 @@ pub async fn submit_download(
     m3u8_url: String,
     duration: f64,
     output_path: String,
-    _is_fmp4: bool,
+    is_fmp4: bool,
     app: AppHandle,
 ) -> Result<SubmitJobResponse, String> {
     let job_id = job_queue::get_queue().submit(
@@ -248,24 +266,44 @@ pub async fn submit_download(
             .to_string(),
     );
 
-    let args: Vec<String> = vec![
+    let mut args: Vec<String> = vec![
         "-v".into(),
         "info".into(),
         "-threads".into(),
         "0".into(),
         "-thread_queue_size".into(),
         "1024".into(),
+    ];
+
+    if is_fmp4 {
+        args.extend(vec![
+            "-fflags".into(),
+            "+genpts+igndts".into(),
+            "-correct_ts_overflow".into(),
+            "1".into(),
+        ]);
+    }
+
+    args.extend(vec![
         "-i".into(),
         m3u8_url,
         "-c".into(),
         "copy".into(),
-        "-bsf:a".into(),
-        "aac_adtstoasc".into(),
+    ]);
+
+    if !is_fmp4 {
+        args.extend(vec![
+            "-bsf:a".into(),
+            "aac_adtstoasc".into(),
+        ]);
+    }
+
+    args.extend(vec![
         "-movflags".into(),
         "+faststart".into(),
         "-y".into(),
         output_path,
-    ];
+    ]);
 
     let app_clone = app.clone();
     let id_clone = job_id.clone();

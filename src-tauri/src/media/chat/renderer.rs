@@ -87,7 +87,7 @@ struct MessageLayout {
     total_height: f32,
 }
 
-fn has_encoder(encoder_name: &str) -> bool {
+pub fn has_encoder(encoder_name: &str) -> bool {
     let ffmpeg_path = ffmpeg_sidecar::paths::ffmpeg_path();
     if let Ok(output) = std::process::Command::new(&ffmpeg_path).arg("-encoders").output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -97,7 +97,7 @@ fn has_encoder(encoder_name: &str) -> bool {
     }
 }
 
-fn get_h264_args(encoder: &str) -> Vec<String> {
+pub fn get_h264_args(encoder: &str) -> Vec<String> {
     match encoder {
         "h264_nvenc" => vec![
             "-c:v".into(), "h264_nvenc".into(),
