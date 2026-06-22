@@ -3,10 +3,49 @@ use std::sync::atomic::Ordering;
 use serde::Serialize;
 use tauri::AppHandle;
 use tauri::Emitter;
+use tauri::Manager;
+use tauri::path::BaseDirectory;
 use tokio::io::AsyncBufReadExt;
 use tokio::process::Command;
 
 use crate::media::job_queue;
+
+pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
+    let arch = std::env::consts::ARCH;
+    let os = std::env::consts::OS;
+
+    let triple = match (os, arch) {
+        ("windows", "x86_64") => "x86_64-pc-windows-msvc",
+        ("macos", "x86_64") => "x86_64-apple-darwin",
+        ("macos", "aarch64") => "aarch64-apple-darwin",
+        ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
+        _ => "x86_64-pc-windows-msvc",
+    };
+
+    let ext = if os == "windows" { ".exe" } else { "" };
+    let binary_name = format!("ffmpeg-{}{}", triple, ext);
+
+    let dev_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("binaries")
+        .join(&binary_name);
+    if dev_path.exists() {
+        return dev_path;
+    }
+
+    if let Ok(prod_path) = app.path().resolve(format!("binaries/{}", binary_name), BaseDirectory::Resource) {
+        if prod_path.exists() {
+            return prod_path;
+        }
+    }
+
+    if let Ok(prod_path_root) = app.path().resolve(&binary_name, BaseDirectory::Resource) {
+        if prod_path_root.exists() {
+            return prod_path_root;
+        }
+    }
+
+    dev_path
+}
 
 #[derive(Serialize, Clone)]
 pub struct SubmitJobResponse {
@@ -33,23 +72,19 @@ async fn run_ffmpeg(
 ) {
     let queue = job_queue::get_queue();
 
-    if let Err(e) = ffmpeg_sidecar::download::auto_download() {
-        queue.fail(
-            &job_id,
-            format!("FFmpeg download failed: {}", e),
-            &app,
-            event_prefix,
-        );
-        return;
+    let ffmpeg_path = get_ffmpeg_path(&app);
+
+    let mut child = match {
+        let mut cmd = Command::new(&ffmpeg_path);
+        cmd.args(&args)
+            .stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped());
+        #[cfg(windows)]
+        {
+            cmd.creation_flags(0x08000000);
+        }
+        cmd.spawn()
     }
-
-    let ffmpeg_path = ffmpeg_sidecar::paths::ffmpeg_path();
-
-    let mut child = match Command::new(&ffmpeg_path)
-        .args(&args)
-        .stderr(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
     {
         Ok(c) => c,
         Err(e) => {

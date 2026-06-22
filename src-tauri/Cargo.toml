@@ -29,7 +29,6 @@ tauri-plugin-deep-link = "2.4.9"
 tauri-plugin-updater = "2.10.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-ffmpeg-sidecar = { version = "2.5.2", features = ["download_ffmpeg"] }
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "sync", "macros", "net", "process"] }
 axum = "0.8.9"
 reqwest = { version = "0.13.4", features = ["stream", "json"] }

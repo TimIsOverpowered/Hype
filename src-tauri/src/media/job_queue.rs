@@ -140,28 +140,34 @@ impl JobQueue {
         job.cancel_flag.store(true, Ordering::SeqCst);
 
         // Step 4: Kill child process tree cleanly across platforms
-        if let Ok(mut child_opt) = job.child_handle.lock() {
-            if let Some(ref mut child) = *child_opt {
-                #[cfg(windows)]
-                {
-                    if let Some(pid) = child.id() {
-                        let _ = std::process::Command::new("taskkill")
-                            .args(&["/F", "/T", "/PID", &pid.to_string()])
-                            .output();
-                    }
-                }
-
-                #[cfg(not(windows))]
-                {
-                    if let Some(pid) = child.id() {
-                        let _ = std::process::Command::new("kill")
-                            .args(&["-9", &pid.to_string()])
-                            .output();
-                    }
-                }
-                
-                let _ = child.kill().await;
+        let maybe_child = {
+            if let Ok(mut child_opt) = job.child_handle.lock() {
+                child_opt.take()
+            } else {
+                None
             }
+        };
+
+        if let Some(mut child) = maybe_child {
+            #[cfg(windows)]
+            {
+                if let Some(pid) = child.id() {
+                    let _ = std::process::Command::new("taskkill")
+                        .args(&["/F", "/T", "/PID", &pid.to_string()])
+                        .output();
+                }
+            }
+
+            #[cfg(not(windows))]
+            {
+                if let Some(pid) = child.id() {
+                    let _ = std::process::Command::new("kill")
+                        .args(&["-9", &pid.to_string()])
+                        .output();
+                }
+            }
+
+            let _ = child.kill().await;
         }
 
         // Step 5: Emit event (acquires locks independently)

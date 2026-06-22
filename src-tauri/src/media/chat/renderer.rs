@@ -87,9 +87,8 @@ struct MessageLayout {
     total_height: f32,
 }
 
-pub fn has_encoder(encoder_name: &str) -> bool {
-    let ffmpeg_path = ffmpeg_sidecar::paths::ffmpeg_path();
-    if let Ok(output) = std::process::Command::new(&ffmpeg_path).arg("-encoders").output() {
+pub fn has_encoder(ffmpeg_path: &std::path::Path, encoder_name: &str) -> bool {
+    if let Ok(output) = std::process::Command::new(ffmpeg_path).arg("-encoders").output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         stdout.contains(encoder_name)
     } else {
@@ -352,6 +351,7 @@ fn render_frame(
 pub fn render_chat_video(
     messages: Vec<FormattedMessage>,
     asset_manager: &RenderAssetManager,
+    ffmpeg_path: &std::path::Path,
     output_path: &str,
     start_sec: f64,
     duration_sec: f64,
@@ -369,13 +369,11 @@ pub fn render_chat_video(
         None
     };
 
-    let encoder = if has_encoder("h264_nvenc") { "h264_nvenc" }
-    else if has_encoder("h264_videotoolbox") { "h264_videotoolbox" }
-    else if has_encoder("h264_amf") { "h264_amf" }
-    else if has_encoder("h264_qsv") { "h264_qsv" }
+    let encoder = if has_encoder(ffmpeg_path, "h264_nvenc") { "h264_nvenc" }
+    else if has_encoder(ffmpeg_path, "h264_videotoolbox") { "h264_videotoolbox" }
+    else if has_encoder(ffmpeg_path, "h264_amf") { "h264_amf" }
+    else if has_encoder(ffmpeg_path, "h264_qsv") { "h264_qsv" }
     else { "libx264" };
-
-    let ffmpeg_path = ffmpeg_sidecar::paths::ffmpeg_path();
 
     // ─── PIPE 1: STANDARD COLOR VIDEO ───
     let mut color_args = vec![
@@ -601,16 +599,21 @@ pub async fn render_chat_video_orchestrator_cmd(
         let asset_cache_clone = RENDER_ASSET_CACHE.clone();
         let output_path_clone = output_path.clone();
         let output_path_for_payload = output_path.clone();
+
+        let native_ffmpeg_path = crate::media::clipper::get_ffmpeg_path(&app_clone);
+
         let messages_inner = messages;
         let app_inner = app_clone.clone();
         let job_id_inner = job_id_clone.clone();
         let config_inner = config_clone;
+        let ffmpeg_path = native_ffmpeg_path;
 
         let render_result = tokio::task::spawn_blocking(move || {
             let manager_guard = asset_cache_clone.blocking_read();
             render_chat_video(
                 messages_inner,
                 &manager_guard,
+                &ffmpeg_path,
                 &output_path_clone,
                 start_sec,
                 duration_sec,
