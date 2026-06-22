@@ -6,7 +6,6 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri::path::BaseDirectory;
 use tokio::io::AsyncBufReadExt;
-use tokio::process::Command;
 
 use crate::media::job_queue;
 
@@ -74,17 +73,11 @@ async fn run_ffmpeg(
 
     let ffmpeg_path = get_ffmpeg_path(&app);
 
-    let mut child = match {
-        let mut cmd = Command::new(&ffmpeg_path);
-        cmd.args(&args)
-            .stderr(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped());
-        #[cfg(windows)]
-        {
-            cmd.creation_flags(0x08000000);
-        }
-        cmd.spawn()
-    }
+    let mut child = match crate::media::build_tokio_command(&ffmpeg_path)
+        .args(&args)
+        .stderr(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
     {
         Ok(c) => c,
         Err(e) => {

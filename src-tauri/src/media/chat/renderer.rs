@@ -88,7 +88,10 @@ struct MessageLayout {
 }
 
 pub fn has_encoder(ffmpeg_path: &std::path::Path, encoder_name: &str) -> bool {
-    if let Ok(output) = std::process::Command::new(ffmpeg_path).arg("-encoders").output() {
+    let mut cmd = crate::media::build_std_command(ffmpeg_path);
+    cmd.arg("-encoders");
+
+    if let Ok(output) = cmd.output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         stdout.contains(encoder_name)
     } else {
@@ -384,7 +387,10 @@ pub fn render_chat_video(
     color_args.extend(get_h264_args(encoder));
     color_args.push(output_path.to_string());
 
-    let mut color_child = std::process::Command::new(&ffmpeg_path).args(&color_args).stdin(std::process::Stdio::piped()).spawn().map_err(|e| format!("Failed to spawn Color FFmpeg: {}", e))?;
+    let mut color_cmd = crate::media::build_std_command(&ffmpeg_path);
+    color_cmd.args(&color_args).stdin(std::process::Stdio::piped());
+
+    let mut color_child = color_cmd.spawn().map_err(|e| format!("Failed to spawn Color FFmpeg: {}", e))?;
     let mut color_stdin = color_child.stdin.take().ok_or("Failed to take Color stdin")?;
 
     // ─── PIPE 2: TRACK MATTE BLACK & WHITE MASK VIDEO (Conditional) ───
@@ -401,7 +407,10 @@ pub fn render_chat_video(
         mask_args.extend(get_h264_args(encoder));
         mask_args.push(mask_output_path);
 
-        let mut child = std::process::Command::new(&ffmpeg_path).args(&mask_args).stdin(std::process::Stdio::piped()).spawn().map_err(|e| format!("Failed to spawn Mask FFmpeg: {}", e))?;
+        let mut mask_cmd = crate::media::build_std_command(&ffmpeg_path);
+        mask_cmd.args(&mask_args).stdin(std::process::Stdio::piped());
+
+        let mut child = mask_cmd.spawn().map_err(|e| format!("Failed to spawn Mask FFmpeg: {}", e))?;
         mask_stdin = Some(child.stdin.take().ok_or("Failed to take Mask stdin")?);
         mask_child = Some(child);
     }
