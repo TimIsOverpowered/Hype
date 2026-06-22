@@ -72,9 +72,25 @@ export function useTooltipControls({ duration, chapters }: UseTooltipControlsOpt
       const chapter = getCurrentChapter(time, chapters);
 
       if (chapter) {
-        tooltip.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:12px;color:#a0a0b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${chapter}</div><div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div></div>`;
+        tooltip.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px';
+        const gameEl = document.createElement('div');
+        gameEl.style.cssText =
+          'font-size:12px;color:#a0a0b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px';
+        gameEl.textContent = chapter;
+        const timeEl = document.createElement('div');
+        timeEl.style.cssText = 'font-size:12px;white-space:nowrap';
+        timeEl.textContent = formatTime(time);
+        wrapper.appendChild(gameEl);
+        wrapper.appendChild(timeEl);
+        tooltip.appendChild(wrapper);
       } else {
-        tooltip.innerHTML = `<div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div>`;
+        tooltip.innerHTML = '';
+        const timeEl = document.createElement('div');
+        timeEl.style.cssText = 'font-size:12px;white-space:nowrap';
+        timeEl.textContent = formatTime(time);
+        tooltip.appendChild(timeEl);
       }
       tooltip.style.opacity = '1';
 

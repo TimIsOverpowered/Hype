@@ -481,19 +481,13 @@ interface MemoizedCommentProps {
   readonly badgeData: BadgeRef | null;
   readonly fontFamily: string;
   readonly messageFontSize: number;
-  readonly backgroundColor: string;
 }
 
+const BACKGROUND_COLOR = '#16161e';
+
 const MemoizedComment = memo(
-  function MemoizedComment({
-    message,
-    showTimestamp,
-    badgeData,
-    fontFamily,
-    messageFontSize,
-    backgroundColor,
-  }: MemoizedCommentProps) {
-    const adjustedColor = adjustUsernameColor(message.userColor, backgroundColor);
+  function MemoizedComment({ message, showTimestamp, badgeData, fontFamily, messageFontSize }: MemoizedCommentProps) {
+    const adjustedColor = adjustUsernameColor(message.userColor, BACKGROUND_COLOR);
     const keyPrefix = `msg-${message.id}`;
 
     return (
@@ -978,7 +972,6 @@ export default function ChatReplay({
           badgeData={badgeState}
           fontFamily={fontFamily}
           messageFontSize={messageFontSize}
-          backgroundColor="#16161e"
         />
       )),
     [messages, showTimestamp, badgeState, fontFamily, messageFontSize],
