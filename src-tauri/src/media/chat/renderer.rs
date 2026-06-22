@@ -53,6 +53,29 @@ fn hex_color_to_skia(color_hex: &str) -> Color {
     }
 }
 
+fn adjust_username_color(username_color: Color, bg_color: Color) -> Color {
+    let r = username_color.r() as f32;
+    let g = username_color.g() as f32;
+    let b = username_color.b() as f32;
+
+    let user_lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    let bg_lum = 0.299 * bg_color.r() as f32 + 0.587 * bg_color.g() as f32 + 0.114 * bg_color.b() as f32;
+
+    if (user_lum - bg_lum).abs() < 80.0 {
+        if bg_lum < 128.0 {
+            let factor = (80.0 - (user_lum - bg_lum).abs()) / 80.0;
+            let new_r = (r + (255.0 - r) * factor).min(255.0) as u8;
+            let new_g = (g + (255.0 - g) * factor).min(255.0) as u8;
+            let new_b = (b + (255.0 - b) * factor).min(255.0) as u8;
+            Color::from_rgb(new_r, new_g, new_b)
+        } else {
+            Color::from_rgb((r * 0.3) as u8, (g * 0.3) as u8, (b * 0.3) as u8)
+        }
+    } else {
+        username_color
+    }
+}
+
 enum PlaceholderData {
     Badge(String),
     Emote(String),
@@ -116,6 +139,7 @@ fn build_paragraph_for_message(
     fc: &FontCollection,
     config: &ChatRenderConfig,
     force_white_mask: bool,
+    bg_color: Color,
 ) -> (Paragraph, Vec<PlaceholderData>) {
     let mut builder = ParagraphBuilder::new(&ParagraphStyle::new(), fc.clone());
     let mut placeholders = Vec::new();
@@ -151,7 +175,8 @@ fn build_paragraph_for_message(
     }
 
     let mut username_style = TextStyle::new();
-    username_style.set_color(if force_white_mask { Color::WHITE } else { username_color });
+    let guarded_color = if force_white_mask { Color::WHITE } else { adjust_username_color(username_color, bg_color) };
+    username_style.set_color(guarded_color);
     username_style.set_font_size(config.font_size);
     username_style.set_font_style(FontStyle::bold());
     username_style.set_font_families(&font_list);
@@ -416,12 +441,12 @@ pub fn render_chat_video(
             let msg = &filtered_messages[next_msg_idx];
             let user_color = hex_color_to_skia(&msg.user_color);
 
-            let (c_para, c_ph) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, false);
+            let (c_para, c_ph) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, false, bg_color);
             let c_height = c_para.height() + MESSAGE_GAP;
             color_queue.push_back(MessageLayout { para: c_para, placeholders: c_ph, total_height: c_height });
 
             if config.generate_mask {
-                let (m_para, m_ph) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, true);
+                let (m_para, m_ph) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, true, bg_color);
                 let m_height = m_para.height() + MESSAGE_GAP;
                 mask_queue.push_back(MessageLayout { para: m_para, placeholders: m_ph, total_height: m_height });
             }

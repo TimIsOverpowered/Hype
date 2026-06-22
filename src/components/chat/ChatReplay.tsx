@@ -11,10 +11,6 @@ import {
   CHAT_SCROLL_UP_THRESHOLD,
   CHAT_SKELETON_COUNT,
   CHAT_STATE_CHANGE_DELAY_MS,
-  LUMINANCE_B,
-  LUMINANCE_G,
-  LUMINANCE_R,
-  MIN_USERNAME_LUMINANCE,
 } from '../../constants/ui';
 import type { UseChatSettingsReturn } from '../../hooks/useChatSettings';
 import type {
@@ -68,23 +64,44 @@ interface ChatEngineState {
 
 // ─── Username color adjustment ─────────────────────────────────────────────
 
-function adjustUsernameColor(hex: string): string {
+function adjustUsernameColor(hex: string, bgHex: string = '#16161e'): string {
   if (!hex) return '#8a2be2';
 
-  let r = parseInt(hex.slice(1, 3), 16);
-  let g = parseInt(hex.slice(3, 5), 16);
-  let b = parseInt(hex.slice(5, 7), 16);
+  const parseHex = (h: string) => {
+    let cleaned = h.trim().replace('#', '');
+    if (cleaned.length === 3)
+      cleaned = cleaned
+        .split('')
+        .map((c) => c + c)
+        .join('');
+    return {
+      r: parseInt(cleaned.slice(0, 2), 16) || 0,
+      g: parseInt(cleaned.slice(2, 4), 16) || 0,
+      b: parseInt(cleaned.slice(4, 6), 16) || 0,
+    };
+  };
 
-  const luminance = LUMINANCE_R * r + LUMINANCE_G * g + LUMINANCE_B * b;
+  const user = parseHex(hex);
+  const bg = parseHex(bgHex);
 
-  if (luminance < MIN_USERNAME_LUMINANCE) {
-    const mix = (90 - luminance) / 90;
-    r = Math.round(r + (255 - r) * mix);
-    g = Math.round(g + (255 - g) * mix);
-    b = Math.round(b + (255 - b) * mix);
+  const userLum = 0.299 * user.r + 0.587 * user.g + 0.114 * user.b;
+  const bgLum = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b;
+
+  if (Math.abs(userLum - bgLum) < 80) {
+    const factor = bgLum < 128 ? (80 - Math.abs(userLum - bgLum)) / 80 : -0.4;
+
+    if (bgLum < 128) {
+      user.r = Math.min(255, Math.round(user.r + (255 - user.r) * factor));
+      user.g = Math.min(255, Math.round(user.g + (255 - user.g) * factor));
+      user.b = Math.min(255, Math.round(user.b + (255 - user.b) * factor));
+    } else {
+      user.r = Math.max(0, Math.round(user.r * 0.4));
+      user.g = Math.max(0, Math.round(user.g * 0.4));
+      user.b = Math.max(0, Math.round(user.b * 0.4));
+    }
   }
 
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  return `#${user.r.toString(16).padStart(2, '0')}${user.g.toString(16).padStart(2, '0')}${user.b.toString(16).padStart(2, '0')}`;
 }
 
 // ─── Fragment rendering helpers ────────────────────────────────────────────
@@ -464,11 +481,19 @@ interface MemoizedCommentProps {
   readonly badgeData: BadgeRef | null;
   readonly fontFamily: string;
   readonly messageFontSize: number;
+  readonly backgroundColor: string;
 }
 
 const MemoizedComment = memo(
-  function MemoizedComment({ message, showTimestamp, badgeData, fontFamily, messageFontSize }: MemoizedCommentProps) {
-    const adjustedColor = adjustUsernameColor(message.userColor);
+  function MemoizedComment({
+    message,
+    showTimestamp,
+    badgeData,
+    fontFamily,
+    messageFontSize,
+    backgroundColor,
+  }: MemoizedCommentProps) {
+    const adjustedColor = adjustUsernameColor(message.userColor, backgroundColor);
     const keyPrefix = `msg-${message.id}`;
 
     return (
@@ -953,6 +978,7 @@ export default function ChatReplay({
           badgeData={badgeState}
           fontFamily={fontFamily}
           messageFontSize={messageFontSize}
+          backgroundColor="#16161e"
         />
       )),
     [messages, showTimestamp, badgeState, fontFamily, messageFontSize],
