@@ -25,6 +25,7 @@
     "@twemoji/api": "^17.0.3",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
+    "tslib": "^2.8.1",
     "hls-parser": "^0.16.1",
     "hls.js": "^1.6.16",
     "lucide-react": "^1.21.0",
