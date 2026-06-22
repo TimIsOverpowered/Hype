@@ -49,11 +49,14 @@ fn download_ffmpeg_mac(binaries_dir: &Path, triple: &str) {
     println!("cargo:warning=Downloading FFmpeg Sidecar for macOS ({})...", triple);
 
     let script = format!(
-        "curl -L -o ffmpeg-mac.zip https://evermeet.cx/ffmpeg/get/zip && \
-         unzip -o ffmpeg-mac.zip -d src-tauri/binaries/ && \
-         mv src-tauri/binaries/ffmpeg src-tauri/binaries/ffmpeg-{} && \
-         rm ffmpeg-mac.zip && chmod +x src-tauri/binaries/ffmpeg-{}",
-        triple, triple
+        "mkdir -p {} && \
+         curl -L -o ffmpeg-mac.zip https://evermeet.cx/ffmpeg/get/zip && \
+         unzip -o ffmpeg-mac.zip -d {} && \
+         mv {}/ffmpeg {}/ffmpeg-{} && \
+         rm ffmpeg-mac.zip && chmod +x {}/ffmpeg-{}",
+        binaries_dir.display(), binaries_dir.display(),
+        binaries_dir.display(), binaries_dir.display(), triple,
+        binaries_dir.display(), triple
     );
 
     let status = Command::new("sh").args(&["-c", &script]).status();
@@ -80,12 +83,14 @@ fn download_ffmpeg_linux(binaries_dir: &Path) {
 
     println!("cargo:warning=Downloading FFmpeg Sidecar for Linux...");
 
-    let script = "curl -L -o ffmpeg-linux.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz && \
+    let script = format!("mkdir -p {} && \
+                  curl -L -o ffmpeg-linux.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz && \
                   tar -xf ffmpeg-linux.tar.xz --strip-components=2 \"ffmpeg-master-latest-linux64-gpl/bin/ffmpeg\" && \
-                  mv ffmpeg src-tauri/binaries/ffmpeg-x86_64-unknown-linux-gnu && \
-                  rm ffmpeg-linux.tar.xz && chmod +x src-tauri/binaries/ffmpeg-x86_64-unknown-linux-gnu";
+                  mv ffmpeg {}/ffmpeg-x86_64-unknown-linux-gnu && \
+                  rm ffmpeg-linux.tar.xz && chmod +x {}/ffmpeg-x86_64-unknown-linux-gnu",
+                  binaries_dir.display(), binaries_dir.display(), binaries_dir.display());
 
-    let status = Command::new("sh").args(&["-c", script]).status();
+    let status = Command::new("sh").args(&["-c", &script]).status();
 
     match status {
         Ok(s) if s.success() => println!("cargo:warning=FFmpeg Linux download complete"),
