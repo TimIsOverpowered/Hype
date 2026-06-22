@@ -1,33 +1,18 @@
-import twemoji from '@twemoji/api';
 import type { PropsWithChildren } from 'react';
-import { useEffect, useRef } from 'react';
 
-twemoji.base = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/';
-twemoji.ext = '.svg';
+// Perfectly mimics the Rust backend to isolate Hex codepoints
+export function toTwemojiId(emoji: string): string {
+  const hexPoints: string[] = [];
+  for (const char of emoji) {
+    const p = char.codePointAt(0);
+    // Ignore the Variation Selector-16 character (FE0F) just like Rust
+    if (p === 0xfe0f) continue;
+    if (p) hexPoints.push(p.toString(16));
+  }
+  return hexPoints.join('-');
+}
 
 const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
-
-interface TwemojiProps extends PropsWithChildren {
-  options?: Record<string, unknown>;
-}
-
-export function Twemoji({ children, options = {} }: TwemojiProps) {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  useEffect(() => {
-    if (ref.current) {
-      twemoji.parse(ref.current, {
-        folder: 'svg',
-        ext: '.svg',
-        ...options,
-      });
-    }
-  }, [options]);
-  return (
-    <span style={{ display: 'inline-block', verticalAlign: 'middle' }} ref={ref}>
-      {children}
-    </span>
-  );
-}
 
 export const emojiTest = (char: string): boolean => {
   emojiRegex.lastIndex = 0;
@@ -54,3 +39,30 @@ export const extractEmojis = (text: string): { text?: string; emoji?: string }[]
   }
   return result;
 };
+
+export function Twemoji({ children }: PropsWithChildren) {
+  if (typeof children !== 'string') return <>{children}</>;
+
+  const id = toTwemojiId(children);
+  // Force PNGs instead of SVGs to bypass browser Tracking Prevention
+  const src = `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/${id}.png`;
+
+  return (
+    <img
+      src={src}
+      alt={children}
+      className="twemoji"
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        width: '28px',
+        height: '28px',
+        margin: '0 0.1rem',
+      }}
+      draggable={false}
+      loading="lazy"
+      crossOrigin="anonymous"
+      referrerPolicy="no-referrer"
+    />
+  );
+}

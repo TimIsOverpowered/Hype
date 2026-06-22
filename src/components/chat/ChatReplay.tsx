@@ -355,14 +355,12 @@ function renderFragment(fragment: FormattedFragment, keyPrefix: string, index: n
             key={key}
             title={
               <div className="flex w-fit flex-col items-center">
-                <Twemoji options={{ className: 'twemoji' }}>{f.text}</Twemoji>
+                <Twemoji>{f.text}</Twemoji>
                 <p className="block text-xs">Twitter Emotes</p>
               </div>
             }
           >
-            <span style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-              <Twemoji options={{ className: 'twemoji' }}>{f.text}</Twemoji>
-            </span>
+            <Twemoji>{f.text}</Twemoji>
           </MessageTooltip>
         ),
         isEmote: false,

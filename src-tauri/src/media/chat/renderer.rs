@@ -213,7 +213,8 @@ fn build_paragraph_for_message(
                 let key = format!("twemoji:{}", id);
 
                 if let Some(_emote_img) = asset_manager.get_emote(&key) {
-                    let placeholder_size = config.font_size * 1.3;
+                    // Lock to exactly 28x28 to match Twitch and BTTV emotes perfectly
+                    let placeholder_size = 28.0;
                     let ph_style = PlaceholderStyle::new(
                         placeholder_size,
                         placeholder_size,
