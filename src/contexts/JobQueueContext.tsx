@@ -42,7 +42,6 @@ const JobQueueContext = createContext<JobQueueState | null>(null);
 
 export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobs] = useState<Map<string, Job>>(new Map());
-  const unlistenRef = useRef<(() => void)[] | null>(null);
   const toastedRef = useRef(new Set<string>());
 
   const fetchJobs = useCallback(async () => {
@@ -83,15 +82,6 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchJobs();
-
-    return () => {
-      if (unlistenRef.current) {
-        for (const unlisten of unlistenRef.current) {
-          unlisten();
-        }
-        unlistenRef.current = null;
-      }
-    };
   }, [fetchJobs]);
 
   const showToast = useCallback(
@@ -105,6 +95,9 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
     const setupListeners = async () => {
       const unlistens: (() => void)[] = [];
 
@@ -277,10 +270,21 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       });
       unlistens.push(unlistenStateChange);
 
-      unlistenRef.current = unlistens;
+      if (!cancelled) {
+        cleanup = () => {
+          for (const unlisten of unlistens) {
+            unlisten();
+          }
+        };
+      }
     };
 
     setupListeners();
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [showToast, fetchJobs]);
 
   const submitJob = async (

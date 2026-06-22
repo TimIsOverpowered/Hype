@@ -149,7 +149,7 @@ export default function VODPage() {
   }, []);
 
   const handleClip = useCallback(
-    (vodId: string, _m3u8Url: string, startSeconds: number, durationSeconds: number, includeChat: boolean) => {
+    (vodId: string, startSeconds: number, durationSeconds: number, includeChat: boolean) => {
       startClip(vodId, m3u8Url, startSeconds, durationSeconds, vodInfo?.broadcasterName ?? '', {
         includeChat,
         broadcasterId: broadcasterId ?? '',

@@ -49,7 +49,10 @@ async fn fetch_badges(vod_id: String) -> Result<BadgeSet, String> {
 async fn aggregate_graph(
     payload: AggregatePayload,
 ) -> Result<crate::media::chat::models::GraphResult, String> {
-    let (_data, result) = aggregate_logs(payload).await;
+    let (data, result) = tokio::task::spawn_blocking(move || aggregate_logs(payload))
+        .await
+        .map_err(|e| e.to_string())?;
+    let _ = data;
     Ok(result)
 }
 
@@ -57,7 +60,9 @@ async fn aggregate_graph(
 async fn aggregate_clips_cmd(
     payload: AggregateClipsPayload,
 ) -> Result<crate::media::chat::models::ClipsResult, String> {
-    Ok(aggregate_clips(payload).await)
+    tokio::task::spawn_blocking(move || aggregate_clips(payload))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub use crate::media::chat::assets::preload_render_assets;

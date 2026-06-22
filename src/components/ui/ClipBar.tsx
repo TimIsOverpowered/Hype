@@ -12,13 +12,7 @@ interface ClipBarProps {
   readonly clipEnd: string;
   readonly showGraph: boolean;
   readonly onToggleGraph: () => void;
-  readonly onClip: (
-    vodId: string,
-    m3u8Url: string,
-    startSeconds: number,
-    durationSeconds: number,
-    includeChat: boolean,
-  ) => void;
+  readonly onClip: (vodId: string, startSeconds: number, durationSeconds: number, includeChat: boolean) => void;
   readonly onDownload: () => void;
   readonly onSetStart: (hms: string) => void;
   readonly onSetEnd: (hms: string) => void;
@@ -57,7 +51,7 @@ export default function ClipBar({
       toast.error('Invalid range', { description: 'Start time must be before end time.' });
       return;
     }
-    onClip(vodId, '', startSec, endSec - startSec, includeChat);
+    onClip(vodId, startSec, endSec - startSec, includeChat);
   }, [clipStart, clipEnd, onClip, vodId, includeChat, startSec, endSec]);
 
   const handleSetStart = useCallback(() => {

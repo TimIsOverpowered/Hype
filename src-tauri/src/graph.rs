@@ -149,7 +149,7 @@ struct BucketData {
     game: Option<String>,
 }
 
-pub async fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphResult) {
+pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphResult) {
     let emote_lookup = build_emote_lookup(
         &payload.emotes.bttv,
         &payload.emotes.ffz,
@@ -262,6 +262,14 @@ pub async fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, 
         })
         .collect();
 
+    let percentile_value = if payload.search_type != "search" {
+        let mut counts: Vec<u64> = buckets.values().map(|v| v.messages).collect();
+        counts.sort_unstable();
+        percentile(&counts, 25.0)
+    } else {
+        0.0
+    };
+
     let results: Vec<_> = if payload.search_type == "search" {
         let search_threshold = if payload.threshold > 0.0 {
             payload.threshold
@@ -275,10 +283,6 @@ pub async fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, 
             .map(|(&k, v)| (k as f64, v))
             .collect()
     } else {
-        let all_counts: Vec<u64> = buckets.values().map(|v| v.messages).collect();
-        let mut sorted_counts = all_counts.clone();
-        sorted_counts.sort();
-        let percentile_value = percentile(&sorted_counts, 25.0);
         let effective_threshold = if payload.threshold > 0.0 {
             payload.threshold
         } else {
@@ -331,25 +335,16 @@ pub async fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, 
         } else {
             1
         }
+    } else if payload.threshold > 0.0 {
+        payload.threshold as u64
     } else {
-        let all_counts: Vec<u64> = buckets.values().map(|v| v.messages).collect();
-        let mut sorted_counts = all_counts.clone();
-        sorted_counts.sort();
-        let percentile_value = percentile(&sorted_counts, 25.0);
-        if payload.threshold > 0.0 {
-            payload.threshold as u64
-        } else {
-            (percentile_value as u64).max(1)
-        }
+        (percentile_value as u64).max(1)
     };
 
     let percentile_value = if payload.search_type == "search" {
         0
     } else {
-        let all_counts: Vec<u64> = buckets.values().map(|v| v.messages).collect();
-        let mut sorted_counts = all_counts.clone();
-        sorted_counts.sort();
-        percentile(&sorted_counts, 25.0) as u64
+        percentile_value as u64
     };
 
     let result = GraphResult {
@@ -373,7 +368,7 @@ pub async fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, 
     (data, result)
 }
 
-pub async fn aggregate_clips(payload: AggregateClipsPayload) -> ClipsResult {
+pub fn aggregate_clips(payload: AggregateClipsPayload) -> ClipsResult {
     let chapter_lookup = build_chapter_lookup(&payload.chapters);
 
     let mut clip_map: HashMap<i64, ClipPayload> = HashMap::new();

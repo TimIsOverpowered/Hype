@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::io::Write;
+use std::sync::OnceLock;
 
 use skia_safe::{
     canvas::{SaveLayerRec, SrcRectConstraint},
@@ -87,16 +88,32 @@ struct MessageLayout {
     total_height: f32,
 }
 
-pub fn has_encoder(ffmpeg_path: &std::path::Path, encoder_name: &str) -> bool {
+fn detect_encoder(ffmpeg_path: &std::path::Path) -> &'static str {
     let mut cmd = crate::media::build_std_command(ffmpeg_path);
     cmd.arg("-encoders");
 
     if let Ok(output) = cmd.output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        stdout.contains(encoder_name)
-    } else {
-        false
+        if stdout.contains("h264_nvenc") {
+            return "h264_nvenc";
+        }
+        if stdout.contains("h264_videotoolbox") {
+            return "h264_videotoolbox";
+        }
+        if stdout.contains("h264_amf") {
+            return "h264_amf";
+        }
+        if stdout.contains("h264_qsv") {
+            return "h264_qsv";
+        }
     }
+    "libx264"
+}
+
+static PREFERRED_ENCODER: OnceLock<&'static str> = OnceLock::new();
+
+pub fn get_cached_encoder(ffmpeg_path: &std::path::Path) -> &'static str {
+    PREFERRED_ENCODER.get_or_init(|| detect_encoder(ffmpeg_path))
 }
 
 pub fn get_h264_args(encoder: &str) -> Vec<String> {
@@ -372,11 +389,7 @@ pub fn render_chat_video(
         None
     };
 
-    let encoder = if has_encoder(ffmpeg_path, "h264_nvenc") { "h264_nvenc" }
-    else if has_encoder(ffmpeg_path, "h264_videotoolbox") { "h264_videotoolbox" }
-    else if has_encoder(ffmpeg_path, "h264_amf") { "h264_amf" }
-    else if has_encoder(ffmpeg_path, "h264_qsv") { "h264_qsv" }
-    else { "libx264" };
+    let encoder = get_cached_encoder(ffmpeg_path);
 
     // ─── PIPE 1: STANDARD COLOR VIDEO ───
     let mut color_args = vec![
@@ -607,7 +620,6 @@ pub async fn render_chat_video_orchestrator_cmd(
 
         let asset_cache_clone = RENDER_ASSET_CACHE.clone();
         let output_path_clone = output_path.clone();
-        let output_path_for_payload = output_path.clone();
 
         let native_ffmpeg_path = crate::media::clipper::get_ffmpeg_path(&app_clone);
 
@@ -644,11 +656,6 @@ pub async fn render_chat_video_orchestrator_cmd(
         match render_result {
             Ok(()) => {
                 queue.complete(&job_id_clone, true, &app_clone, "chat-render");
-                let payload = RenderCompletePayload {
-                    job_id: job_id_clone,
-                    output_path: output_path_for_payload,
-                };
-                let _ = app_clone.emit("chat-render-complete", &payload);
             }
             Err(e) => {
                 queue.fail(&job_id_clone, e.clone(), &app_clone, "chat-render");
