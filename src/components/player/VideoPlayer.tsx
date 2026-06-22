@@ -485,7 +485,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             }`}
             style={{ background: 'rgba(0,0,0,0.5)' }}
           >
-            <Play className="h-[15%] max-h-[72px] min-h-[32px] w-[15%] max-w-[72px] min-w-[32px] translate-x-1 text-white drop-shadow-2xl" />
+            <Play className="h-[15%] max-h-[72px] min-h-[32px] w-[15%] max-w-[72px] min-w-[32px] translate-x-1 text-text-primary drop-shadow-2xl" />
           </div>
 
           <div
@@ -498,14 +498,11 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               pointerEvents: showControls ? 'auto' : 'none',
             }}
           >
-            <div
-              className="flex flex-col rounded-t-xl bg-[#0a0a0f]/85 px-2 pb-2 backdrop-blur-md"
-              style={{ gap: '4px' }}
-            >
+            <div className="flex flex-col rounded-t-xl bg-surface/85 px-2 pb-2 backdrop-blur-md" style={{ gap: '4px' }}>
               <div className="group relative flex w-full items-center">
                 <div
                   ref={tooltipControls.progressTooltipRef}
-                  className="pointer-events-none absolute bottom-full mb-3 -translate-x-1/2 transform rounded border border-[#222230] bg-[#16161e] px-2 py-1 text-xs font-medium whitespace-nowrap text-white opacity-0 shadow-md transition-opacity"
+                  className="pointer-events-none absolute bottom-full mb-3 -translate-x-1/2 transform rounded border-border bg-surface px-2 py-1 text-xs font-medium whitespace-nowrap text-text-primary opacity-0 shadow-md transition-opacity"
                   style={{ left: '0px' }}
                 />
                 <div
@@ -553,7 +550,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                         >
                           <div className="absolute inset-x-0 h-2 rounded-full bg-white/10 transition-all group-hover:h-2.5" />
                           <div
-                            className="absolute inset-y-0 left-0 h-2 rounded-full bg-[#6366f1] transition-all group-hover:h-2.5"
+                            className="absolute inset-y-0 left-0 h-2 rounded-full bg-primary transition-all group-hover:h-2.5"
                             style={{ width: `${fillPct}%` }}
                           />
                         </div>
@@ -563,7 +560,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                     <div className="relative flex h-full w-full items-center">
                       <div className="absolute inset-x-0 h-1.5 rounded-full bg-white/10 transition-all group-hover:h-2" />
                       <div
-                        className="absolute inset-y-0 left-0 h-1.5 rounded-full bg-[#6366f1] transition-all group-hover:h-2"
+                        className="absolute inset-y-0 left-0 h-1.5 rounded-full bg-primary transition-all group-hover:h-2"
                         style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
                       />
                     </div>
@@ -576,7 +573,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   <button
                     type="button"
                     onClick={togglePlayPause}
-                    className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                    className="flex items-center justify-center text-text-primary transition-colors hover:text-primary"
                     title={isPlaying ? 'Pause' : 'Play'}
                   >
                     {isPlaying ? (
@@ -590,7 +587,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                     <button
                       type="button"
                       onClick={toggleMute}
-                      className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                      className="flex items-center justify-center text-text-primary transition-colors hover:text-primary"
                       title={isMuted ? 'Unmute' : 'Mute'}
                     >
                       {isMuted || volume === 0 ? (
@@ -603,7 +600,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                     <div className="relative flex h-6 items-center">
                       <div
                         ref={tooltipControls.volumeTooltipRef}
-                        className="pointer-events-none absolute bottom-full mb-3 -translate-x-1/2 transform rounded border border-[#222230] bg-[#16161e] px-2 py-1 text-xs font-medium whitespace-nowrap text-white opacity-0 shadow-md transition-opacity"
+                        className="pointer-events-none absolute bottom-full mb-3 -translate-x-1/2 transform rounded border-border bg-surface px-2 py-1 text-xs font-medium whitespace-nowrap text-text-primary opacity-0 shadow-md transition-opacity"
                         style={{ left: '0px' }}
                       />
                       <input
@@ -623,21 +620,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                         onTouchStart={tooltipControls.handleVolumeMouseDown}
                         onTouchEnd={tooltipControls.handleVolumeTouchEnd}
                         onTouchMove={tooltipControls.handleVolumeTouchMove}
-                        className="h-1.5 w-12 min-w-[3rem] cursor-pointer appearance-none rounded-lg accent-[#6366f1] transition-all sm:w-[70px] sm:min-w-[70px]"
+                        className="h-1.5 w-12 min-w-[3rem] cursor-pointer appearance-none rounded-lg accent-primary transition-all sm:w-[70px] sm:min-w-[70px]"
                         style={{
-                          background: `linear-gradient(to right, #6366f1 ${isMuted ? 0 : volume}%, rgba(99,102,241,0.3) ${isMuted ? 0 : volume}%)`,
+                          background: `linear-gradient(to right, var(--color-primary) ${isMuted ? 0 : volume}%, rgba(0,128,128,0.3) ${isMuted ? 0 : volume}%)`,
                         }}
                       />
                     </div>
                   </div>
 
-                  <span className="ml-1 text-[11px] font-medium tracking-wide text-[#f0f0f5]/90 tabular-nums sm:ml-2 sm:text-[13px]">
+                  <span className="ml-1 text-[11px] font-medium tracking-wide text-text-primary/90 tabular-nums sm:ml-2 sm:text-[13px]">
                     {`${formatTime(currentTime)} / ${formatTime(duration)}`}
                   </span>
                   {currentChapter && (
                     <>
-                      <span className="mx-1 text-[11px] text-[#f0f0f5]/40 sm:mx-1.5">•</span>
-                      <span className="truncate max-w-[120px] text-[11px] font-medium text-[#f0f0f5]/60 sm:max-w-[180px] sm:text-[13px]">
+                      <span className="mx-1 text-[11px] text-text-primary/40 sm:mx-1.5">•</span>
+                      <span className="truncate max-w-[120px] text-[11px] font-medium text-text-primary/60 sm:max-w-[180px] sm:text-[13px]">
                         {currentChapter}
                       </span>
                     </>
@@ -649,7 +646,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                     ref={chaptersAnchorEl}
                     type="button"
                     onClick={() => setShowChaptersMenu((v) => !v)}
-                    className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                    className="flex items-center justify-center text-text-primary transition-colors hover:text-primary"
                     title="Chapters"
                   >
                     <Library className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -663,7 +660,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                         const nextIdx = (PLAYBACK_RATES.indexOf(playbackSpeed) + 1) % PLAYBACK_RATES.length;
                         setPlaybackSpeed(PLAYBACK_RATES[nextIdx]);
                       }}
-                      className="flex items-center justify-center rounded px-1.5 py-1 text-[#f0f0f5] text-xs font-medium transition-colors hover:text-[#6366f1]"
+                      className="flex items-center justify-center rounded px-1.5 py-1 text-text-primary text-xs font-medium transition-colors hover:text-primary"
                       title="Playback Speed"
                     >
                       {playbackSpeed}x
@@ -706,14 +703,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                           <path
                             d={fullArc}
                             fill="none"
-                            stroke="rgba(99,102,241,0.2)"
+                            stroke="rgba(0,128,128,0.2)"
                             strokeWidth="4"
                             strokeLinecap="round"
                           />
                           <path
                             d={activeArc}
                             fill="none"
-                            stroke="#6366f1"
+                            stroke="var(--color-primary)"
                             strokeWidth="4"
                             strokeLinecap="round"
                             filter="url(#speedGlow)"
@@ -729,7 +726,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                                 y={pos.y}
                                 textAnchor="middle"
                                 dominantBaseline="central"
-                                fill={isActive ? '#6366f1' : '#9ca3af'}
+                                fill={isActive ? 'var(--color-primary)' : 'var(--color-text-hint)'}
                                 fontSize="7"
                                 fontWeight={isActive ? 'bold' : 'normal'}
                                 className="pointer-events-none select-none"
@@ -742,7 +739,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                             cx={thumbPos.x}
                             cy={thumbPos.y}
                             r="5"
-                            fill="#6366f1"
+                            fill="var(--color-primary)"
                             stroke="#fff"
                             strokeWidth="1.5"
                             className="pointer-events-none"
@@ -752,7 +749,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                             y={circleCy}
                             textAnchor="middle"
                             dominantBaseline="central"
-                            fill="#f0f0f5"
+                            fill="var(--color-text-primary)"
                             fontSize="12"
                             fontWeight="bold"
                             className="pointer-events-none select-none"
@@ -777,7 +774,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                         setSettingsAnchorEl(e.currentTarget);
                       }
                     }}
-                    className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                    className="flex items-center justify-center text-text-primary transition-colors hover:text-primary"
                     title="Settings"
                   >
                     <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -787,7 +784,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                     <button
                       type="button"
                       onClick={onToggleTheatreMode}
-                      className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                      className="flex items-center justify-center text-text-primary transition-colors hover:text-primary"
                       title={theatreMode ? 'Exit Theatre Mode' : 'Theatre Mode'}
                     >
                       <TheatreModeIcon className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -797,7 +794,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   <button
                     type="button"
                     onClick={toggleFullscreen}
-                    className="flex items-center justify-center text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                    className="flex items-center justify-center text-text-primary transition-colors hover:text-primary"
                     title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                   >
                     {isFullscreen ? (
@@ -810,7 +807,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   {showChaptersMenu && (
                     <div
                       ref={chaptersMenuRef}
-                      className="absolute right-0 bottom-full mb-3 w-60 overflow-hidden rounded-xl border border-[#222230] bg-[#16161e] shadow-xl"
+                      className="absolute right-0 bottom-full mb-3 w-60 overflow-hidden rounded-xl border-border bg-surface shadow-xl"
                       style={{ animation: 'fadeIn 0.2s ease-out' }}
                     >
                       <div className="border-b border-[#222230] px-4 py-2.5">
@@ -829,20 +826,20 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                               if (video) video.currentTime = ch.positionMilliseconds / 1000;
                               setShowChaptersMenu(false);
                             }}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[#222230]/60"
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-white/5"
                           >
-                            <div className="flex h-[53px] w-[40px] shrink-0 items-center justify-center overflow-hidden rounded bg-[#222230]">
+                            <div className="flex h-[53px] w-[40px] shrink-0 items-center justify-center overflow-hidden rounded bg-border">
                               {ch.boxArtURL ? (
                                 <img src={ch.boxArtURL} alt="" className="h-[53px] w-[40px] object-cover" />
                               ) : (
-                                <Library className="h-5 w-5 text-[#9ca3af]" />
+                                <Library className="h-5 w-5 text-text-muted" />
                               )}
                             </div>
                             <div className="flex min-w-0 flex-1 flex-col">
-                              <span className="break-words text-sm font-medium text-[#f0f0f5]">
+                              <span className="break-words text-sm font-medium text-text-primary">
                                 {ch.game || 'Unknown Chapter'}
                               </span>
-                              <span className="text-xs text-[#9ca3af]">
+                              <span className="text-xs text-text-muted">
                                 {humanizeDuration(ch.durationMilliseconds)}
                               </span>
                             </div>
@@ -855,7 +852,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   {settingsAnchorEl && (
                     <div
                       ref={settingsMenuRef}
-                      className="absolute right-0 bottom-full mb-3 w-56 overflow-hidden rounded-xl border border-[#222230] bg-[#16161e] shadow-xl"
+                      className="absolute right-0 bottom-full mb-3 w-56 overflow-hidden rounded-xl border-border bg-surface shadow-xl"
                       style={{ maxHeight: `${menuMaxHeight}px`, animation: 'fadeIn 0.2s ease-out' }}
                     >
                       {showQualityMenu ? (
@@ -863,7 +860,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                           <button
                             type="button"
                             onClick={() => setShowQualityMenu(false)}
-                            className="flex w-full items-center gap-2.5 border-b border-[#222230] px-4 py-2.5 text-left text-sm font-medium text-[#f0f0f5] transition-colors hover:text-[#6366f1]"
+                            className="flex w-full items-center gap-2.5 border-b border-border px-4 py-2.5 text-left text-sm font-medium text-text-primary transition-colors hover:text-primary"
                           >
                             <ChevronLeft className="h-4 w-4" />
                             <span>Back</span>
@@ -884,8 +881,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                                   }}
                                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-all ${
                                     isActive
-                                      ? 'bg-[#6366f1]/15 text-[#6366f1]'
-                                      : 'text-[#f0f0f5] hover:bg-[#222230]/60 hover:text-[#6366f1]'
+                                      ? 'bg-primary/20 text-primary'
+                                      : 'text-text-primary hover:bg-white/5 hover:text-primary'
                                   }`}
                                 >
                                   <span className="font-medium">{variant.name}</span>
@@ -902,12 +899,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                               <button
                                 type="button"
                                 onClick={() => setShowQualityMenu(true)}
-                                className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#f0f0f5] transition-all hover:bg-[#222230]/60 hover:text-[#6366f1]"
+                                className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-primary transition-all hover:bg-white/5 hover:text-primary"
                               >
                                 Quality
                                 <span className="text-xs text-[#9ca3af]">{'>'}</span>
                               </button>
-                              <hr className="my-1.5 border-[#222230]" />
+                              <hr className="my-1.5 border-border" />
                             </>
                           )}
                         </div>
@@ -921,7 +918,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
           {isBuffering && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <Loader2 className="h-10 w-10 animate-spin text-white/80" />
+              <Loader2 className="h-10 w-10 animate-spin text-text-primary/80" />
             </div>
           )}
         </>
