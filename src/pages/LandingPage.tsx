@@ -1,4 +1,4 @@
-import { Clock, Compass, Download, MessageSquare, Scissors, Search, Trash2, TrendingUp, User } from 'lucide-react';
+import { Clock, Compass, Download, MessageSquare, Scissors, Search, Trash2, TrendingUp, User, BarChart3 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import hypeLogo from '../assets/hype-logo.svg';
 import { useRecentChannels } from '../hooks/useRecentChannels';
@@ -155,6 +155,16 @@ export default function LandingPage() {
               </div>
               <p className="text-sm text-text-secondary">
                 Transparent chat baked into your clip. Save yourself the screen recording.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/50 bg-surface p-6 transition-all hover:border-primary/30 hover:bg-surface-elevated">
+              <div className="mb-3 flex items-center gap-2 text-primary">
+                <BarChart3 size={20} />
+                <h3 className="font-semibold">VOD Insights</h3>
+              </div>
+              <p className="text-sm text-text-secondary">
+                Total messages, top emotes, and top chat spikes. Instant at-a-glance stats for any VOD.
               </p>
             </div>
           </div>
