@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, MessageSquare, RotateCcw, Settings, User, Video, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Activity, ChevronDown, MessageSquare, RotateCcw, Settings, User, Video, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { API_BASE, getToken } from '../../auth';
 import {
@@ -40,6 +40,60 @@ const COMMON_FONTS = [
   'Courier',
   'Comic Sans MS',
 ];
+
+function FontCombobox({ value, onChange }: { readonly value: string; readonly onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative mt-auto h-10 w-full">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        placeholder="Type or select a font..."
+        className="h-full w-full rounded-md border border-border bg-background px-3 pr-8 text-sm text-text-primary outline-none transition-colors focus:border-primary"
+      />
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="absolute right-0 top-0 flex h-full w-8 items-center justify-center text-text-secondary transition-colors hover:text-text-primary"
+      >
+        <ChevronDown size={14} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-surface py-1 shadow-xl">
+          {COMMON_FONTS.map((font) => (
+            <button
+              key={font}
+              type="button"
+              onClick={() => {
+                onChange(font);
+                setOpen(false);
+              }}
+              className="block w-full px-3 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary"
+              style={{ fontFamily: font }}
+            >
+              {font}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export type SettingsTabKey = 'account' | 'chat' | 'chat-render' | 'graph' | 'patreon';
 
@@ -210,14 +264,7 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                       <RotateCcw size={12} />
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    list="font-list"
-                    value={chatSettings.fontFamily}
-                    onChange={(e) => chatSettings.setFontFamily(e.target.value)}
-                    placeholder="Type a font name..."
-                    className="mt-2 w-full rounded border border-border bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-primary"
-                  />
+                  <FontCombobox value={chatSettings.fontFamily} onChange={(v) => chatSettings.setFontFamily(v)} />
                 </div>
 
                 <div className="flex flex-col rounded-lg border border-border p-4">
@@ -476,13 +523,6 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
           onCancel={() => setShowDisconnectConfirm(false)}
         />
       )}
-
-      {/* Shared Datalist for Font Autocomplete */}
-      <datalist id="font-list">
-        {COMMON_FONTS.map((font) => (
-          <option key={font} value={font} />
-        ))}
-      </datalist>
     </div>
   );
 }
@@ -621,14 +661,7 @@ function RenderSettingsTabContent({
               disabled={form.fontFamily === DEFAULT_RENDER_SETTINGS.fontFamily}
             />
           </div>
-          <input
-            type="text"
-            list="font-list"
-            value={form.fontFamily || ''}
-            onChange={(e) => handleChange('fontFamily', e.target.value)}
-            placeholder="Inter"
-            className="mt-auto h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-text-primary outline-none transition-colors focus:border-primary [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
-          />
+          <FontCombobox value={form.fontFamily || ''} onChange={(v) => handleChange('fontFamily', v)} />
         </div>
 
         <div className="flex flex-col rounded-lg border border-border p-4">
