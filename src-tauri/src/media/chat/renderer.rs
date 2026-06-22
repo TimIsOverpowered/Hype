@@ -157,7 +157,6 @@ fn build_paragraph_for_message(
     asset_manager: &RenderAssetManager,
     fc: &FontCollection,
     config: &ChatRenderConfig,
-    force_white_mask: bool,
     bg_color: Color,
 ) -> (Paragraph, Vec<PlaceholderData>) {
     let mut builder = ParagraphBuilder::new(&ParagraphStyle::new(), fc.clone());
@@ -194,7 +193,7 @@ fn build_paragraph_for_message(
     }
 
     let mut username_style = TextStyle::new();
-    let guarded_color = if force_white_mask { Color::WHITE } else { adjust_username_color(username_color, bg_color) };
+    let guarded_color = adjust_username_color(username_color, bg_color);
     username_style.set_color(guarded_color);
     username_style.set_font_size(config.font_size);
     username_style.set_font_style(FontStyle::bold());
@@ -205,7 +204,7 @@ fn build_paragraph_for_message(
     builder.pop();
 
     let mut msg_style = TextStyle::new();
-    msg_style.set_color(if force_white_mask { Color::WHITE } else { hex_color_to_skia(&config.font_color) });
+    msg_style.set_color(hex_color_to_skia(&config.font_color));
     msg_style.set_font_size(config.font_size);
     msg_style.set_font_families(&font_list);
     builder.push_style(&msg_style);
@@ -274,7 +273,7 @@ fn build_paragraph_for_message(
             }
             FormattedFragment::Url { text } => {
                 let mut url_style = TextStyle::new();
-                url_style.set_color(if force_white_mask { Color::WHITE } else { Color::from_rgb(0x58, 0xA6, 0xFF) });
+                url_style.set_color(Color::from_rgb(0x58, 0xA6, 0xFF));
                 url_style.set_font_size(config.font_size);
                 url_style.set_font_families(&["monospace"]);
                 builder.push_style(&url_style);
@@ -297,7 +296,6 @@ fn render_frame(
     asset_manager: &RenderAssetManager,
     elapsed_ms: u32,
     height: f32,
-    force_white_mask: bool,
 ) {
     let mut paint = Paint::default();
     paint.set_anti_alias(true);
@@ -323,19 +321,7 @@ fn render_frame(
                 PlaceholderData::Badge(key) => {
                     if let Some(badge_img) = asset_manager.get_badge(key) {
                         let src_rect = Rect::from_xywh(0.0, 0.0, badge_img.width() as f32, badge_img.height() as f32);
-                        
-                        if force_white_mask {
-                            let rec = SaveLayerRec::default().bounds(&dst_rect);
-                            canvas.save_layer(&rec);
-                            canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &Paint::default());
-                            let mut tint = Paint::default();
-                            tint.set_color(Color::WHITE);
-                            tint.set_blend_mode(BlendMode::SrcIn);
-                            canvas.draw_rect(&dst_rect, &tint);
-                            canvas.restore();
-                        } else {
-                            canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &paint);
-                        }
+                        canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &paint);
                     }
                 }
                 PlaceholderData::Emote(key) => {
@@ -348,24 +334,40 @@ fn render_frame(
                         } else {
                             dst_rect
                         };
-                        
-                        if force_white_mask {
-                            let rec = SaveLayerRec::default().bounds(&final_dst);
-                            canvas.save_layer(&rec);
-                            canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &Paint::default());
-                            let mut tint = Paint::default();
-                            tint.set_color(Color::WHITE);
-                            tint.set_blend_mode(BlendMode::SrcIn);
-                            canvas.draw_rect(&final_dst, &tint);
-                            canvas.restore();
-                        } else {
-                            canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &paint);
-                        }
+                        canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &paint);
                     }
                 }
             }
         }
     }
+}
+
+fn render_frame_as_white_mask(
+    mask_canvas: &Canvas,
+    active_messages: &VecDeque<MessageLayout>,
+    asset_manager: &RenderAssetManager,
+    elapsed_ms: u32,
+    width: i32,
+    height: i32,
+    scratch_surface: &mut skia_safe::Surface,
+) {
+    let scratch_canvas = scratch_surface.canvas();
+    scratch_canvas.clear(Color::TRANSPARENT);
+
+    render_frame(scratch_canvas, active_messages, asset_manager, elapsed_ms, height as f32);
+
+    let scratch_image = scratch_surface.image_snapshot();
+
+    let full_rect = Rect::from_xywh(0.0, 0.0, width as f32, height as f32);
+    let rec = SaveLayerRec::default().bounds(&full_rect);
+    mask_canvas.save_layer(&rec);
+    mask_canvas.draw_image(&scratch_image, Point::new(0.0, 0.0), None);
+
+    let mut white_paint = Paint::default();
+    white_paint.set_color(Color::WHITE);
+    white_paint.set_blend_mode(BlendMode::SrcIn);
+    mask_canvas.draw_rect(&full_rect, &white_paint);
+    mask_canvas.restore();
 }
 
 pub fn render_chat_video(
@@ -448,47 +450,38 @@ pub fn render_chat_video(
 
     let bg_color = if config.generate_mask { Color::BLACK } else { hex_color_to_skia(&config.background_color) };
 
-    let mut color_queue: VecDeque<MessageLayout> = VecDeque::new();
-    let mut mask_queue: VecDeque<MessageLayout> = VecDeque::new();
+    let mut scratch_surface = if config.generate_mask {
+        Some(skia_safe::surfaces::raster_n32_premul((config.width, config.height)).ok_or("Failed to create scratch surface")?)
+    } else {
+        None
+    };
+
+    let mut messages: VecDeque<MessageLayout> = VecDeque::new();
     let mut next_msg_idx = 0;
 
     for frame_idx in 0..total_frames {
         let current_time_sec = start_sec + (frame_idx as f64 / config.fps as f64);
         let elapsed_ms = (frame_idx as u32) * (1000 / config.fps as u32);
 
-        // 1. INGEST
         while next_msg_idx < filtered_messages.len() && filtered_messages[next_msg_idx].content_offset_seconds <= current_time_sec {
             let msg = &filtered_messages[next_msg_idx];
             let user_color = hex_color_to_skia(&msg.user_color);
 
-            let (c_para, c_ph) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, false, bg_color);
-            let c_height = c_para.height() + MESSAGE_GAP;
-            color_queue.push_back(MessageLayout { para: c_para, placeholders: c_ph, total_height: c_height });
-
-            if config.generate_mask {
-                let (m_para, m_ph) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, true, bg_color);
-                let m_height = m_para.height() + MESSAGE_GAP;
-                mask_queue.push_back(MessageLayout { para: m_para, placeholders: m_ph, total_height: m_height });
-            }
+            let (para, placeholders) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, bg_color);
+            let total_height = para.height() + MESSAGE_GAP;
+            messages.push_back(MessageLayout { para, placeholders, total_height });
 
             next_msg_idx += 1;
         }
 
-        // 2. PRUNE
-        let (mut c_acc, mut c_keep) = (0.0, 0.0);
-        for msg in color_queue.iter().rev() { c_acc += msg.total_height; c_keep += 1.0; if c_acc > config.height as f32 + 200.0 { break; } }
-        while color_queue.len() > c_keep as usize { color_queue.pop_front(); }
+        let mut acc = 0.0;
+        let mut keep = 0.0;
+        for msg in messages.iter().rev() { acc += msg.total_height; keep += 1.0; if acc > config.height as f32 + 200.0 { break; } }
+        while messages.len() > keep as usize { messages.pop_front(); }
 
-        if config.generate_mask {
-            let (mut m_acc, mut m_keep) = (0.0, 0.0);
-            for msg in mask_queue.iter().rev() { m_acc += msg.total_height; m_keep += 1.0; if m_acc > config.height as f32 + 200.0 { break; } }
-            while mask_queue.len() > m_keep as usize { mask_queue.pop_front(); }
-        }
-
-        // 3. RENDER COLOR VIDEO
         let color_canvas = color_surface.canvas();
         color_canvas.clear(bg_color);
-        render_frame(&color_canvas, &color_queue, &asset_manager, elapsed_ms, config.height as f32, false);
+        render_frame(&color_canvas, &messages, &asset_manager, elapsed_ms, config.height as f32);
         
         if let Some(pixmap) = color_surface.image_snapshot().peek_pixels() {
             if let Some(bytes) = pixmap.bytes() {
@@ -500,11 +493,10 @@ pub fn render_chat_video(
             }
         }
 
-        // 4. RENDER MASK VIDEO (If Transparent)
-        if let (Some(m_surface), Some(m_stdin)) = (&mut mask_surface, &mut mask_stdin) {
+        if let (Some(m_surface), Some(m_stdin), Some(ref mut scratch)) = (&mut mask_surface, &mut mask_stdin, &mut scratch_surface) {
             let mask_canvas = m_surface.canvas();
             mask_canvas.clear(Color::BLACK);
-            render_frame(&mask_canvas, &mask_queue, &asset_manager, elapsed_ms, config.height as f32, true);
+            render_frame_as_white_mask(&mask_canvas, &messages, &asset_manager, elapsed_ms, config.width, config.height, scratch);
             
             if let Some(pixmap) = m_surface.image_snapshot().peek_pixels() {
                 if let Some(bytes) = pixmap.bytes() {
