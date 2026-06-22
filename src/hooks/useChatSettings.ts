@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS: ChatSettings = {
   chatWidth: DEFAULT_CHAT_WIDTH,
   showTimestamp: false,
   chatOnLeft: false,
+  showChat: true,
   fontFamily: DEFAULT_CHAT_FONT_FAMILY,
   messageFontSize: DEFAULT_CHAT_FONT_SIZE,
 };
@@ -20,6 +21,9 @@ export interface UseChatSettingsReturn {
   setShowTimestamp: (v: boolean) => void;
   chatOnLeft: boolean;
   setChatOnLeft: (v: boolean) => void;
+  showChat: boolean;
+  setShowChat: (v: boolean) => void;
+  resetShowChat: () => void;
   fontFamily: string;
   setFontFamily: (v: string) => void;
   messageFontSize: number;
@@ -36,6 +40,7 @@ export function useChatSettings(): UseChatSettingsReturn {
   const [chatWidth, setChatWidthState] = useState(DEFAULT_SETTINGS.chatWidth);
   const [showTimestamp, setShowTimestamp] = useState(DEFAULT_SETTINGS.showTimestamp);
   const [chatOnLeft, setChatOnLeft] = useState(DEFAULT_SETTINGS.chatOnLeft);
+  const [showChat, setShowChatState] = useState(DEFAULT_SETTINGS.showChat);
   const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
   const [messageFontSize, setMessageFontSizeState] = useState(DEFAULT_SETTINGS.messageFontSize);
 
@@ -60,6 +65,9 @@ export function useChatSettings(): UseChatSettingsReturn {
       }
       if (settings.messageFontSize && typeof settings.messageFontSize === 'number') {
         setMessageFontSizeState(settings.messageFontSize);
+      }
+      if (settings.showChat != null) {
+        setShowChatState(settings.showChat);
       }
     } catch {
       console.error('Failed to parse chat settings from localStorage');
@@ -143,6 +151,19 @@ export function useChatSettings(): UseChatSettingsReturn {
     [persistSettings],
   );
 
+  const handleSetShowChat = useCallback(
+    (v: boolean) => {
+      setShowChatState(v);
+      persistSettings({ showChat: v });
+    },
+    [persistSettings],
+  );
+
+  const handleResetShowChat = useCallback(() => {
+    setShowChatState(DEFAULT_SETTINGS.showChat);
+    persistSettings({ showChat: DEFAULT_SETTINGS.showChat });
+  }, [persistSettings]);
+
   const handleResetChatWidth = useCallback(() => {
     setChatWidthState(DEFAULT_SETTINGS.chatWidth);
     persistSettings({ chatWidth: DEFAULT_SETTINGS.chatWidth });
@@ -173,6 +194,7 @@ export function useChatSettings(): UseChatSettingsReturn {
     setChatWidthState(DEFAULT_SETTINGS.chatWidth);
     setShowTimestamp(DEFAULT_SETTINGS.showTimestamp);
     setChatOnLeft(DEFAULT_SETTINGS.chatOnLeft);
+    setShowChatState(DEFAULT_SETTINGS.showChat);
     setFontFamilyState(DEFAULT_SETTINGS.fontFamily);
     setMessageFontSizeState(DEFAULT_SETTINGS.messageFontSize);
     document.documentElement.style.removeProperty('--chat-font-family');
@@ -187,6 +209,9 @@ export function useChatSettings(): UseChatSettingsReturn {
     setShowTimestamp: handleSetShowTimestamp,
     chatOnLeft,
     setChatOnLeft: handleSetChatOnLeft,
+    showChat,
+    setShowChat: handleSetShowChat,
+    resetShowChat: handleResetShowChat,
     fontFamily,
     setFontFamily: handleSetFontFamily,
     messageFontSize,

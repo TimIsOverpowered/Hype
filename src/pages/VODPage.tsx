@@ -38,7 +38,6 @@ export default function VODPage() {
   const [clipEnd, setClipEnd] = useState('00:00:00');
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [showChat, setShowChat] = useState(true);
   const chatSettings = useChatSettings();
   const graphSettings = useGraphSettings();
   const [theatreMode, setTheatreMode] = useState(() => {
@@ -201,14 +200,14 @@ export default function VODPage() {
           playerRef={playerRef as React.RefObject<unknown>}
           userChatDelay={0}
           playerState={playerState}
-          showChat={showChat}
-          setShowChat={setShowChat}
+          showChat={chatSettings.showChat}
+          setShowChat={chatSettings.setShowChat}
           chatSettings={chatSettings}
         />
-        {!showChat && (
+        {!chatSettings.showChat && (
           <button
             type="button"
-            onClick={() => setShowChat(!showChat)}
+            onClick={() => chatSettings.setShowChat(!chatSettings.showChat)}
             className={`absolute top-2 z-50 flex cursor-pointer items-center justify-center border border-border bg-surface p-1.5 text-text-primary shadow-xl transition-all hover:bg-surface-elevated hover:text-text-primary ${
               chatSettings.chatOnLeft ? 'left-2 rounded-r-lg' : 'right-2 rounded-l-lg'
             }`}

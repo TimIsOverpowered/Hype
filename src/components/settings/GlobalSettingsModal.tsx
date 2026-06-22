@@ -399,6 +399,27 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                       <RotateCcw size={12} />
                     </button>
                   </div>
+                  <div className="flex items-center gap-3 text-sm text-text-primary">
+                    <input
+                      type="checkbox"
+                      checked={chatSettings.showChat}
+                      onChange={() => chatSettings.setShowChat(!chatSettings.showChat)}
+                      className="h-4 w-4 cursor-pointer accent-primary"
+                    />
+                    Show Chat
+                    <button
+                      type="button"
+                      onClick={chatSettings.resetShowChat}
+                      className={`ml-auto shrink-0 rounded p-1 transition-colors ${
+                        chatSettings.showChat === true
+                          ? 'cursor-not-allowed text-text-hint opacity-30'
+                          : 'hover:bg-white/5 hover:text-text-secondary'
+                      }`}
+                      title="Reset to default"
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

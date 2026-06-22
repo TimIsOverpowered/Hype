@@ -7,6 +7,7 @@ export interface ChatSettings {
   chatWidth: number;
   showTimestamp: boolean;
   chatOnLeft: boolean;
+  showChat: boolean;
   fontFamily: string;
   messageFontSize: number;
 }
