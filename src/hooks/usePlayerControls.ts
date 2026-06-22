@@ -61,14 +61,13 @@ export function useTooltipControls({ duration, chapters }: UseTooltipControlsOpt
   const progressTooltipRef = useRef<HTMLDivElement>(null);
   const volumeTooltipRef = useRef<HTMLDivElement>(null);
 
-  const handleProgressMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
+  const updateProgressTooltip = useCallback(
+    (clientX: number, target: HTMLElement) => {
       const tooltip = progressTooltipRef.current;
-      const target = e.currentTarget;
       if (!tooltip || !target) return;
 
       const rect = target.getBoundingClientRect();
-      const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
       const time = percent * duration;
       const chapter = getCurrentChapter(time, chapters);
 
@@ -88,32 +87,18 @@ export function useTooltipControls({ duration, chapters }: UseTooltipControlsOpt
     [duration, chapters],
   );
 
+  const handleProgressMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      updateProgressTooltip(e.clientX, e.currentTarget);
+    },
+    [updateProgressTooltip],
+  );
+
   const handleProgressTouchMove = useCallback(
     (e: React.TouchEvent<HTMLElement>) => {
-      const tooltip = progressTooltipRef.current;
-      const target = e.currentTarget;
-      if (!tooltip || !target) return;
-
-      const rect = target.getBoundingClientRect();
-      const touch = e.touches[0];
-      const percent = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-      const time = percent * duration;
-      const chapter = getCurrentChapter(time, chapters);
-
-      if (chapter) {
-        tooltip.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:12px;color:#a0a0b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${chapter}</div><div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div></div>`;
-      } else {
-        tooltip.innerHTML = `<div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div>`;
-      }
-      tooltip.style.opacity = '1';
-
-      const tooltipWidth = tooltip.offsetWidth;
-      const targetWidth = rect.width;
-      const halfTooltipPercent = (tooltipWidth / targetWidth) * 50;
-      const clampedPercent = Math.max(halfTooltipPercent, Math.min(100 - halfTooltipPercent, percent * 100));
-      tooltip.style.left = `${clampedPercent}%`;
+      updateProgressTooltip(e.touches[0].clientX, e.currentTarget);
     },
-    [duration, chapters],
+    [updateProgressTooltip],
   );
 
   const handleProgressTouchEnd = useCallback(() => {
@@ -124,13 +109,12 @@ export function useTooltipControls({ duration, chapters }: UseTooltipControlsOpt
     progressTooltipRef.current?.style.setProperty('opacity', '0', 'important');
   }, []);
 
-  const handleVolumeMouseMove = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+  const updateVolumeTooltip = useCallback((clientX: number, input: HTMLElement) => {
     const tooltip = volumeTooltipRef.current;
-    const input = e.currentTarget;
     if (!tooltip || !input) return;
 
     const rect = input.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     const value = Math.round(percent * 100);
 
     tooltip.textContent = `${value}%`;
@@ -138,20 +122,19 @@ export function useTooltipControls({ duration, chapters }: UseTooltipControlsOpt
     tooltip.style.opacity = '1';
   }, []);
 
-  const handleVolumeTouchMove = useCallback((e: React.TouchEvent<HTMLInputElement>) => {
-    const tooltip = volumeTooltipRef.current;
-    const input = e.currentTarget;
-    if (!tooltip || !input) return;
+  const handleVolumeMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLInputElement>) => {
+      updateVolumeTooltip(e.clientX, e.currentTarget);
+    },
+    [updateVolumeTooltip],
+  );
 
-    const rect = input.getBoundingClientRect();
-    const touch = e.touches[0];
-    const percent = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
-    const value = Math.round(percent * 100);
-
-    tooltip.textContent = `${value}%`;
-    tooltip.style.left = `${percent * 100}%`;
-    tooltip.style.opacity = '1';
-  }, []);
+  const handleVolumeTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLInputElement>) => {
+      updateVolumeTooltip(e.touches[0].clientX, e.currentTarget);
+    },
+    [updateVolumeTooltip],
+  );
 
   const handleVolumeTouchEnd = useCallback(() => {
     volumeTooltipRef.current?.style.setProperty('opacity', '0', 'important');
