@@ -6,9 +6,8 @@ import { API_BASE, getToken, useUser } from '../../auth';
 import { PATREON_OAUTH_URL } from '../../constants/auth';
 
 const PERKS = [
-  'Custom badge in Twitch chat',
   'Exclusive Patreon-only perks based on your tier',
-  'Help keep Hype free and open source',
+  'Fund new features and ongoing development',
 ];
 
 export default function PatreonPanel() {
