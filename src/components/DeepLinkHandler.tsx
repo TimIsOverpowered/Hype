@@ -74,7 +74,6 @@ function DeepLinkHandler() {
         const startUrls = await getCurrent();
         if (startUrls) {
           for (const url of startUrls) {
-            console.log('Processing launch deep link:', url);
             await handleDeepLink(url);
           }
         }

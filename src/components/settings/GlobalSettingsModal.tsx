@@ -3,11 +3,11 @@ import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check, type Update } from '@tauri-apps/plugin-updater';
-import { Activity, ChevronDown, Info, MessageSquare, RotateCcw, Settings, User, Video, X } from 'lucide-react';
+import { Activity, ChevronDown, Info, LogOut, MessageSquare, RotateCcw, Settings, User, Video, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import hypeLogo from '../../assets/vigor.png';
-import { API_BASE, getToken } from '../../auth';
+import { API_BASE, getToken, logout } from '../../auth';
 import {
   DEFAULT_CHAT_FONT_FAMILY,
   DEFAULT_CHAT_FONT_SIZE,
@@ -114,6 +114,7 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const location = useLocation();
   const isVodActive = location.pathname.includes('/vod/');
   const chatSettings = useChatSettings();
@@ -207,13 +208,30 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
               onClick={() => setActiveTab('graph')}
             />
           </nav>
-          <div className="border-t border-border p-3">
+          <div className="border-t border-border p-3 space-y-1">
             <TabButton
               icon={<Info size={18} />}
               label="About"
               active={activeTab === 'about'}
               onClick={() => setActiveTab('about')}
             />
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                queryClient.invalidateQueries({
+                  predicate: (q) =>
+                    q.queryKey[0] === 'user' || q.queryKey[0] === 'whitelisted-channels' || q.queryKey[0] === 'search',
+                  refetchType: 'all',
+                });
+                onClose();
+                navigate('/');
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-white/5 hover:text-red-300"
+            >
+              <LogOut size={18} />
+              Log Out
+            </button>
           </div>
         </div>
 

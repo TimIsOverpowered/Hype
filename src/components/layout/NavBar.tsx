@@ -1,8 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Search, Settings, User } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Search, Settings, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getToken, logout, searchWhitelistedChannels, useUser } from '../../auth';
+import { getToken, searchWhitelistedChannels, useUser } from '../../auth';
 import { TWITCH_OAUTH_LOGIN_URL } from '../../constants/auth';
 import {
   CHANNEL_SEARCH_DEBOUNCE_MS,
@@ -113,58 +113,6 @@ function LoginButton({ className }: { className?: string }) {
       </svg>
       Login
     </a>
-  );
-}
-
-function UserMenu() {
-  const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    queryClient.invalidateQueries({
-      predicate: (q) =>
-        q.queryKey[0] === 'user' || q.queryKey[0] === 'whitelisted-channels' || q.queryKey[0] === 'search',
-      refetchType: 'all',
-    });
-    navigate('/');
-  };
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-elevated transition-colors hover:bg-white/10 hover:text-text-primary"
-      >
-        <User className="h-5 w-5" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-10 z-50 w-fit whitespace-nowrap rounded-md border border-border bg-surface py-1 shadow-lg">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-2 py-1.5 text-sm text-red-400 transition-colors hover:bg-white/5 hover:text-red-300"
-          >
-            <LogOut className="h-4 w-4" />
-            Log Out
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -333,7 +281,7 @@ export default function NavBar() {
             <Settings className="h-5 w-5" />
           </button>
         )}
-        {isAuthenticated ? <UserMenu /> : <LoginButton />}
+        {!isAuthenticated && <LoginButton />}
       </div>
     </nav>
   );
