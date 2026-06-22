@@ -689,7 +689,7 @@ pub async fn fetch_all_messages_for_window(
         let messages_in_range: Vec<FormattedMessage> = batch
             .messages
             .into_iter()
-            .filter(|m| m.content_offset_seconds >= start_sec && m.content_offset_seconds < end_sec)
+            .filter(|m| m.content_offset_seconds < end_sec)
             .collect();
 
         if !messages_in_range.is_empty() {
