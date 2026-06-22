@@ -28,14 +28,6 @@ impl JobType {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn event_prefix(&self) -> &'static str {
-        match self {
-            JobType::Clip => "clip",
-            JobType::Download => "download",
-            JobType::ChatRender => "chat-render",
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize)]

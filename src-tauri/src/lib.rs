@@ -8,11 +8,6 @@ mod logs;
 mod media;
 mod proxy;
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 use crate::graph::{aggregate_clips, aggregate_logs};
 use crate::media::chat::emotes::{get_channel_emotes, init_channel_emotes};
 use crate::media::chat::models::{AggregateClipsPayload, AggregatePayload, BadgeSet};
@@ -122,7 +117,6 @@ pub fn run(debug: bool) {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
-            greet,
             show_window,
             init_chat_session,
             fetch_chat_batch,
