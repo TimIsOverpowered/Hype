@@ -135,7 +135,7 @@ export default function DownloadVodModal({
             type="checkbox"
             checked={includeChat}
             onChange={(e) => setIncludeChat(e.target.checked)}
-            className="accent-primary h-4 w-4 cursor-pointer rounded border-border bg-background"
+            className="h-4 w-4 accent-primary"
           />
         </div>
 

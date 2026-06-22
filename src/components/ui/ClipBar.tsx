@@ -160,15 +160,15 @@ export default function ClipBar({
         </button>
 
         {/* Chat Toggle */}
-        <label className="flex items-center gap-1.5 text-xs font-medium text-text-secondary cursor-pointer hover:text-text-primary transition-colors">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
           <input
             type="checkbox"
             checked={includeChat}
             onChange={(e) => setIncludeChat(e.target.checked)}
-            className="accent-primary h-3.5 w-3.5 cursor-pointer rounded border-border bg-background"
+            className="h-4 w-4 accent-primary"
           />
           Chat Render
-        </label>
+        </div>
 
         <div className="flex-1" />
 

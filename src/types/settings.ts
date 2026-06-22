@@ -10,3 +10,19 @@ export interface ChatSettings {
   fontFamily: string;
   messageFontSize: number;
 }
+
+export interface ChatRenderSettings {
+  width: number;
+  height: number;
+  fps: number;
+  transparentBackground: boolean;
+  backgroundColor: string;
+  fontColor: string;
+  fontSize: number;
+  showBadges: boolean;
+  enableBttv: boolean;
+  enableFfz: boolean;
+  enable7tv: boolean;
+  ignoredUsers: string;
+  bannedWords: string;
+}
