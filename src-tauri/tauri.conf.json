@@ -53,6 +53,9 @@
       }
     },
     "updater": {
+      "endpoints": [
+        "https://github.com/timisoverpowered/hype/releases/latest/download/latest.json"
+      ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUwNkYwODE3RENDRDdCMzUKUldRMWU4M2NGd2h2NEpMTkhnRjFIaTltclI1Y1dBZVpTZkhlTG03bHVtUnA1cHFqSW1JbytrZEYK",
       "windows": {
         "installMode": "passive"

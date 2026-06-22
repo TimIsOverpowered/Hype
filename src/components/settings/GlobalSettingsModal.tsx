@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, ChevronDown, MessageSquare, RotateCcw, Settings, User, Video, X } from 'lucide-react';
+import { getVersion } from '@tauri-apps/api/app';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { type Update, check } from '@tauri-apps/plugin-updater';
+import { Activity, ChevronDown, Info, MessageSquare, RotateCcw, Settings, User, Video, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import hypeLogo from '../../assets/vigor.png';
 import { API_BASE, getToken } from '../../auth';
 import {
   DEFAULT_CHAT_FONT_FAMILY,
@@ -10,6 +15,7 @@ import {
   DEFAULT_CHAT_WIDTH_MAX,
   DEFAULT_CHAT_WIDTH_MIN,
 } from '../../constants/ui';
+import { TwitterUrl } from '../../constants/urls';
 import { DEFAULT_RENDER_SETTINGS, useChatRenderSettings } from '../../hooks/useChatRenderSettings';
 import { useChatSettings } from '../../hooks/useChatSettings';
 import { useGraphSettings } from '../../hooks/useGraphSettings';
@@ -95,7 +101,7 @@ function FontCombobox({ value, onChange }: { readonly value: string; readonly on
   );
 }
 
-export type SettingsTabKey = 'account' | 'chat' | 'chat-render' | 'graph' | 'patreon';
+export type SettingsTabKey = 'account' | 'chat' | 'chat-render' | 'graph' | 'patreon' | 'about';
 
 interface GlobalSettingsModalProps {
   readonly open: boolean;
@@ -201,6 +207,14 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
               onClick={() => setActiveTab('graph')}
             />
           </nav>
+          <div className="border-t border-border p-3">
+            <TabButton
+              icon={<Info size={18} />}
+              label="About"
+              active={activeTab === 'about'}
+              onClick={() => setActiveTab('about')}
+            />
+          </div>
         </div>
 
         {/* Content Area */}
@@ -213,6 +227,7 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
               {activeTab === 'chat-render' && 'Chat Renderer Settings'}
               {activeTab === 'graph' && 'Graph Settings'}
               {activeTab === 'patreon' && 'Patreon'}
+              {activeTab === 'about' && 'About'}
             </h3>
             <div className="flex items-center gap-2">
               {(activeTab === 'chat' || activeTab === 'chat-render' || activeTab === 'graph') && (
@@ -493,6 +508,8 @@ export default function GlobalSettingsModal({ open, onClose, initialTab = 'accou
                 </div>
               </div>
             )}
+
+            {activeTab === 'about' && <AboutPanel />}
           </div>
         </div>
       </div>
@@ -860,6 +877,135 @@ function RenderSettingsTabContent({
             />
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AboutPanel() {
+  const [version, setVersion] = useState<string>('');
+  const [updateStatus, setUpdateStatus] = useState<
+    'idle' | 'checking' | 'available' | 'up-to-date' | 'downloading' | 'error'
+  >('idle');
+  const [updateError, setUpdateError] = useState('');
+  const [updateInstance, setUpdateInstance] = useState<Update | null>(null);
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch((e) => console.error('Failed to get app version', e));
+  }, []);
+
+  const checkForUpdate = async () => {
+    setUpdateStatus('checking');
+    setUpdateError('');
+    try {
+      const update = await check();
+      if (update) {
+        setUpdateInstance(update);
+        setUpdateStatus('available');
+      } else {
+        setUpdateStatus('up-to-date');
+        setTimeout(() => setUpdateStatus('idle'), 3000);
+      }
+    } catch (err) {
+      setUpdateStatus('error');
+      setUpdateError(String(err));
+    }
+  };
+
+  const installUpdate = async () => {
+    if (!updateInstance) return;
+    setUpdateStatus('downloading');
+    try {
+      await updateInstance.downloadAndInstall();
+      await relaunch();
+    } catch (err) {
+      setUpdateStatus('error');
+      setUpdateError(String(err));
+    }
+  };
+
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center justify-center space-y-8 pt-8">
+      <div className="flex flex-col items-center gap-4">
+        <img src={hypeLogo} alt="Hype" className="h-28 w-28 rounded-3xl shadow-2xl" />
+        <div className="text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-text-primary">Hype</h2>
+          <p className="text-text-secondary">Version {version}</p>
+        </div>
+      </div>
+
+      <div className="flex w-full flex-col items-center gap-3 rounded-xl border border-border bg-surface p-6 text-center shadow-sm">
+        {updateStatus === 'idle' || updateStatus === 'up-to-date' ? (
+          <>
+            {updateStatus === 'up-to-date' && (
+              <p className="text-sm text-text-secondary">Hype is up to date.</p>
+            )}
+            <button
+              type="button"
+              onClick={checkForUpdate}
+              className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary-hover"
+            >
+              Check for Updates
+            </button>
+          </>
+        ) : updateStatus === 'checking' ? (
+          <div className="flex items-center gap-3 text-sm text-text-secondary">
+            <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-primary border-t-transparent" />
+            Checking for updates...
+          </div>
+        ) : updateStatus === 'downloading' ? (
+          <div className="flex items-center gap-3 text-sm text-text-secondary">
+            <div className="h-4 w-4 animate-spin rounded-full border-[2px] border-primary border-t-transparent" />
+            Downloading & Installing...
+          </div>
+        ) : updateStatus === 'available' ? (
+          <>
+            <p className="text-sm font-medium text-text-primary">
+              New update available: v{updateInstance?.version}
+            </p>
+            <button
+              type="button"
+              onClick={installUpdate}
+              className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary-hover"
+            >
+              Download & Install
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-red-400">Failed to check for updates</p>
+            <p className="max-w-full truncate px-4 text-xs text-text-hint">{updateError}</p>
+            <button
+              type="button"
+              onClick={checkForUpdate}
+              className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-md shadow-primary/20 transition-colors hover:bg-primary-hover"
+            >
+              Try Again
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className="flex w-full items-center justify-center gap-4 text-sm text-text-hint">
+        <button
+          type="button"
+          onClick={() => openUrl('https://github.com/timisoverpowered/hype')}
+          className="transition-colors hover:text-text-primary hover:underline"
+        >
+          GitHub
+        </button>
+        <span>&bull;</span>
+        <span className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => openUrl(TwitterUrl)}
+            className="font-medium text-text-secondary transition-colors hover:text-primary hover:underline"
+          >
+            made by op with ♥
+          </button>
+        </span>
       </div>
     </div>
   );
