@@ -10,6 +10,7 @@ jobs:
   publish:
     permissions:
       contents: write
+      releases: write
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -57,12 +58,13 @@ jobs:
         working-directory: .
 
       - name: Generate changelog
+        shell: bash
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
           if [ -n "$PREV_TAG" ]; then
             git log --oneline ${PREV_TAG}..HEAD > RELEASE_NOTES.md
           else
-            git log --oneline --first-parent v2 --not v1 > RELEASE_NOTES.md
+            git log --oneline > RELEASE_NOTES.md
           fi
 
       - uses: tauri-apps/tauri-action@v0
