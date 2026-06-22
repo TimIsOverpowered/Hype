@@ -10,7 +10,6 @@ jobs:
   publish:
     permissions:
       contents: write
-      releases: write
     strategy:
       fail-fast: false
       max-parallel: 1
