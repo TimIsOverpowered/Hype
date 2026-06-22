@@ -940,7 +940,7 @@ export default function ChatReplay({
         const badgeData = await invoke<BadgeSet>('fetch_badges', { vodId });
         if (!abortController.signal.aborted) {
           const map = new Map<string, TwitchBadge>();
-          const all = [...(badgeData.channel_badges ?? []), ...(badgeData.global_badges ?? [])];
+          const all = [...(badgeData.global_badges ?? []), ...(badgeData.channel_badges ?? [])];
           for (const b of all) {
             map.set(`${b.setID}-${b.version}`, b);
           }
