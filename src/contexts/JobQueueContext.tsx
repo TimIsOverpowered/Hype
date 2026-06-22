@@ -171,33 +171,39 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      await listenFor('clip-progress', (job) => {
+      const updateProgress = (job: Job) => {
         dispatch({ type: 'UPSERT_PROGRESS', id: job.id, progress: job.progress });
-      });
+      };
 
-      await listenFor('clip-completed', (job) => {
+      const markCompleted = (job: Job) => {
         dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'completed', progress: 100 });
-        showToast(job.id, 'Clip completed', job.name, 'success');
-      });
+      };
 
-      await listenFor('clip-failed', (job) => {
+      const markFailed = (job: Job) => {
         dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'failed', progress: 100, error: job.error });
-        showToast(job.id, 'Clip failed', job.error ?? 'Unknown error', 'error');
-      });
+      };
 
-      await listenFor('download-progress', (job) => {
-        dispatch({ type: 'UPSERT_PROGRESS', id: job.id, progress: job.progress });
-      });
+      const markCancelled = (job: Job) => {
+        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'cancelled' });
+      };
 
-      await listenFor('download-completed', (job) => {
-        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'completed', progress: 100 });
-        showToast(job.id, 'Download completed', job.name, 'success');
-      });
-
-      await listenFor('download-failed', (job) => {
-        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'failed', progress: 100, error: job.error });
-        showToast(job.id, 'Download failed', job.error ?? 'Unknown error', 'error');
-      });
+      for (const prefix of ['clip', 'download'] as const) {
+        await listenFor(`${prefix}-progress`, updateProgress);
+        await listenFor(`${prefix}-completed`, (job) => {
+          markCompleted(job);
+          showToast(job.id, `${prefix.charAt(0).toUpperCase() + prefix.slice(1)} completed`, job.name, 'success');
+        });
+        await listenFor(`${prefix}-failed`, (job) => {
+          markFailed(job);
+          showToast(
+            job.id,
+            `${prefix.charAt(0).toUpperCase() + prefix.slice(1)} failed`,
+            job.error ?? 'Unknown error',
+            'error',
+          );
+        });
+        await listenFor(`${prefix}-cancelled`, markCancelled);
+      }
 
       const unlistenChatProgress = await listen<{ job_id: string; progress: number }>('chat-render-progress', (e) => {
         dispatch({ type: 'UPSERT_PROGRESS', id: e.payload.job_id, progress: e.payload.progress });
@@ -228,22 +234,16 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       unlistens.push(unlistenChatComplete);
 
       const unlistenChatFailed = await listen<{ job_id: string; error: string }>('chat-render-failed', (e) => {
-        dispatch({ type: 'UPSERT_STATUS', id: e.payload.job_id, status: 'failed', progress: 100, error: e.payload.error });
+        dispatch({
+          type: 'UPSERT_STATUS',
+          id: e.payload.job_id,
+          status: 'failed',
+          progress: 100,
+          error: e.payload.error,
+        });
         showToast(e.payload.job_id, 'Chat render failed', e.payload.error ?? 'Unknown error', 'error');
       });
       unlistens.push(unlistenChatFailed);
-
-      const unlistenStateChange = await listen<{
-        id: string;
-        job_type: string;
-        name: string;
-        status: string;
-        progress: number;
-        error: string | null;
-      }>('job-state-changed', async () => {
-        await fetchJobs();
-      });
-      unlistens.push(unlistenStateChange);
 
       if (!cancelled) {
         cleanup = () => {
@@ -260,7 +260,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       cleanup?.();
     };
-  }, [showToast, fetchJobs]);
+  }, [showToast]);
 
   const submitJob = async (
     type: JobType,

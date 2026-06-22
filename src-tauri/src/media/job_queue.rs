@@ -162,10 +162,11 @@ impl JobQueue {
             let _ = child.kill().await;
         }
 
-        // Step 5: Emit event (acquires locks independently)
+        // Step 5: Emit events (acquires locks independently)
         let summary = self.get_summary(id);
         if let Some(s) = summary {
             let _ = app.emit("job-state-changed", &s);
+            let _ = app.emit(&format!("{}-cancelled", job.job_type.as_str()), s);
         }
 
         true
