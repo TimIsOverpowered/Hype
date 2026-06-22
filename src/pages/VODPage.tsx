@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getVod, getVodToken, resolveM3u8 } from '../api/twitch';
+import { getChaptersWithFallback, getVod, getVodToken, resolveM3u8 } from '../api/twitch';
 import { getToken } from '../auth';
 import ChatReplay from '../components/chat/ChatReplay';
 import VodGraph from '../components/graph/VodGraph';
@@ -13,7 +13,7 @@ import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
 import { useGraphSettings } from '../hooks/useGraphSettings';
 import type { SerializedEmoteSet } from '../types/graph';
-import type { M3u8Variant } from '../types/twitch';
+import type { ChapterEdge, M3u8Variant } from '../types/twitch';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
@@ -46,6 +46,7 @@ export default function VODPage() {
   });
   const [variants, setVariants] = useState<M3u8Variant[]>([]);
   const [emotesLoaded, setEmotesLoaded] = useState(false);
+  const [chapterEdges, setChapterEdges] = useState<readonly ChapterEdge[]>([]);
 
   const { startClip, startDownload } = useClipJob();
 
@@ -76,6 +77,27 @@ export default function VODPage() {
 
     return () => abortController.abort();
   }, [broadcasterId]);
+
+  useEffect(() => {
+    if (!vodId || !vodInfo) return;
+
+    const abortController = new AbortController();
+
+    const loadChapters = async () => {
+      try {
+        const edges = await getChaptersWithFallback(vodId, vodInfo.lengthSeconds);
+        if (!abortController.signal.aborted) {
+          setChapterEdges(edges);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    loadChapters();
+
+    return () => abortController.abort();
+  }, [vodId, vodInfo]);
 
   const loadVod = useCallback(async () => {
     const id = vodId.trim();
@@ -192,6 +214,11 @@ export default function VODPage() {
             variants={variants}
             theatreMode={theatreMode}
             onToggleTheatreMode={toggleTheatreMode}
+            chapters={chapterEdges.map((e) => ({
+              positionMilliseconds: e.node.positionMilliseconds,
+              durationMilliseconds: e.node.durationMilliseconds,
+              game: e.node.details?.game?.displayName,
+            }))}
           />
         </div>
         <ChatReplay
@@ -262,6 +289,7 @@ export default function VODPage() {
               isWhitelisted={isWhitelisted}
               onClipStart={(hms: string) => setClipStart(hms)}
               onClipEnd={(hms: string) => setClipEnd(hms)}
+              chapters={chapterEdges}
             />
           </div>
         )}

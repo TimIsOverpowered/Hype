@@ -26,3 +26,17 @@ export function formatTime(seconds: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
+
+export function getCurrentChapter(
+  timeSeconds: number,
+  chapters: readonly { positionMilliseconds: number; durationMilliseconds: number; game?: string }[] | undefined,
+): string | null {
+  if (!chapters?.length) return null;
+  const timeMs = timeSeconds * 1000;
+  for (const ch of chapters) {
+    if (timeMs >= ch.positionMilliseconds && timeMs < ch.positionMilliseconds + ch.durationMilliseconds) {
+      return ch.game || null;
+    }
+  }
+  return null;
+}

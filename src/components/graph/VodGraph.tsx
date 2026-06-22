@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import ReactECharts from 'echarts-for-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getChaptersWithFallback } from '../../api/twitch';
 import { getToken } from '../../auth';
 import { ECharts } from '../../constants/echarts';
 import { TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
@@ -71,6 +70,7 @@ interface VodGraphProps {
   readonly isWhitelisted?: boolean | undefined;
   readonly onClipStart?: (hms: string) => void;
   readonly onClipEnd?: (hms: string) => void;
+  readonly chapters?: readonly ChapterEdge[];
 }
 
 function SkeletonGraph(): React.ReactNode {
@@ -342,6 +342,7 @@ const VodGraph = memo(function VodGraph({
   isWhitelisted,
   onClipStart,
   onClipEnd,
+  chapters,
 }: VodGraphProps) {
   const {
     interval,
@@ -378,7 +379,6 @@ const VodGraph = memo(function VodGraph({
     slug: string;
     duration: number;
   }> | null>(null);
-  const chaptersRef = useRef<readonly ChapterEdge[] | null>(null);
   const gameChaptersRef = useRef<readonly GameChapter[] | null>(null);
   const durationRef = useRef<number>(0);
   const propDurationRef = useRef<number>(0);
@@ -431,17 +431,6 @@ const VodGraph = memo(function VodGraph({
     }
   }, []);
 
-  const fetchChapters = useCallback(async (id: string, lengthSeconds: number) => {
-    try {
-      const edges = await getChaptersWithFallback(id, lengthSeconds);
-      if (edges) {
-        chaptersRef.current = edges;
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
   const fetchZstdLogs = useCallback(async (id: string): Promise<string[] | null> => {
     try {
       return await invoke<string[]>('fetch_vod_logs', {
@@ -472,7 +461,6 @@ const VodGraph = memo(function VodGraph({
       if (type === 'clips') {
         await fetchClips(id);
       }
-      await fetchChapters(id, dur || 0);
 
       if (type === 'clips') {
         if (!clipsRef.current || clipsRef.current.length === 0) {
@@ -484,7 +472,7 @@ const VodGraph = memo(function VodGraph({
 
         const payload = {
           clips: clipsRef.current,
-          chapters: chaptersRef.current ?? [],
+          chapters: chapters ?? [],
         };
         const result = await invoke<ClipsResult>('aggregate_clips_cmd', { payload });
         setGraphData([...result.data]);
@@ -535,7 +523,7 @@ const VodGraph = memo(function VodGraph({
         threshold,
         searchType: type,
         searchTerm: type === 'search' ? searchTerm : undefined,
-        chapters: chaptersRef.current ?? [],
+        chapters: chapters ?? [],
       };
       const result = await invoke<GraphResult>('aggregate_graph', { payload });
       setGraphData([...result.data]);
@@ -559,10 +547,10 @@ const VodGraph = memo(function VodGraph({
       fetchZstdLogs,
       emoteData,
       searchTerm,
-      fetchChapters,
       fetchClips,
       setEffectiveMessageThreshold,
       setEffectiveSearchThreshold,
+      chapters,
     ],
   );
 

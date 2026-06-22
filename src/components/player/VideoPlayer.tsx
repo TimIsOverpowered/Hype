@@ -1,6 +1,6 @@
 import Hls from 'hls.js';
 import { Check, ChevronLeft, Loader2, Maximize, Minimize, Pause, Play, Settings, Volume2, VolumeX } from 'lucide-react';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { TheatreModeIcon } from '../../assets/icons';
 import { TIME_UPDATE_THROTTLE_MS } from '../../constants/ui';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
@@ -8,11 +8,18 @@ import { useAutoHideControls, useTooltipControls } from '../../hooks/usePlayerCo
 import { usePlayerSettings } from '../../hooks/usePlayerSettings';
 import { TauriHlsLoader } from '../../media/TauriHlsLoader';
 import type { M3u8Variant } from '../../types/twitch';
-import { formatTime } from '../../utils/time';
+import { formatTime, getCurrentChapter } from '../../utils/time';
+
+interface ChapterInfo {
+  readonly positionMilliseconds: number;
+  readonly durationMilliseconds: number;
+  readonly game?: string;
+}
 
 interface VideoPlayerProps {
   readonly vodId: string;
   readonly m3u8Url: string;
+  readonly chapters?: readonly ChapterInfo[];
   readonly onTimeUpdate?: (time: number) => void;
   readonly startTime?: number;
   readonly autoPlay?: boolean;
@@ -94,6 +101,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     onQualityChange,
     theatreMode = false,
     onToggleTheatreMode,
+    chapters,
   } = props;
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -126,7 +134,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     playerContainerRef: containerRef,
   });
 
-  const tooltipControls = useTooltipControls({ duration });
+  const currentChapter = useMemo(() => getCurrentChapter(currentTime, chapters), [currentTime, chapters]);
+
+  const tooltipControls = useTooltipControls({ duration, chapters: chapters ?? undefined });
   const [settingsAnchorEl, setSettingsAnchorEl] = useState<HTMLElement | null>(null);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [menuMaxHeight, setMenuMaxHeight] = useState(400);
@@ -343,12 +353,6 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     [playerSettings],
   );
 
-  const handleSeekChange = useCallback((_e: Event, val: number | number[]) => {
-    const v = typeof val === 'number' ? val : val[0];
-    const video = videoRef.current;
-    if (video) video.currentTime = v;
-  }, []);
-
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
@@ -476,25 +480,67 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   className="pointer-events-none absolute bottom-full mb-3 -translate-x-1/2 transform rounded border border-[#222230] bg-[#16161e] px-2 py-1 text-xs font-medium whitespace-nowrap text-white opacity-0 shadow-md transition-opacity"
                   style={{ left: '0px' }}
                 />
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 1}
-                  value={currentTime}
-                  step="any"
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    handleSeekChange(e.nativeEvent, val);
+                <div
+                  className="relative flex h-4 w-full cursor-pointer items-center"
+                  onMouseDown={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    const time = percent * duration;
+                    const video = videoRef.current;
+                    if (video) video.currentTime = time;
                   }}
-                  onTouchMove={tooltipControls.handleProgressTouchMove}
-                  onTouchEnd={tooltipControls.handleProgressTouchEnd}
                   onMouseMove={tooltipControls.handleProgressMouseMove}
                   onMouseLeave={tooltipControls.handleProgressMouseLeave}
-                  className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg accent-[#6366f1] transition-all group-hover:h-2"
-                  style={{
-                    background: `linear-gradient(to right, #6366f1 ${duration ? (currentTime / duration) * 100 : 0}%, rgba(99,102,241,0.3) ${duration ? (currentTime / duration) * 100 : 0}%)`,
+                  onTouchStart={(e) => {
+                    e.preventDefault();
                   }}
-                />
+                  onTouchMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const percent = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
+                    const time = percent * duration;
+                    const video = videoRef.current;
+                    if (video) video.currentTime = time;
+                    tooltipControls.handleProgressTouchMove(e);
+                  }}
+                  onTouchEnd={tooltipControls.handleProgressTouchEnd}
+                  style={{ contain: 'layout style' }}
+                >
+                  {chapters && chapters.length > 0 ? (
+                    chapters.map((ch) => {
+                      const chapterStart = ch.positionMilliseconds / 1000;
+                      const chapterDuration = ch.durationMilliseconds / 1000;
+                      const fillPct =
+                        currentTime >= chapterStart && currentTime < chapterStart + chapterDuration
+                          ? ((currentTime - chapterStart) / chapterDuration) * 100
+                          : currentTime >= chapterStart + chapterDuration
+                            ? 100
+                            : 0;
+                      const widthPct = duration ? (chapterDuration / duration) * 100 : 0;
+                      return (
+                        <div
+                          key={ch.positionMilliseconds}
+                          className="relative flex h-full flex-1 items-center cursor-pointer"
+                          style={{ width: `${widthPct}%`, marginRight: '3px' }}
+                        >
+                          <div className="absolute inset-x-0 h-2 rounded-full bg-white/10 transition-all group-hover:h-2.5" />
+                          <div
+                            className="absolute inset-y-0 left-0 h-2 rounded-full bg-[#6366f1] transition-all group-hover:h-2.5"
+                            style={{ width: `${fillPct}%` }}
+                          />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="relative flex h-full w-full items-center">
+                      <div className="absolute inset-x-0 h-1.5 rounded-full bg-white/10 transition-all group-hover:h-2" />
+                      <div
+                        className="absolute inset-y-0 left-0 h-1.5 rounded-full bg-[#6366f1] transition-all group-hover:h-2"
+                        style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="mt-2 flex items-center justify-between">
@@ -560,6 +606,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                   <span className="ml-1 text-[11px] font-medium tracking-wide text-[#f0f0f5]/90 tabular-nums sm:ml-2 sm:text-[13px]">
                     {`${formatTime(currentTime)} / ${formatTime(duration)}`}
                   </span>
+                  {currentChapter && (
+                    <>
+                      <span className="mx-1 text-[11px] text-[#f0f0f5]/40 sm:mx-1.5">•</span>
+                      <span className="truncate max-w-[120px] text-[11px] font-medium text-[#f0f0f5]/60 sm:max-w-[180px] sm:text-[13px]">
+                        {currentChapter}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <div className="relative flex items-center" style={{ gap: '6px' }}>

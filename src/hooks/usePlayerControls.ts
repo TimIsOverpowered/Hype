@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatTime } from '../utils/time';
+import { formatTime, getCurrentChapter } from '../utils/time';
 
 const AUTO_HIDE_DELAY = 2500;
 
@@ -54,55 +54,66 @@ export function useAutoHideControls({ isPlaying, isMenuOpen, playerContainerRef 
 
 interface UseTooltipControlsOptions {
   duration: number;
+  chapters?: readonly { positionMilliseconds: number; durationMilliseconds: number; game?: string }[];
 }
 
-export function useTooltipControls({ duration }: UseTooltipControlsOptions) {
+export function useTooltipControls({ duration, chapters }: UseTooltipControlsOptions) {
   const progressTooltipRef = useRef<HTMLDivElement>(null);
   const volumeTooltipRef = useRef<HTMLDivElement>(null);
 
   const handleProgressMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLInputElement>) => {
+    (e: React.MouseEvent<HTMLElement>) => {
       const tooltip = progressTooltipRef.current;
-      const input = e.currentTarget;
-      if (!tooltip || !input) return;
+      const target = e.currentTarget;
+      if (!tooltip || !target) return;
 
-      const rect = input.getBoundingClientRect();
+      const rect = target.getBoundingClientRect();
       const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const time = percent * duration;
+      const chapter = getCurrentChapter(time, chapters);
 
-      tooltip.textContent = formatTime(time);
+      if (chapter) {
+        tooltip.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:12px;color:#a0a0b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${chapter}</div><div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div></div>`;
+      } else {
+        tooltip.innerHTML = `<div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div>`;
+      }
       tooltip.style.opacity = '1';
 
       const tooltipWidth = tooltip.offsetWidth;
-      const inputWidth = rect.width;
-      const halfTooltipPercent = (tooltipWidth / inputWidth) * 50;
+      const targetWidth = rect.width;
+      const halfTooltipPercent = (tooltipWidth / targetWidth) * 50;
       const clampedPercent = Math.max(halfTooltipPercent, Math.min(100 - halfTooltipPercent, percent * 100));
       tooltip.style.left = `${clampedPercent}%`;
     },
-    [duration],
+    [duration, chapters],
   );
 
   const handleProgressTouchMove = useCallback(
-    (e: React.TouchEvent<HTMLInputElement>) => {
+    (e: React.TouchEvent<HTMLElement>) => {
       const tooltip = progressTooltipRef.current;
-      const input = e.currentTarget;
-      if (!tooltip || !input) return;
+      const target = e.currentTarget;
+      if (!tooltip || !target) return;
 
-      const rect = input.getBoundingClientRect();
+      const rect = target.getBoundingClientRect();
       const touch = e.touches[0];
       const percent = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width));
       const time = percent * duration;
+      const chapter = getCurrentChapter(time, chapters);
 
-      tooltip.textContent = formatTime(time);
+      if (chapter) {
+        tooltip.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:12px;color:#a0a0b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${chapter}</div><div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div></div>`;
+      } else {
+        tooltip.innerHTML = `<div style="font-size:12px;white-space:nowrap">${formatTime(time)}</div>`;
+      }
       tooltip.style.opacity = '1';
 
       const tooltipWidth = tooltip.offsetWidth;
-      const inputWidth = rect.width;
-      const halfTooltipPercent = (tooltipWidth / inputWidth) * 50;
+      const targetWidth = rect.width;
+      const halfTooltipPercent = (tooltipWidth / targetWidth) * 50;
       const clampedPercent = Math.max(halfTooltipPercent, Math.min(100 - halfTooltipPercent, percent * 100));
       tooltip.style.left = `${clampedPercent}%`;
     },
-    [duration],
+    [duration, chapters],
   );
 
   const handleProgressTouchEnd = useCallback(() => {
