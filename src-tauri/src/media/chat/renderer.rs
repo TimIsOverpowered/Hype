@@ -592,6 +592,8 @@ pub async fn render_chat_video_orchestrator_cmd(
             return;
         }
 
+        queue.update_progress(&job_id_clone, messages.len().min(19) as u8, &app_clone);
+
         let preload_result = crate::media::chat::assets::run_internal_preload(
             &job_id_clone,
             &broadcaster_id_clone,
