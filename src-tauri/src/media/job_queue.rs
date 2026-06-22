@@ -139,10 +139,28 @@ impl JobQueue {
         // Step 3: Set cancel flag (atomic, no lock needed)
         job.cancel_flag.store(true, Ordering::SeqCst);
 
-        // Step 4: Kill child process (no locks held)
+        // Step 4: Kill child process tree cleanly across platforms
         if let Ok(mut child_opt) = job.child_handle.lock() {
             if let Some(ref mut child) = *child_opt {
-                let _ = child.start_kill();
+                #[cfg(windows)]
+                {
+                    if let Some(pid) = child.id() {
+                        let _ = std::process::Command::new("taskkill")
+                            .args(&["/F", "/T", "/PID", &pid.to_string()])
+                            .output();
+                    }
+                }
+
+                #[cfg(not(windows))]
+                {
+                    if let Some(pid) = child.id() {
+                        let _ = std::process::Command::new("kill")
+                            .args(&["-9", &pid.to_string()])
+                            .output();
+                    }
+                }
+                
+                let _ = child.kill().await;
             }
         }
 
