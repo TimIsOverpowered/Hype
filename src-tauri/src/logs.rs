@@ -31,11 +31,15 @@ pub async fn fetch_vod_logs(vod_id: String, token: String) -> Result<Vec<String>
         .await
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
-    let decompressed = decode_all(&compressed[..])
-        .map_err(|e| format!("ZSTD decompression failed: {}", e))?;
+    let decompressed =
+        decode_all(&compressed[..]).map_err(|e| format!("ZSTD decompression failed: {}", e))?;
 
-    let text = String::from_utf8(decompressed)
-        .map_err(|e| format!("Invalid UTF-8 in logs: {}", e))?;
+    let text =
+        String::from_utf8(decompressed).map_err(|e| format!("Invalid UTF-8 in logs: {}", e))?;
 
-    Ok(text.lines().filter(|l| !l.is_empty()).map(String::from).collect())
+    Ok(text
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(String::from)
+        .collect())
 }

@@ -13,10 +13,10 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+use crate::graph::{aggregate_clips, aggregate_logs};
 use crate::media::chat::emotes::{get_channel_emotes, init_channel_emotes};
 use crate::media::chat::models::{AggregateClipsPayload, AggregatePayload, BadgeSet};
 use crate::media::chat::twitch::{fetch_and_parse_comments, ChatBatchResponse};
-use crate::graph::{aggregate_clips, aggregate_logs};
 
 #[tauri::command]
 async fn init_chat_session(broadcaster_id: String) -> Result<(), String> {
@@ -34,7 +34,9 @@ async fn fetch_chat_batch(
 }
 
 #[tauri::command]
-async fn fetch_emotes(broadcaster_id: String) -> Result<crate::media::chat::models::SerializedEmoteSet, String> {
+async fn fetch_emotes(
+    broadcaster_id: String,
+) -> Result<crate::media::chat::models::SerializedEmoteSet, String> {
     get_channel_emotes(&broadcaster_id).await
 }
 
@@ -44,13 +46,17 @@ async fn fetch_badges(vod_id: String) -> Result<BadgeSet, String> {
 }
 
 #[tauri::command]
-async fn aggregate_graph(payload: AggregatePayload) -> Result<crate::media::chat::models::GraphResult, String> {
+async fn aggregate_graph(
+    payload: AggregatePayload,
+) -> Result<crate::media::chat::models::GraphResult, String> {
     let (_data, result) = aggregate_logs(payload).await;
     Ok(result)
 }
 
 #[tauri::command]
-async fn aggregate_clips_cmd(payload: AggregateClipsPayload) -> Result<crate::media::chat::models::ClipsResult, String> {
+async fn aggregate_clips_cmd(
+    payload: AggregateClipsPayload,
+) -> Result<crate::media::chat::models::ClipsResult, String> {
     Ok(aggregate_clips(payload).await)
 }
 
@@ -88,13 +94,11 @@ pub fn run(debug: bool) {
     #[cfg(desktop)]
     {
         // single-instance MUST be registered first
-        builder = builder.plugin(
-            tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.set_focus();
-                }
-            }),
-        );
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+            }
+        }));
     }
 
     builder

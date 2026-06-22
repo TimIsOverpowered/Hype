@@ -24,13 +24,26 @@ fn build_chapter_lookup(chapters: &Option<Vec<ChapterPayload>>) -> Vec<ChapterEn
         .map(|c| ChapterEntryInternal {
             position_milliseconds: c.node.position_milliseconds,
             duration_milliseconds: c.node.duration_milliseconds,
-            game: c.node.details.game.as_ref().and_then(|g| g.display_name.clone()),
-            box_art_url: c.node.details.game.as_ref().and_then(|g| g.box_art_url.clone()),
+            game: c
+                .node
+                .details
+                .game
+                .as_ref()
+                .and_then(|g| g.display_name.clone()),
+            box_art_url: c
+                .node
+                .details
+                .game
+                .as_ref()
+                .and_then(|g| g.box_art_url.clone()),
         })
         .collect()
 }
 
-fn get_game_for_timestamp(timestamp_ms: u64, chapter_lookup: &[ChapterEntryInternal]) -> Option<String> {
+fn get_game_for_timestamp(
+    timestamp_ms: u64,
+    chapter_lookup: &[ChapterEntryInternal],
+) -> Option<String> {
     let mut lo = 0usize;
     let mut hi = chapter_lookup.len().saturating_sub(1);
     while lo <= hi {
@@ -162,15 +175,13 @@ pub async fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, 
             continue;
         }
 
-        let bucket = buckets
-            .entry(bucket_key)
-            .or_insert(BucketData {
-                messages: 0,
-                subs: 0,
-                emotes: HashMap::new(),
-                search_matches: 0,
-                game: None,
-            });
+        let bucket = buckets.entry(bucket_key).or_insert(BucketData {
+            messages: 0,
+            subs: 0,
+            emotes: HashMap::new(),
+            search_matches: 0,
+            game: None,
+        });
 
         if bucket.game.is_none() && !chapter_lookup.is_empty() {
             bucket.game = get_game_for_timestamp((bucket_key as u64) * 1000, &chapter_lookup);
@@ -386,7 +397,8 @@ pub async fn aggregate_clips(payload: AggregateClipsPayload) -> ClipsResult {
     let data: Vec<ClipDataPoint> = unique_clips
         .iter()
         .map(|(vod_offset, clip)| {
-            let game = get_game_for_timestamp((*vod_offset as f64 * 1000.0) as u64, &chapter_lookup);
+            let game =
+                get_game_for_timestamp((*vod_offset as f64 * 1000.0) as u64, &chapter_lookup);
             ClipDataPoint {
                 x: *vod_offset as f64 - clip.duration,
                 y: clip.views,
@@ -415,6 +427,10 @@ pub async fn aggregate_clips(payload: AggregateClipsPayload) -> ClipsResult {
     ClipsResult {
         data,
         total_views,
-        chapters: if chapters.is_empty() { None } else { Some(chapters) },
+        chapters: if chapters.is_empty() {
+            None
+        } else {
+            Some(chapters)
+        },
     }
 }

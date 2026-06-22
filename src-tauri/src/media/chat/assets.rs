@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use image::AnimationDecoder;
 use lazy_static::lazy_static;
 use serde::Serialize;
-use image::AnimationDecoder;
 use skia_safe::{
     codec::{Codec, Options},
     images, Data, Image,
@@ -177,7 +177,9 @@ impl RenderAssetManager {
                     let pixel_data = Data::new_copy(&raw_pixels);
 
                     // Stamp the pixels into a Skia Image
-                    if let Some(skia_img) = images::raster_from_data(&info, pixel_data, (width * 4) as usize) {
+                    if let Some(skia_img) =
+                        images::raster_from_data(&info, pixel_data, (width * 4) as usize)
+                    {
                         skia_frames.push(skia_img);
                         frame_durations_ms.push(duration);
                         total_duration_ms += duration;
@@ -210,7 +212,9 @@ impl RenderAssetManager {
             );
 
             let pixel_data = Data::new_copy(&raw_pixels);
-            if let Some(skia_img) = images::raster_from_data(&info, pixel_data, (width * 4) as usize) {
+            if let Some(skia_img) =
+                images::raster_from_data(&info, pixel_data, (width * 4) as usize)
+            {
                 return Some(SkiaAnimatedImage {
                     frames: vec![skia_img],
                     frame_durations_ms: vec![0],
@@ -323,7 +327,11 @@ async fn preload_emote_task(
         return Ok(());
     }
 
-    eprintln!("[preload][error] emote {} decode failed ({} bytes)", key, bytes.len());
+    eprintln!(
+        "[preload][error] emote {} decode failed ({} bytes)",
+        key,
+        bytes.len()
+    );
     Err("decode failed".to_string())
 }
 
@@ -367,7 +375,11 @@ async fn preload_badge_task(
         return Ok(());
     }
 
-    eprintln!("[preload][error] badge {} decode failed ({} bytes)", key, bytes.len());
+    eprintln!(
+        "[preload][error] badge {} decode failed ({} bytes)",
+        key,
+        bytes.len()
+    );
     Err("decode failed".to_string())
 }
 
@@ -434,10 +446,16 @@ async fn run_preload(
     for msg in messages {
         for frag in &msg.fragments {
             match frag {
-                crate::media::chat::models::FormattedFragment::Custom { id, provider, is_zero_width, .. } => {
+                crate::media::chat::models::FormattedFragment::Custom {
+                    id,
+                    provider,
+                    is_zero_width,
+                    ..
+                } => {
                     let key = format!("{}:{}", provider, id);
                     if !custom_emotes_to_fetch.contains_key(&key) {
-                        custom_emotes_to_fetch.insert(key, (id.clone(), provider.clone(), *is_zero_width));
+                        custom_emotes_to_fetch
+                            .insert(key, (id.clone(), provider.clone(), *is_zero_width));
                     }
                 }
                 crate::media::chat::models::FormattedFragment::Twitch { emote_id, .. } => {
@@ -496,7 +514,11 @@ async fn run_preload(
         }
     }
 
-    eprintln!("[preload] total assets: {} emotes, {} badges", emote_tasks.len(), badge_tasks.len());
+    eprintln!(
+        "[preload] total assets: {} emotes, {} badges",
+        emote_tasks.len(),
+        badge_tasks.len()
+    );
     let total = emote_tasks.len() + badge_tasks.len();
     if total == 0 {
         return Err("No assets to preload".to_string());
@@ -538,17 +560,38 @@ async fn run_preload(
         }
 
         match tokio::time::timeout(remaining, handle).await {
-            Ok(Ok(Ok(_))) => { loaded += 1; }
-            Ok(Ok(Err(e))) => { eprintln!("[preload][error] asset error: {}", e); failed += 1; }
-            Ok(Err(e)) => { eprintln!("[preload][error] asset join error: {}", e); failed += 1; }
-            Err(_) => { eprintln!("[preload][error] asset timeout"); failed += 1; }
+            Ok(Ok(Ok(_))) => {
+                loaded += 1;
+            }
+            Ok(Ok(Err(e))) => {
+                eprintln!("[preload][error] asset error: {}", e);
+                failed += 1;
+            }
+            Ok(Err(e)) => {
+                eprintln!("[preload][error] asset join error: {}", e);
+                failed += 1;
+            }
+            Err(_) => {
+                eprintln!("[preload][error] asset timeout");
+                failed += 1;
+            }
         }
 
         completed += 1;
-        emit_progress_if_needed(&job_id, app, completed, total as u32, &mut last_emit, throttle);
+        emit_progress_if_needed(
+            &job_id,
+            app,
+            completed,
+            total as u32,
+            &mut last_emit,
+            throttle,
+        );
     }
 
-    eprintln!("[preload] complete: loaded={} failed={} total={}", loaded, failed, total);
+    eprintln!(
+        "[preload] complete: loaded={} failed={} total={}",
+        loaded, failed, total
+    );
 
     let result_payload = AssetPreloadCompletePayload {
         job_id: job_id.to_string(),

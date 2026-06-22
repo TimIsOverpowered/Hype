@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::Query,
-    http::{header, HeaderMap, StatusCode, Response},
+    http::{header, HeaderMap, Response, StatusCode},
     response::IntoResponse,
     routing::get,
     Router,
@@ -53,15 +53,16 @@ async fn proxy(
         resp = resp.header(header::CONTENT_RANGE, cr);
     }
 
-    resp.body(Body::from_stream(upstream.bytes_stream())).unwrap()
+    resp.body(Body::from_stream(upstream.bytes_stream()))
+        .unwrap()
 }
 
 static PORT: OnceLock<u16> = OnceLock::new();
 
 pub fn init() -> u16 {
     *PORT.get_or_init(|| {
-        let std_listener = std::net::TcpListener::bind("127.0.0.1:0")
-            .expect("failed to bind proxy listener");
+        let std_listener =
+            std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind proxy listener");
         std_listener
             .set_nonblocking(true)
             .expect("failed to set nonblocking");

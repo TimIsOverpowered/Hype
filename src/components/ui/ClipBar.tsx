@@ -1,11 +1,4 @@
-import {
-  Clock,
-  Download,
-  Minus,
-  Plus,
-  Scissors,
-  Video
-} from 'lucide-react';
+import { Clock, Download, Minus, Plus, Scissors, Video } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { hmsValid, toHHMMSS, toSeconds } from '../../utils/time';
@@ -89,7 +82,6 @@ export default function ClipBar({
 
   return (
     <div className="flex w-full flex-wrap items-center gap-4 rounded-xl border border-border bg-surface p-3 shadow-sm">
-      
       {/* 1. Start Time Controls */}
       <div className="flex items-center gap-1.5">
         <span className="mr-1 text-xs font-medium text-text-hint">Start</span>
@@ -101,7 +93,7 @@ export default function ClipBar({
         >
           <Minus size={10} className="mr-0.5" /> 30s
         </button>
-        
+
         <div className="flex items-center gap-1 rounded-md border border-border bg-background p-1 focus-within:border-primary transition-colors">
           <input
             type="text"
@@ -175,7 +167,7 @@ export default function ClipBar({
       <div className="hidden h-6 w-px bg-border xl:block" />
 
       {/* 3. Live Duration Pill */}
-      <div 
+      <div
         className={`flex items-center justify-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide transition-colors ${
           clipDuration > 0 ? 'bg-primary/20 text-primary' : 'bg-white/5 text-text-hint'
         }`}

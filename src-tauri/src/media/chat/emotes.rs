@@ -259,7 +259,10 @@ async fn fetch_ffz(
     };
 
     for emote in emoticons {
-        let id = emote["id"].as_u64().map(|i| i.to_string()).unwrap_or_default();
+        let id = emote["id"]
+            .as_u64()
+            .map(|i| i.to_string())
+            .unwrap_or_default();
         let name = emote["name"].as_str().unwrap_or("").to_string();
         let code = emote["name"].as_str().unwrap_or("").to_string();
         let width = emote["width"].as_u64().map(|w| w as u32);

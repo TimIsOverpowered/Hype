@@ -1,23 +1,23 @@
+use std::collections::VecDeque;
 use std::io::Write;
 
 use skia_safe::{
     canvas::SrcRectConstraint,
     textlayout::{
-        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle,
-        PlaceholderAlignment, PlaceholderStyle, TextStyle, TextBaseline,
+        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, PlaceholderAlignment,
+        PlaceholderStyle, TextBaseline, TextStyle,
     },
     Canvas, Color, FontMgr, FontStyle, Paint, Point, Rect,
 };
 use tauri::AppHandle;
 use tauri::Emitter;
 
-use crate::media::chat::assets::{RENDER_ASSET_CACHE, RenderAssetManager};
+use crate::media::chat::assets::{RenderAssetManager, RENDER_ASSET_CACHE};
 use crate::media::chat::models::{ChatRenderConfig, FormattedFragment, FormattedMessage};
 
 const MESSAGE_PADDING_X: f32 = 8.0;
 const MESSAGE_PADDING_Y: f32 = 3.0;
 const MESSAGE_GAP: f32 = 4.0;
-
 
 #[derive(Clone, serde::Serialize)]
 pub struct RenderProgressPayload {
@@ -35,7 +35,12 @@ fn hex_color_to_skia(color_hex: &str) -> Color {
     let cleaned = color_hex.trim().trim_start_matches('#');
     let parsed = u32::from_str_radix(cleaned, 16).unwrap_or(0);
     if cleaned.len() == 6 {
-        Color::from_argb(0xFF, (parsed >> 16) as u8, (parsed >> 8) as u8, parsed as u8)
+        Color::from_argb(
+            0xFF,
+            (parsed >> 16) as u8,
+            (parsed >> 8) as u8,
+            parsed as u8,
+        )
     } else if cleaned.len() == 8 {
         Color::from_argb(
             ((parsed >> 24) & 0xFF) as u8,
@@ -51,13 +56,13 @@ fn hex_color_to_skia(color_hex: &str) -> Color {
 enum PlaceholderData {
     Badge(String),
     Emote(String),
+    Spacer,
 }
 
 struct MessageLayout {
     para: Paragraph,
     placeholders: Vec<PlaceholderData>,
     total_height: f32,
-    msg_time: f64,
 }
 
 fn build_paragraph_for_message(
@@ -83,15 +88,26 @@ fn build_paragraph_for_message(
             for badge in badges {
                 let key = format!("{}--{}", badge.set_id, badge.version);
                 if asset_manager.get_badge(&key).is_some() {
+                    let badge_size = config.font_size * 1.15;
                     let ph_style = PlaceholderStyle::new(
-                        config.font_size,
-                        config.font_size,
-                        PlaceholderAlignment::Middle,
+                        badge_size,
+                        badge_size,
+                        PlaceholderAlignment::Baseline,
                         TextBaseline::Alphabetic,
-                        0.0,
+                        badge_size * 0.85,
                     );
                     builder.add_placeholder(&ph_style);
                     placeholders.push(PlaceholderData::Badge(key));
+
+                    let gap_style = PlaceholderStyle::new(
+                        config.font_size * 0.3,
+                        0.0,
+                        PlaceholderAlignment::Baseline,
+                        TextBaseline::Alphabetic,
+                        0.0,
+                    );
+                    builder.add_placeholder(&gap_style);
+                    placeholders.push(PlaceholderData::Spacer);
                 }
             }
         }
@@ -115,7 +131,9 @@ fn build_paragraph_for_message(
 
     for fragment in &msg.fragments {
         match fragment {
-            FormattedFragment::Custom { id, code, provider, .. } => {
+            FormattedFragment::Custom {
+                id, code, provider, ..
+            } => {
                 let mut should_render = true;
                 if provider == "7TV" && !config.enable7tv {
                     should_render = false;
@@ -205,40 +223,12 @@ fn build_paragraph_for_message(
     builder.pop();
     let mut para = builder.build();
     para.layout(config.width as f32 - MESSAGE_PADDING_X * 2.0);
-        (para, placeholders)
-}
-
-
-
-
-fn layout_messages(
-    messages: &[FormattedMessage],
-    asset_manager: &RenderAssetManager,
-    fc: &FontCollection,
-    config: &ChatRenderConfig,
-) -> Vec<MessageLayout> {
-    let mut layouts = Vec::new();
-
-    for msg in messages {
-        let user_color = hex_color_to_skia(&msg.user_color);
-        let (para, placeholders) = build_paragraph_for_message(msg, user_color, asset_manager, fc, config);
-
-        let total_height = para.height() + MESSAGE_GAP;
-
-        layouts.push(MessageLayout {
-            para,
-            placeholders,
-            total_height,
-            msg_time: msg.content_offset_seconds,
-        });
-    }
-
-    layouts
+    (para, placeholders)
 }
 
 fn render_frame(
     canvas: &Canvas,
-    active_messages: &[&MessageLayout],
+    active_messages: &VecDeque<MessageLayout>,
     asset_manager: &RenderAssetManager,
     elapsed_ms: u32,
     _current_time_sec: f64,
@@ -246,8 +236,6 @@ fn render_frame(
 ) {
     let mut paint = Paint::default();
     paint.set_anti_alias(true);
-
-    const PLACEHOLDER_SIZE: f32 = 1.8 * 16.0;
 
     let mut draw_y = height - 20.0;
 
@@ -259,7 +247,10 @@ fn render_frame(
             break; // Stop drawing once we go off the top of the screen
         }
 
-        msg.para.paint(canvas, Point::new(MESSAGE_PADDING_X, draw_y + MESSAGE_PADDING_Y));
+        msg.para.paint(
+            canvas,
+            Point::new(MESSAGE_PADDING_X, draw_y + MESSAGE_PADDING_Y),
+        );
 
         let placeholder_rects = msg.para.get_rects_for_placeholders();
         for (pi, rect) in placeholder_rects.iter().enumerate() {
@@ -274,25 +265,47 @@ fn render_frame(
             match &msg.placeholders[pi] {
                 PlaceholderData::Badge(key) => {
                     if let Some(badge_img) = asset_manager.get_badge(key) {
-                        let src_rect = Rect::from_xywh(0.0, 0.0, badge_img.width() as f32, badge_img.height() as f32);
-                        canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &paint);
+                        let src_rect = Rect::from_xywh(
+                            0.0,
+                            0.0,
+                            badge_img.width() as f32,
+                            badge_img.height() as f32,
+                        );
+                        canvas.draw_image_rect(
+                            badge_img,
+                            Some((&src_rect, SrcRectConstraint::Fast)),
+                            &dst_rect,
+                            &paint,
+                        );
                     }
                 }
                 PlaceholderData::Emote(key) => {
                     if let Some(emote_img) = asset_manager.get_emote(key) {
                         let frame = emote_img.get_frame_for_time(elapsed_ms);
-                        let src_rect = Rect::from_xywh(0.0, 0.0, frame.width() as f32, frame.height() as f32);
+                        let src_rect =
+                            Rect::from_xywh(0.0, 0.0, frame.width() as f32, frame.height() as f32);
 
-                        let ph_size = PLACEHOLDER_SIZE;
+                        let actual_ph_height = dst_rect.height();
                         let final_dst = if asset_manager.is_zero_width(key) {
-                            Rect::from_xywh(px - ph_size, py, ph_size, dst_rect.height())
+                            Rect::from_xywh(
+                                px - actual_ph_height,
+                                py,
+                                actual_ph_height,
+                                actual_ph_height,
+                            )
                         } else {
                             dst_rect
                         };
 
-                        canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &paint);
+                        canvas.draw_image_rect(
+                            frame,
+                            Some((&src_rect, SrcRectConstraint::Fast)),
+                            &final_dst,
+                            &paint,
+                        );
                     }
                 }
+                PlaceholderData::Spacer => {}
             }
         }
     }
@@ -320,19 +333,34 @@ pub fn render_chat_video(
     let mut child = std::process::Command::new(&ffmpeg_path)
         .args([
             "-y",
-            "-f", "rawvideo",
-            "-pixel_format", "bgra",
-            "-video_size", &format!("{}x{}", config.width, config.height),
-            "-framerate", &config.fps.to_string(),
-            "-thread_queue_size", "1024",
-            "-i", "-",
-            "-c:v", "libvpx-vp9",
-            "-pix_fmt", "yuva420p",
-            "-b:v", "2M",
-            "-cpu-used", "8",
-            "-deadline", "realtime",
-            "-row-mt", "1",
-            "-threads", "0",
+            "-f",
+            "rawvideo",
+            "-pixel_format",
+            "bgra",
+            "-video_size",
+            &format!("{}x{}", config.width, config.height),
+            "-framerate",
+            &config.fps.to_string(),
+            "-thread_queue_size",
+            "1024",
+            "-i",
+            "-",
+            "-c:v",
+            "libvpx-vp9",
+            "-pix_fmt",
+            "yuva420p",
+            "-crf",
+            "18",
+            "-b:v",
+            "0",
+            "-cpu-used",
+            "6",
+            "-deadline",
+            "realtime",
+            "-row-mt",
+            "1",
+            "-threads",
+            "0",
             output_path,
         ])
         .stdin(std::process::Stdio::piped())
@@ -347,35 +375,51 @@ pub fn render_chat_video(
     let mut fc = FontCollection::new();
     fc.set_default_font_manager(font_mgr, None);
 
-    let ignored_users: Vec<String> = config.ignored_users.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
-    let banned_words: Vec<String> = config.banned_words.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
+    let ignored_users: Vec<String> = config
+        .ignored_users
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let banned_words: Vec<String> = config
+        .banned_words
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
 
-    let mut filtered_messages: Vec<FormattedMessage> = messages.into_iter().filter(|msg| {
-        if ignored_users.contains(&msg.display_name.to_lowercase()) {
-            return false;
-        }
-
-        let msg_text = msg.fragments.iter().filter_map(|f| match f {
-            FormattedFragment::Text { text } => Some(text.as_str()),
-            _ => None
-        }).collect::<Vec<_>>().join(" ").to_lowercase();
-
-        for word in &banned_words {
-            if msg_text.contains(word) {
+    let mut filtered_messages: Vec<FormattedMessage> = messages
+        .into_iter()
+        .filter(|msg| {
+            if ignored_users.contains(&msg.display_name.to_lowercase()) {
                 return false;
             }
-        }
-        true
-    }).collect();
 
-    filtered_messages.sort_by(|a, b| a.content_offset_seconds.partial_cmp(&b.content_offset_seconds).unwrap_or(std::cmp::Ordering::Equal));
+            let msg_text = msg
+                .fragments
+                .iter()
+                .filter_map(|f| match f {
+                    FormattedFragment::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+                .to_lowercase();
 
-    let all_layouts = layout_messages(
-        &filtered_messages,
-        &asset_manager,
-        &fc,
-        &config,
-    );
+            for word in &banned_words {
+                if msg_text.contains(word) {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+
+    filtered_messages.sort_by(|a, b| {
+        a.content_offset_seconds
+            .partial_cmp(&b.content_offset_seconds)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let mut frame_buf = vec![0u8; config.width as usize * config.height as usize * 4];
 
@@ -385,6 +429,9 @@ pub fn render_chat_video(
         hex_color_to_skia(&config.background_color)
     };
 
+    let mut layout_queue: VecDeque<MessageLayout> = VecDeque::new();
+    let mut next_msg_idx = 0;
+
     for frame_idx in 0..total_frames {
         let canvas = surface.canvas();
         canvas.clear(bg_color);
@@ -392,14 +439,47 @@ pub fn render_chat_video(
         let current_time_sec = start_sec + (frame_idx as f64 / config.fps as f64);
         let elapsed_ms = (frame_idx as u32) * (1000 / config.fps as u32);
 
-        let active_messages: Vec<&MessageLayout> = all_layouts
-            .iter()
-            .filter(|m| m.msg_time <= current_time_sec)
-            .collect();
+        // 1. INGEST: Lazily build paragraphs ONLY when they appear on screen
+        while next_msg_idx < filtered_messages.len()
+            && filtered_messages[next_msg_idx].content_offset_seconds <= current_time_sec
+        {
+            let msg = &filtered_messages[next_msg_idx];
+            let user_color = hex_color_to_skia(&msg.user_color);
+            let (para, placeholders) = build_paragraph_for_message(
+                msg,
+                user_color,
+                &asset_manager,
+                &fc,
+                &config,
+            );
+            let total_height = para.height() + MESSAGE_GAP;
 
+            layout_queue.push_back(MessageLayout {
+                para,
+                placeholders,
+                total_height,
+            });
+            next_msg_idx += 1;
+        }
+
+        // 2. PRUNE: Delete paragraphs from RAM the moment they scroll off the top
+        let mut accumulated_height = 0.0;
+        let mut keep_count = 0;
+        for msg in layout_queue.iter().rev() {
+            accumulated_height += msg.total_height;
+            keep_count += 1;
+            if accumulated_height > config.height as f32 + 200.0 {
+                break;
+            }
+        }
+        while layout_queue.len() > keep_count {
+            layout_queue.pop_front();
+        }
+
+        // 3. RENDER: Draw only the visible messages
         render_frame(
             &canvas,
-            &active_messages,
+            &layout_queue,
             &asset_manager,
             elapsed_ms,
             current_time_sec,
@@ -433,11 +513,16 @@ pub fn render_chat_video(
 
     drop(stdin);
 
-    let status = child.wait_with_output().map_err(|e| format!("FFmpeg wait failed: {}", e))?;
+    let status = child
+        .wait_with_output()
+        .map_err(|e| format!("FFmpeg wait failed: {}", e))?;
 
     if !status.status.success() {
         let stderr_str = String::from_utf8_lossy(&status.stderr);
-        return Err(format!("FFmpeg failed with status {:?}: {}", status.status, stderr_str));
+        return Err(format!(
+            "FFmpeg failed with status {:?}: {}",
+            status.status, stderr_str
+        ));
     }
 
     if let (Some(app_ref), Some(ref job_id_ref)) = (&app, &job_id) {
@@ -462,7 +547,10 @@ pub async fn render_chat_video_cmd(
 ) -> Result<String, String> {
     let job_id = uuid::Uuid::new_v4().to_string();
     let queue = crate::media::job_queue::get_queue();
-    queue.submit(crate::media::job_queue::JobType::Clip, format!("chat-render-{}", job_id));
+    queue.submit(
+        crate::media::job_queue::JobType::Clip,
+        format!("chat-render-{}", job_id),
+    );
 
     let asset_manager = RenderAssetManager::new();
     let app_clone = app.clone();
@@ -487,7 +575,8 @@ pub async fn render_chat_video_cmd(
                 Some(app_inner),
                 Some(job_id_inner),
             )
-        }).await;
+        })
+        .await;
 
         let render_result = match render_result {
             Ok(r) => r,
@@ -527,11 +616,22 @@ pub async fn fetch_all_messages_for_window(
     let mut offset = Some(start_sec);
 
     loop {
-        let batch = crate::media::chat::twitch::fetch_and_parse_comments(vod_id, broadcaster_id, offset, cursor).await?;
+        let batch = crate::media::chat::twitch::fetch_and_parse_comments(
+            vod_id,
+            broadcaster_id,
+            offset,
+            cursor,
+        )
+        .await?;
 
-        let raw_last_time = batch.messages.last().map(|m| m.content_offset_seconds).unwrap_or(0.0);
+        let raw_last_time = batch
+            .messages
+            .last()
+            .map(|m| m.content_offset_seconds)
+            .unwrap_or(0.0);
 
-        let messages_in_range: Vec<FormattedMessage> = batch.messages
+        let messages_in_range: Vec<FormattedMessage> = batch
+            .messages
             .into_iter()
             .filter(|m| m.content_offset_seconds >= start_sec && m.content_offset_seconds < end_sec)
             .collect();
@@ -583,7 +683,14 @@ pub async fn render_chat_video_orchestrator_cmd(
     let config_clone = config.clone();
 
     tauri::async_runtime::spawn(async move {
-        let messages = match fetch_all_messages_for_window(&vod_id_clone, &broadcaster_id_clone, start_sec, duration_sec).await {
+        let messages = match fetch_all_messages_for_window(
+            &vod_id_clone,
+            &broadcaster_id_clone,
+            start_sec,
+            duration_sec,
+        )
+        .await
+        {
             Ok(msgs) => msgs,
             Err(e) => {
                 queue.fail(&job_id_clone, e, &app_clone, "chat-render");
@@ -592,13 +699,25 @@ pub async fn render_chat_video_orchestrator_cmd(
         };
 
         if messages.is_empty() {
-            queue.fail(&job_id_clone, "No chat messages found for the selected timeframe".to_string(), &app_clone, "chat-render");
+            queue.fail(
+                &job_id_clone,
+                "No chat messages found for the selected timeframe".to_string(),
+                &app_clone,
+                "chat-render",
+            );
             return;
         }
 
-        let preload_result = crate::media::chat::assets::run_internal_preload(&job_id_clone, &broadcaster_id_clone, &vod_id_clone, &messages, &app_clone).await;
+        let preload_result = crate::media::chat::assets::run_internal_preload(
+            &job_id_clone,
+            &broadcaster_id_clone,
+            &vod_id_clone,
+            &messages,
+            &app_clone,
+        )
+        .await;
         match preload_result {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 queue.fail(&job_id_clone, e, &app_clone, "chat-render");
                 return;
@@ -627,7 +746,8 @@ pub async fn render_chat_video_orchestrator_cmd(
                 Some(app_inner),
                 Some(job_id_inner),
             )
-        }).await;
+        })
+        .await;
 
         let render_result = match render_result {
             Ok(r) => r,

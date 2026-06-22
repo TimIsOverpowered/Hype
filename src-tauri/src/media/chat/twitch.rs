@@ -39,10 +39,7 @@ pub async fn fetch_badges(vod_id: &str) -> Result<BadgeSet, String> {
         .await
         .map_err(|e| e.to_string())?;
 
-    let json: serde_json::Value = res
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
+    let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
 
     if let Some(errors) = json.get("errors").and_then(|e| e.as_array()) {
         let messages: Vec<String> = errors
@@ -54,10 +51,8 @@ pub async fn fetch_badges(vod_id: &str) -> Result<BadgeSet, String> {
 
     let data = json.get("data").ok_or("No data in response")?;
 
-    let global_badges: Option<Vec<TwitchBadge>> = data
-        .get("badges")
-        .and_then(|b| b.as_array())
-        .map(|arr| {
+    let global_badges: Option<Vec<TwitchBadge>> =
+        data.get("badges").and_then(|b| b.as_array()).map(|arr| {
             arr.iter()
                 .map(|b| TwitchBadge {
                     set_id: b["setID"].as_str().unwrap_or("").to_string(),
@@ -148,10 +143,7 @@ pub async fn fetch_and_parse_comments(
         .await
         .map_err(|e| e.to_string())?;
 
-    let json: serde_json::Value = res
-        .json()
-        .await
-        .map_err(|e| e.to_string())?;
+    let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
 
     if let Some(errors) = json.get("errors").and_then(|e| e.as_array()) {
         let messages: Vec<String> = errors
@@ -175,7 +167,12 @@ pub async fn fetch_and_parse_comments(
         .and_then(|e| e.as_array())
     {
         Some(e) => e,
-        None => return Ok(ChatBatchResponse { messages, next_cursor }),
+        None => {
+            return Ok(ChatBatchResponse {
+                messages,
+                next_cursor,
+            })
+        }
     };
 
     for edge in edges {
@@ -206,7 +203,9 @@ pub async fn fetch_and_parse_comments(
         }
 
         let formatted_fragments = parse_fragments(
-            node["message"]["fragments"].as_array().map(|v| v.as_slice()),
+            node["message"]["fragments"]
+                .as_array()
+                .map(|v| v.as_slice()),
             emote_dict,
         );
 
@@ -224,7 +223,10 @@ pub async fn fetch_and_parse_comments(
         next_cursor = last_edge["cursor"].as_str().map(|s| s.to_string());
     }
 
-    Ok(ChatBatchResponse { messages, next_cursor })
+    Ok(ChatBatchResponse {
+        messages,
+        next_cursor,
+    })
 }
 
 fn is_url(word: &str) -> bool {
@@ -257,14 +259,8 @@ fn parse_fragments(
         }
 
         if frag.get("emote").and_then(|e| e.get("emoteID")).is_some() {
-            let emote_id = frag["emote"]["emoteID"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
-            result.push(FormattedFragment::Twitch {
-                emote_id,
-                text,
-            });
+            let emote_id = frag["emote"]["emoteID"].as_str().unwrap_or("").to_string();
+            result.push(FormattedFragment::Twitch { emote_id, text });
             continue;
         }
 
@@ -276,9 +272,13 @@ fn parse_fragments(
 
         for (i, word) in words.iter().enumerate() {
             if is_url(word) {
-                result.push(FormattedFragment::Url { text: word.to_string() });
+                result.push(FormattedFragment::Url {
+                    text: word.to_string(),
+                });
             } else if is_emoji(word) {
-                result.push(FormattedFragment::Emoji { text: word.to_string() });
+                result.push(FormattedFragment::Emoji {
+                    text: word.to_string(),
+                });
             } else if let Some(dict) = emote_dict {
                 if let Some(cached_emote) = dict.get(*word) {
                     result.push(FormattedFragment::Custom {
