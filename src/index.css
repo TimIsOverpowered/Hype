@@ -1,22 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #008080;
-  --color-primary-hover: #006666;
+  --color-primary: #e879a8;
+  --color-primary-hover: #d96898;
+  --color-primary-foreground: #1a1a2e;
   --color-background: #0e0e10;
   --color-surface: #16161e;
   --color-surface-elevated: #18181b;
-  --color-border: #222230;
-  --color-text-primary: #f0f0f5;
-  --color-text-secondary: #adadb8;
+  --color-border: #27272a;
+  --color-border-light: #3f3f46;
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #a1a1aa;
   --color-text-muted: #9ca3af;
-  --color-text-hint: #6b6b7b;
+  --color-text-hint: #71717a;
 }
 
 [data-sonner-toaster][data-sonner-theme="dark"] {
-  --normal-bg: #16161e;
-  --normal-border: #222230;
-  --normal-text: #f0f0f5;
+  --normal-bg: #1a1a2e;
+  --normal-border: #27272a;
+  --normal-text: #f4f4f5;
 }
 
 body {
@@ -63,7 +65,7 @@ body {
 }
 
 .chat-message-highlight:hover::before {
-  background-color: var(--highlight-color, #6366f1);
+  background-color: var(--highlight-color, var(--color-primary));
 }
 
 /* Theatre mode overrides */

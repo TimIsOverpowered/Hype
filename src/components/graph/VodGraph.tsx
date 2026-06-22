@@ -153,7 +153,7 @@ function buildEChartsOption(
       }
 
       if (gp.emotes && gp.emotes.length > 0) {
-        html += `<div style="margin-top:4px;color:#008080;font-size:14px">${formatEmoteTooltip(gp.emotes)}</div>`;
+        html += `<div style="margin-top:4px;color:#e879a8;font-size:14px">${formatEmoteTooltip(gp.emotes)}</div>`;
       }
     }
 

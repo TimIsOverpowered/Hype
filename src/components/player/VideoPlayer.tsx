@@ -622,7 +622,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                         onTouchMove={tooltipControls.handleVolumeTouchMove}
                         className="h-1.5 w-12 min-w-[3rem] cursor-pointer appearance-none rounded-lg accent-primary transition-all sm:w-[70px] sm:min-w-[70px]"
                         style={{
-                          background: `linear-gradient(to right, var(--color-primary) ${isMuted ? 0 : volume}%, rgba(0,128,128,0.3) ${isMuted ? 0 : volume}%)`,
+                          background: `linear-gradient(to right, var(--color-primary) ${isMuted ? 0 : volume}%, rgba(232,121,168,0.3) ${isMuted ? 0 : volume}%)`,
                         }}
                       />
                     </div>
@@ -703,7 +703,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                           <path
                             d={fullArc}
                             fill="none"
-                            stroke="rgba(0,128,128,0.2)"
+                            stroke="rgba(232,121,168,0.2)"
                             strokeWidth="4"
                             strokeLinecap="round"
                           />
