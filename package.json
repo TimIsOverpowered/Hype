@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "biome check --write ./src",
     "tauri": "tauri",
-    "sync": "node scripts/sync-version.mjs"
+    "version": "node scripts/version-bump.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.1",
