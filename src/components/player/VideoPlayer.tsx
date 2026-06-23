@@ -540,8 +540,8 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                       return (
                         <div
                           key={ch.positionMilliseconds}
-                          className="relative flex h-full flex-1 items-center cursor-pointer"
-                          style={{ width: `${widthPct}%`, marginRight: '3px' }}
+                          className="relative flex h-full items-center"
+                          style={{ width: `${widthPct}%` }}
                         >
                           <div className="absolute inset-x-0 h-2 rounded-full bg-white/10 transition-all group-hover:h-2.5" />
                           <div
