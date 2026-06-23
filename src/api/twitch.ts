@@ -430,8 +430,9 @@ function recoverUnavailableVariants(rawMasterM3u8: string, existingVariants: M3u
         !existingNames.has(v['STABLE-VARIANT-ID']),
     )
     .map((v) => {
+      const path = v['IVS-VARIANT-SOURCE'] === 'source' ? 'chunked' : v.IVS_NAME;
       return {
-        uri: `${domain}/${hash}/${v.IVS_NAME}/index-dvr.m3u8`,
+        uri: `${domain}/${hash}/${path}/index-dvr.m3u8`,
         name: v['STABLE-VARIANT-ID'],
         codec: v.CODECS,
       };
