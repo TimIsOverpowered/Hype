@@ -950,10 +950,21 @@ const VodGraph = memo(function VodGraph({
             <span className="text-xs text-text-hint">No insights available</span>
           ) : (
             <div className="flex flex-col h-full min-h-0 gap-4 overflow-y-auto chat-scrollbar pr-1">
-              {/* Total Messages Metric */}
+              {/* Total Messages / Search Matches Metric */}
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium text-text-secondary">Total Messages</span>
-                <span className="text-lg font-bold text-primary">{totalMessages?.toLocaleString() ?? 0}</span>
+                {activeTab === 'search' ? (
+                  <>
+                    <span className="text-xs font-medium text-text-secondary">Search Matches</span>
+                    <span className="text-lg font-bold text-primary">
+                      {graphData.reduce((sum, d) => sum + d.y, 0).toLocaleString()}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs font-medium text-text-secondary">Total Messages</span>
+                    <span className="text-lg font-bold text-primary">{totalMessages?.toLocaleString() ?? 0}</span>
+                  </>
+                )}
               </div>
 
               {/* Top Emotes Grid */}

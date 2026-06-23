@@ -280,6 +280,8 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
     let mut results: Vec<(f64, &BucketData)> = results;
     results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
+    let is_search = payload.search_type == "search";
+
     let data: Vec<GraphDataPoint> = results
         .iter()
         .map(|(x, v)| {
@@ -296,7 +298,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
 
             GraphDataPoint {
                 x: *x,
-                y: v.messages,
+                y: if is_search { v.search_matches } else { v.messages },
                 duration: to_hhmmss(*x),
                 subs: if v.subs > 0 { Some(v.subs) } else { None },
                 emotes: if !top_emotes.is_empty() {
@@ -304,7 +306,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
                 } else {
                     None
                 },
-                messages: Some(v.messages),
+                messages: Some(if is_search { v.search_matches } else { v.messages }),
                 game: v.game.clone(),
             }
         })
