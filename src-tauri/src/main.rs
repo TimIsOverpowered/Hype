@@ -2,6 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    let debug = std::env::args().any(|arg| arg == "--debug");
-    hype_lib::run(debug)
+    hype_lib::run()
 }

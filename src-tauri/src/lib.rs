@@ -88,7 +88,7 @@ fn set_window_title(window: &WebviewWindow) {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run(debug: bool) {
+pub fn run() {
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
@@ -140,7 +140,7 @@ pub fn run(debug: bool) {
             let window = app.get_webview_window("main").unwrap();
             set_window_title(&window);
 
-            if debug {
+            if cfg!(debug_assertions) {
                 window.open_devtools();
             }
 

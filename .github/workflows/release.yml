@@ -57,13 +57,18 @@ jobs:
         working-directory: .
 
       - name: Generate changelog
+        id: changelog
         shell: bash
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
           if [ -n "$PREV_TAG" ]; then
-            git log --oneline ${PREV_TAG}..HEAD > RELEASE_NOTES.md
+            echo "body<<EOF" >> $GITHUB_OUTPUT
+            git log --oneline ${PREV_TAG}..HEAD >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           else
-            git log --oneline > RELEASE_NOTES.md
+            echo "body<<EOF" >> $GITHUB_OUTPUT
+            git log --oneline >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           fi
 
       - uses: tauri-apps/tauri-action@v0
@@ -74,7 +79,7 @@ jobs:
         with:
           tagName: 'v__VERSION__'
           releaseName: 'Hype v__VERSION__'
-          releaseBodyPath: RELEASE_NOTES.md
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
