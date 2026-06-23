@@ -11,13 +11,13 @@ Your ultimate Twitch companion. Download VODs, clip highlights, render chat, sea
 ### Graphs
 Find the Hype. Visualize chat activity and discover the hottest moments across any VOD.
 
-- **Message graph** — Find peak message volume throughout the vod.
+- **Message graph** - Find peak message volume throughout the vod.
 
 ![Message](https://github.com/user-attachments/assets/f2229efa-f721-4296-a380-12d2b8cfcadd)
-- **Search graph** — Pinpoint exactly when keywords drop.
+- **Search graph** - Pinpoint exactly when keywords drop.
 
 ![Search](https://github.com/user-attachments/assets/6c5772bb-1ae9-475e-af70-716654419e82)
-- **Clip graph** — See the hottest clip views during that vod.
+- **Clip graph** - See the highest clip views during that vod.
 
 ![Clip](https://github.com/user-attachments/assets/60449a2a-3275-4441-914d-774b04810b1c)
 
