@@ -140,10 +140,6 @@ pub fn run() {
             let window = app.get_webview_window("main").unwrap();
             set_window_title(&window);
 
-            if cfg!(debug_assertions) {
-                window.open_devtools();
-            }
-
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
