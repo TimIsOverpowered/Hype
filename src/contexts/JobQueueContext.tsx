@@ -23,7 +23,8 @@ type JobAction =
   | { type: 'UPSERT'; job: Job }
   | { type: 'UPSERT_PROGRESS'; id: string; progress: number }
   | { type: 'UPSERT_STATUS'; id: string; status: JobStatus; progress?: number; error?: string | null }
-  | { type: 'REMOVE'; id: string };
+  | { type: 'REMOVE'; id: string }
+  | { type: 'RECONCILE'; incoming: Set<string> };
 
 function jobsReducer(state: JobsRecord, action: JobAction): JobsRecord {
   switch (action.type) {
@@ -50,6 +51,15 @@ function jobsReducer(state: JobsRecord, action: JobAction): JobsRecord {
     case 'REMOVE': {
       const { [action.id]: _, ...rest } = state;
       return rest;
+    }
+    case 'RECONCILE': {
+      const next: JobsRecord = {};
+      for (const [id, job] of Object.entries(state)) {
+        if (action.incoming.has(id)) {
+          next[id] = job;
+        }
+      }
+      return next;
     }
   }
 }
@@ -94,17 +104,8 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
             error: string | null;
           }>
         >('list_jobs');
-      dispatch({
-        type: 'UPSERT',
-        job: {
-          id: 'FETCH_MARKER',
-          job_type: 'clip' as JobType,
-          name: '',
-          status: 'running',
-          progress: 0,
-          error: null,
-        },
-      });
+      const incoming = new Set(list.map((j) => j.id));
+      dispatch({ type: 'RECONCILE', incoming });
       for (const j of list) {
         dispatch({
           type: 'UPSERT',
@@ -118,8 +119,6 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           },
         });
       }
-      // Remove the marker to purge stale jobs
-      dispatch({ type: 'REMOVE', id: 'FETCH_MARKER' });
     } catch {
       // ignore
     }
@@ -140,53 +139,55 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    let cancelled = false;
-    let cleanup: (() => void) | undefined;
+    const controller = { cancelled: false };
+    const unlistens: Array<() => void> = [];
 
-    const setupListeners = async () => {
-      const unlistens: (() => void)[] = [];
-
-      const listenFor = async (event: string, handler: (job: Job) => void) => {
-        try {
-          const unlisten = await listen<{
-            id: string;
-            job_type: string;
-            name: string;
-            status: string;
-            progress: number;
-            error: string | null;
-          }>(event, (e) => {
-            handler({
-              id: e.payload.id,
-              job_type: e.payload.job_type as JobType,
-              name: e.payload.name,
-              status: e.payload.status as JobStatus,
-              progress: e.payload.progress,
-              error: e.payload.error,
-            });
+    const listenFor = async (event: string, handler: (job: Job) => void) => {
+      try {
+        const unlisten = await listen<{
+          id: string;
+          job_type: string;
+          name: string;
+          status: string;
+          progress: number;
+          error: string | null;
+        }>(event, (e) => {
+          handler({
+            id: e.payload.id,
+            job_type: e.payload.job_type as JobType,
+            name: e.payload.name,
+            status: e.payload.status as JobStatus,
+            progress: e.payload.progress,
+            error: e.payload.error,
           });
+        });
+        if (!controller.cancelled) {
           unlistens.push(unlisten);
-        } catch {
-          // ignore
+        } else {
+          unlisten();
         }
-      };
+      } catch {
+        // ignore
+      }
+    };
 
-      const updateProgress = (job: Job) => {
-        dispatch({ type: 'UPSERT_PROGRESS', id: job.id, progress: job.progress });
-      };
+    const updateProgress = (job: Job) => {
+      dispatch({ type: 'UPSERT_PROGRESS', id: job.id, progress: job.progress });
+    };
 
-      const markCompleted = (job: Job) => {
-        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'completed', progress: 100 });
-      };
+    const markCompleted = (job: Job) => {
+      dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'completed', progress: 100 });
+    };
 
-      const markFailed = (job: Job) => {
-        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'failed', progress: 100, error: job.error });
-      };
+    const markFailed = (job: Job) => {
+      dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'failed', progress: 100, error: job.error });
+    };
 
-      const markCancelled = (job: Job) => {
-        dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'cancelled' });
-      };
+    const markCancelled = (job: Job) => {
+      dispatch({ type: 'UPSERT_STATUS', id: job.id, status: 'cancelled' });
+    };
 
+    const setup = async () => {
       for (const prefix of ['clip', 'download'] as const) {
         await listenFor(`${prefix}-progress`, updateProgress);
         await listenFor(`${prefix}-completed`, (job) => {
@@ -208,7 +209,11 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
       const unlistenChatProgress = await listen<{ job_id: string; progress: number }>('chat-render-progress', (e) => {
         dispatch({ type: 'UPSERT_PROGRESS', id: e.payload.job_id, progress: e.payload.progress });
       });
-      unlistens.push(unlistenChatProgress);
+      if (!controller.cancelled) {
+        unlistens.push(unlistenChatProgress);
+      } else {
+        unlistenChatProgress();
+      }
 
       const unlistenAssetPreload = await listen<{ job_id: string; loaded: number; total: number }>(
         'asset-preload-progress',
@@ -221,7 +226,11 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           });
         },
       );
-      unlistens.push(unlistenAssetPreload);
+      if (!controller.cancelled) {
+        unlistens.push(unlistenAssetPreload);
+      } else {
+        unlistenAssetPreload();
+      }
 
       const unlistenChatComplete = await listen<{ job_id: string; output_path: string }>(
         'chat-render-complete',
@@ -231,7 +240,11 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
           showToast(e.payload.job_id, 'Chat render completed', name, 'success');
         },
       );
-      unlistens.push(unlistenChatComplete);
+      if (!controller.cancelled) {
+        unlistens.push(unlistenChatComplete);
+      } else {
+        unlistenChatComplete();
+      }
 
       const unlistenChatFailed = await listen<{ job_id: string; error: string }>('chat-render-failed', (e) => {
         dispatch({
@@ -243,115 +256,120 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         });
         showToast(e.payload.job_id, 'Chat render failed', e.payload.error ?? 'Unknown error', 'error');
       });
-      unlistens.push(unlistenChatFailed);
-
-      if (!cancelled) {
-        cleanup = () => {
-          for (const unlisten of unlistens) {
-            unlisten();
-          }
-        };
+      if (!controller.cancelled) {
+        unlistens.push(unlistenChatFailed);
+      } else {
+        unlistenChatFailed();
       }
     };
 
-    setupListeners();
+    setup();
 
     return () => {
-      cancelled = true;
-      cleanup?.();
+      controller.cancelled = true;
+      for (const u of unlistens) u();
     };
   }, [showToast]);
 
-  const submitJob = async (
-    type: JobType,
-    m3u8Url: string,
-    duration: number,
-    outputPath: string,
-    isFmp4: boolean,
-    start?: number,
-  ): Promise<string> => {
-    const newJob: Job = {
-      id: `pending-${Date.now()}`,
-      job_type: type,
-      name: outputPath.split('/').pop() || 'job.mp4',
-      status: 'running',
-      progress: 0,
-      error: null,
-    };
+  const submitJob = useCallback(
+    async (
+      type: JobType,
+      m3u8Url: string,
+      duration: number,
+      outputPath: string,
+      isFmp4: boolean,
+      start?: number,
+    ): Promise<string> => {
+      const newJob: Job = {
+        id: `pending-${Date.now()}`,
+        job_type: type,
+        name: outputPath.split('/').pop() || 'job.mp4',
+        status: 'running',
+        progress: 0,
+        error: null,
+      };
 
-    dispatch({ type: 'UPSERT', job: newJob });
+      dispatch({ type: 'UPSERT', job: newJob });
 
-    const typeLabel = type === 'clip' ? 'Clip' : 'Download';
-    showToast(newJob.id, `${typeLabel} started`, newJob.name, 'info');
+      const typeLabel = type === 'clip' ? 'Clip' : 'Download';
+      showToast(newJob.id, `${typeLabel} started`, newJob.name, 'info');
 
-    const { job_id } = await invoke<SubmitJobResponse>(
-      type === 'clip' ? 'submit_clip' : 'submit_download',
-      type === 'clip'
-        ? {
-            m3u8Url,
-            start: start ?? 0,
-            duration,
-            outputPath,
-            isFmp4: isFmp4,
-          }
-        : {
-            m3u8Url,
-            duration,
-            outputPath,
-            isFmp4: isFmp4,
-          },
-    );
+      const { job_id } = await invoke<SubmitJobResponse>(
+        type === 'clip' ? 'submit_clip' : 'submit_download',
+        type === 'clip'
+          ? {
+              m3u8Url,
+              start: start ?? 0,
+              duration,
+              outputPath,
+              isFmp4: isFmp4,
+            }
+          : {
+              m3u8Url,
+              duration,
+              outputPath,
+              isFmp4: isFmp4,
+            },
+      );
 
-    dispatch({ type: 'REMOVE', id: newJob.id });
-    dispatch({ type: 'UPSERT', job: { ...newJob, id: job_id, status: 'running', progress: 0 } });
+      dispatch({ type: 'REMOVE', id: newJob.id });
+      dispatch({ type: 'UPSERT', job: { ...newJob, id: job_id, status: 'running', progress: 0 } });
 
-    return job_id;
-  };
+      return job_id;
+    },
+    [showToast],
+  );
 
-  const cancelJob = async (id: string) => {
-    dispatch({ type: 'UPSERT_STATUS', id, status: 'cancelled' });
-    const job = jobs[id];
-    if (job) {
-      showToast(id, 'Job cancelled', job.name, 'info');
-    }
-    try {
-      await invoke('cancel_job', { id });
-    } catch {
-      // job may already be completed/failed — ignore
-    }
-  };
+  const cancelJob = useCallback(
+    async (id: string) => {
+      dispatch({ type: 'UPSERT_STATUS', id, status: 'cancelled' });
+      const job = jobs[id];
+      if (job) {
+        showToast(id, 'Job cancelled', job.name, 'info');
+      }
+      try {
+        await invoke('cancel_job', { id });
+      } catch {
+        // job may already be completed/failed — ignore
+      }
+    },
+    [jobs, showToast],
+  );
 
-  const removeJob = async (id: string) => {
+  const removeJob = useCallback(async (id: string) => {
     dispatch({ type: 'REMOVE', id });
     await invoke('remove_job', { id });
-  };
+  }, []);
 
-  const renderChatOverlay = async (
-    vodId: string,
-    broadcasterId: string,
-    startSec: number,
-    durationSec: number,
-    outputPath: string,
-  ): Promise<string> => {
-    const name = outputPath.split('/').pop() || 'chat-render.webm';
-    showToast('chat-render', 'Chat render started', name, 'info');
+  const renderChatOverlay = useCallback(
+    async (
+      vodId: string,
+      broadcasterId: string,
+      startSec: number,
+      durationSec: number,
+      outputPath: string,
+    ): Promise<string> => {
+      const name = outputPath.split('/').pop() || 'chat-render.webm';
+      showToast('chat-render', 'Chat render started', name, 'info');
 
-    const saved = safeLocalStorage.getItem('chat-render-settings');
-    const config = saved ? { ...DEFAULT_RENDER_SETTINGS, ...JSON.parse(saved) } : DEFAULT_RENDER_SETTINGS;
+      const saved = safeLocalStorage.getItem('chat-render-settings');
+      const config = saved ? { ...DEFAULT_RENDER_SETTINGS, ...JSON.parse(saved) } : DEFAULT_RENDER_SETTINGS;
 
-    const { job_id } = await invoke<SubmitJobResponse>('render_chat_video_orchestrator_cmd', {
-      vodId,
-      broadcasterId,
-      startSec,
-      durationSec,
-      outputPath,
-      config,
-    });
+      const { job_id } = await invoke<SubmitJobResponse>('render_chat_video_orchestrator_cmd', {
+        vodId,
+        broadcasterId,
+        startSec,
+        durationSec,
+        outputPath,
+        config,
+      });
 
-    await fetchJobs();
+      await fetchJobs();
 
-    return job_id;
-  };
+      return job_id;
+    },
+    [fetchJobs, showToast],
+  );
 
   return (
     <JobQueueContext.Provider value={{ jobs, submitJob, cancelJob, removeJob, renderChatOverlay }}>

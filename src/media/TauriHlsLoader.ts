@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { nativeFetch } from '../interceptor';
 
+const TEXT_DECODER = new TextDecoder();
+
 const PROXY_PORT: Promise<number> = invoke('get_proxy_port')
   .then((port: unknown) => (typeof port === 'number' ? port : 0))
   .catch(() => Promise.resolve(0));
@@ -78,7 +80,7 @@ export class TauriHlsLoader {
         this.stats.total = buffer.byteLength;
 
         const isText = context.url.includes('.m3u8') || context.responseType === 'text';
-        const data = isText ? new TextDecoder().decode(buffer) : buffer;
+        const data = isText ? TEXT_DECODER.decode(buffer) : buffer;
 
         setTimeout(() => {
           if (this.callbacks?.onSuccess) {

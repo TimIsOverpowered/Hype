@@ -68,6 +68,8 @@ function DeepLinkHandler() {
       }
     };
 
+    let unlisten: (() => void) | undefined;
+
     const init = async () => {
       // Check if app was launched via deep link (cold start)
       try {
@@ -83,7 +85,7 @@ function DeepLinkHandler() {
 
       // Listen for deep links while app is running
       try {
-        await onOpenUrl((urls) => {
+        unlisten = await onOpenUrl((urls) => {
           for (const url of urls) {
             handleDeepLink(url);
           }
@@ -94,6 +96,10 @@ function DeepLinkHandler() {
     };
 
     init();
+
+    return () => {
+      unlisten?.();
+    };
   }, [queryClient]);
 
   return null;

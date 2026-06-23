@@ -22,8 +22,6 @@ function VodCardSkeleton() {
 function VodCard({ vod, displayName }: { vod: VodEdge; displayName?: string }) {
   const navigate = useNavigate();
 
-  if (vod.node.broadcastType !== 'ARCHIVE' && vod.node.broadcastType !== 'HIGHLIGHT') return null;
-
   const thumbnail = vod.node.previewThumbnailURL;
   const duration = toHHMMSS(vod.node.lengthSeconds);
   const date = vod.node.createdAt

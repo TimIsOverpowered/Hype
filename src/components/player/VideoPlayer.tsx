@@ -166,26 +166,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (!showChaptersMenu) return;
-      if (chaptersAnchorEl.current?.contains(e.target as Node)) return;
-      if (chaptersMenuRef.current?.contains(e.target as Node)) return;
-      setShowChaptersMenu(false);
+      if (showChaptersMenu) {
+        if (chaptersAnchorEl.current?.contains(e.target as Node)) return;
+        if (chaptersMenuRef.current?.contains(e.target as Node)) return;
+        setShowChaptersMenu(false);
+      }
+      if (settingsMenuRef.current || settingsAnchorEl) {
+        if (settingsMenuRef.current?.contains(e.target as Node)) return;
+        const settingsBtn = e.target as HTMLElement | null;
+        if (settingsBtn?.closest('[title="Settings"]')) return;
+        handleCloseSettings();
+      }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [showChaptersMenu]);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (!settingsMenuRef.current && !settingsAnchorEl) return;
-      if (settingsMenuRef.current?.contains(e.target as Node)) return;
-      const settingsBtn = e.target as HTMLElement | null;
-      if (settingsBtn?.closest('[title="Settings"]')) return;
-      handleCloseSettings();
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [settingsAnchorEl, handleCloseSettings]);
+  }, [showChaptersMenu, settingsAnchorEl, handleCloseSettings]);
 
   const [showSpeedCircle, setShowSpeedCircle] = useState(false);
   const [speedCirclePos, setSpeedCirclePos] = useState({ x: 0, y: 0 });

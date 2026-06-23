@@ -7,6 +7,7 @@ mod graph;
 mod logs;
 mod media;
 mod proxy;
+mod utils;
 
 use crate::graph::{aggregate_clips, aggregate_logs};
 use crate::media::chat::emotes::{get_channel_emotes, init_channel_emotes};

@@ -316,7 +316,7 @@ pub async fn get_channel_emotes(broadcaster_id: &str) -> Result<SerializedEmoteS
 
 pub fn count_emotes_in_message(
     message: &str,
-    lookup: &HashMap<String, SerializedEmote>,
+    lookup: &HashMap<String, ()>,
 ) -> HashMap<String, u64> {
     let mut counts = HashMap::new();
     let words: Vec<&str> = message.split_whitespace().collect();

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::media::chat::emotes::count_emotes_in_message;
+use crate::utils::{parse_timecode, to_hhmmss};
 use crate::media::chat::models::{
     AggregateClipsPayload, AggregatePayload, ChapterEntry, ChapterPayload, ClipDataPoint,
     ClipPayload, ClipsResult, GraphDataPoint, GraphResult, SerializedEmote, TopEmote, TopSpike,
@@ -60,22 +61,12 @@ fn get_game_for_timestamp(
     None
 }
 
-fn to_seconds(time_str: &str) -> f64 {
-    let parts: Vec<f64> = time_str.split(':').filter_map(|p| p.parse().ok()).collect();
-    match parts.len() {
-        3 => parts[0] * 3600.0 + parts[1] * 60.0 + parts[2],
-        2 => parts[0] * 60.0 + parts[1],
-        1 => parts[0],
-        _ => 0.0,
-    }
-}
-
 fn parse_log_line(line: &str) -> Option<(f64, String, String)> {
     let bracket_open = line.find('[')?;
     let bracket_close = line.find(']')?;
 
     let time_str = &line[bracket_open + 1..bracket_close];
-    let timestamp = to_seconds(time_str);
+    let timestamp = parse_timecode(time_str);
 
     let after_bracket = &line[bracket_close + 1..];
     let colon_index = after_bracket.find(": ")?;
@@ -90,36 +81,23 @@ fn build_emote_lookup(
     bttv: &[SerializedEmote],
     ffz: &[SerializedEmote],
     seventv: &[SerializedEmote],
-) -> HashMap<String, SerializedEmote> {
-    let mut lookup = HashMap::new();
+) -> HashMap<String, ()> {
+    let capacity = bttv.len() + ffz.len() + seventv.len();
+    let mut lookup = HashMap::with_capacity(capacity);
 
     for emote in bttv {
-        lookup.insert(emote.code.clone(), emote.clone());
+        lookup.insert(emote.code.clone(), ());
     }
 
     for emote in ffz {
-        let key = emote.code.clone();
-        lookup.entry(key).or_insert(emote.clone());
+        lookup.entry(emote.code.clone()).or_insert(());
     }
 
     for emote in seventv {
-        let key = emote.name.clone();
-        lookup.entry(key).or_insert(emote.clone());
+        lookup.entry(emote.name.clone()).or_insert(());
     }
 
     lookup
-}
-
-fn to_hhmmss(seconds: f64) -> String {
-    let total = seconds.floor() as u64;
-    let h = total / 3600;
-    let m = (total % 3600) / 60;
-    let s = total % 60;
-    if h > 0 {
-        format!("{:02}:{:02}:{:02}", h, m, s)
-    } else {
-        format!("{:02}:{:02}", m, s)
-    }
 }
 
 fn percentile(sorted: &[u64], p: f64) -> f64 {
@@ -161,6 +139,12 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
     let mut total_messages: u64 = 0;
     let mut global_emotes: HashMap<String, u64> = HashMap::new();
 
+    let search_lower: Option<String> = if payload.search_type == "search" {
+        payload.search_term.as_deref().map(|s| s.to_lowercase())
+    } else {
+        None
+    };
+
     for log in payload.logs {
         if log.len() < MIN_LOG_LINE_LENGTH {
             continue;
@@ -200,14 +184,11 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
             *global_emotes.entry(name.clone()).or_insert(0) += count;
         }
 
-        if payload.search_type == "search" {
-            if let Some(ref search_term) = payload.search_term {
-                let search_lower = search_term.to_lowercase();
-                let words: Vec<&str> = message.split_whitespace().collect();
-                for word in words {
-                    if word.to_lowercase() == search_lower {
-                        bucket.search_matches += 1;
-                    }
+        if let Some(ref term) = search_lower {
+            let words: Vec<&str> = message.split_whitespace().collect();
+            for word in words {
+                if word.to_lowercase() == *term {
+                    bucket.search_matches += 1;
                 }
             }
         }

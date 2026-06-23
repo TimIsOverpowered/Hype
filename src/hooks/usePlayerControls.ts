@@ -184,48 +184,4 @@ export function useTooltipControls({ duration, chapters }: UseTooltipControlsOpt
   };
 }
 
-interface UseSettingsMenuOptions {
-  isMenuOpen: boolean;
-}
 
-export function useSettingsMenu({ isMenuOpen }: UseSettingsMenuOptions) {
-  const [settingsAnchorEl, setSettingsAnchorEl] = useState<HTMLElement | null>(null);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [showQualityMenu, setShowQualityMenu] = useState(false);
-  const [menuMaxHeight, setMenuMaxHeight] = useState(400);
-  const settingsMenuRef = useRef<HTMLDivElement>(null);
-
-  const handleCloseSettings = useCallback(() => {
-    setSettingsAnchorEl(null);
-    setShowSpeedMenu(false);
-    setShowQualityMenu(false);
-  }, []);
-
-  useEffect(() => {
-    if (!isMenuOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
-        if (settingsAnchorEl && !(settingsAnchorEl as HTMLElement).contains(e.target as Node)) {
-          handleCloseSettings();
-        }
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isMenuOpen, settingsAnchorEl, handleCloseSettings]);
-
-  return {
-    settingsAnchorEl,
-    setSettingsAnchorEl,
-    showSpeedMenu,
-    setShowSpeedMenu,
-    showQualityMenu,
-    setShowQualityMenu,
-    menuMaxHeight,
-    setMenuMaxHeight,
-    settingsMenuRef,
-    handleCloseSettings,
-  };
-}

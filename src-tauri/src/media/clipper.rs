@@ -8,6 +8,7 @@ use tauri::path::BaseDirectory;
 use tokio::io::AsyncBufReadExt;
 
 use crate::media::job_queue;
+use crate::utils::parse_timecode;
 
 pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
     let arch = std::env::consts::ARCH;
@@ -49,17 +50,6 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
 #[derive(Serialize, Clone)]
 pub struct SubmitJobResponse {
     pub job_id: String,
-}
-
-fn parse_timecode(s: &str) -> f64 {
-    let parts: Vec<&str> = s.split(':').collect();
-    if parts.len() != 3 {
-        return 0.0;
-    }
-    let h = parts[0].parse::<f64>().unwrap_or(0.0);
-    let m = parts[1].parse::<f64>().unwrap_or(0.0);
-    let sec = parts[2].parse::<f64>().unwrap_or(0.0);
-    h * 3600.0 + m * 60.0 + sec
 }
 
 async fn run_ffmpeg(

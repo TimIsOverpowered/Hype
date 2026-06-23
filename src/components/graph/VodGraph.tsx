@@ -48,16 +48,16 @@ const GAME_COLORS = [
 
 function findNearestIndex(targetSec: number, xDataSeconds: number[]): number {
   if (xDataSeconds.length === 0) return 0;
-  let closest = 0;
-  let minDiff = Math.abs(xDataSeconds[0] - targetSec);
-  for (let i = 1; i < xDataSeconds.length; i++) {
-    const diff = Math.abs(xDataSeconds[i] - targetSec);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = i;
-    }
+  let lo = 0, hi = xDataSeconds.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (xDataSeconds[mid] < targetSec) lo = mid + 1;
+    else hi = mid;
   }
-  return closest;
+  if (lo > 0 && Math.abs(xDataSeconds[lo - 1] - targetSec) < Math.abs(xDataSeconds[lo] - targetSec)) {
+    return lo - 1;
+  }
+  return lo;
 }
 
 interface VodGraphProps {
@@ -645,10 +645,7 @@ const VodGraph = memo(function VodGraph({
     const xVals = graphDataRef.current.map((d) => d.x);
     let targetIndex = xVals.indexOf(Math.round(time));
     if (targetIndex < 0) {
-      targetIndex = xVals.reduce(
-        (closest, val, idx) => (Math.abs(val - time) < Math.abs(xVals[closest] - time) ? idx : closest),
-        0,
-      );
+      targetIndex = findNearestIndex(time, xVals);
     }
 
     if (targetIndex < 0 || targetIndex >= xVals.length) return;
