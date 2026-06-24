@@ -60,7 +60,8 @@ fn adjust_username_color(username_color: Color, bg_color: Color) -> Color {
     let b = username_color.b() as f32;
 
     let user_lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    let bg_lum = 0.299 * bg_color.r() as f32 + 0.587 * bg_color.g() as f32 + 0.114 * bg_color.b() as f32;
+    let bg_lum =
+        0.299 * bg_color.r() as f32 + 0.587 * bg_color.g() as f32 + 0.114 * bg_color.b() as f32;
 
     if (user_lum - bg_lum).abs() < 80.0 {
         if bg_lum < 128.0 {
@@ -89,24 +90,74 @@ struct MessageLayout {
 }
 
 fn detect_encoder(ffmpeg_path: &std::path::Path) -> &'static str {
-    let mut cmd = crate::media::build_std_command(ffmpeg_path);
-    cmd.arg("-encoders");
+    #[cfg(target_os = "macos")]
+    let candidates = ["h264_videotoolbox"];
 
-    if let Ok(output) = cmd.output() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if stdout.contains("h264_nvenc") {
-            return "h264_nvenc";
-        }
-        if stdout.contains("h264_videotoolbox") {
-            return "h264_videotoolbox";
-        }
-        if stdout.contains("h264_amf") {
-            return "h264_amf";
-        }
-        if stdout.contains("h264_qsv") {
-            return "h264_qsv";
+    #[cfg(not(target_os = "macos"))]
+    let candidates = ["h264_nvenc", "h264_amf", "h264_qsv"];
+
+    for encoder in candidates {
+        let mut cmd = crate::media::build_std_command(ffmpeg_path);
+
+        cmd.stdin(std::process::Stdio::null());
+        cmd.stdout(std::process::Stdio::null());
+        cmd.stderr(std::process::Stdio::piped());
+
+        cmd.args(&[
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=256x256",
+            "-vframes",
+            "1",
+            "-c:v",
+            encoder,
+            "-pix_fmt",
+            "yuv420p",
+            "-f",
+            "null",
+            "dummy", // OS-agnostic dummy path
+        ]);
+
+        if let Ok(mut child) = cmd.spawn() {
+            let start = std::time::Instant::now();
+            let mut success = false;
+
+            loop {
+                if let Ok(Some(status)) = child.try_wait() {
+                    success = status.success();
+
+                    if !success {
+                        if let Some(mut stderr) = child.stderr.take() {
+                            use std::io::Read;
+                            let mut err_msg = String::new();
+                            let _ = stderr.read_to_string(&mut err_msg);
+                            eprintln!("[Hype] {} failed: {}", encoder, err_msg.trim());
+                        }
+                    }
+                    break;
+                }
+
+                // GPU driver spin-ups can sometimes take >2s on cold starts
+                if start.elapsed().as_secs() > 5 {
+                    eprintln!("[Hype] {} timed out.", encoder);
+                    let _ = child.kill();
+                    break;
+                }
+
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+
+            if success {
+                return encoder;
+            }
         }
     }
+
+    eprintln!("[Hype] All hardware encoders failed. Falling back to libx264.");
     "libx264"
 }
 
@@ -119,34 +170,54 @@ pub fn get_cached_encoder(ffmpeg_path: &std::path::Path) -> &'static str {
 pub fn get_h264_args(encoder: &str) -> Vec<String> {
     match encoder {
         "h264_nvenc" => vec![
-            "-c:v".into(), "h264_nvenc".into(),
-            "-pix_fmt".into(), "yuv420p".into(),
-            "-preset".into(), "p4".into(), 
-            "-cq".into(), "18".into(),     
+            "-c:v".into(),
+            "h264_nvenc".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+            "-preset".into(),
+            "p4".into(),
+            "-cq".into(),
+            "18".into(),
         ],
         "h264_videotoolbox" => vec![
-            "-c:v".into(), "h264_videotoolbox".into(),
-            "-pix_fmt".into(), "yuv420p".into(),
-            "-q:v".into(), "60".into(), 
+            "-c:v".into(),
+            "h264_videotoolbox".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+            "-q:v".into(),
+            "60".into(),
         ],
         "h264_amf" => vec![
-            "-c:v".into(), "h264_amf".into(),
-            "-pix_fmt".into(), "yuv420p".into(),
-            "-rc".into(), "cqp".into(),
-            "-qp_p".into(), "18".into(),
-            "-qp_i".into(), "18".into(),
+            "-c:v".into(),
+            "h264_amf".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+            "-rc".into(),
+            "cqp".into(),
+            "-qp_p".into(),
+            "18".into(),
+            "-qp_i".into(),
+            "18".into(),
         ],
         "h264_qsv" => vec![
-            "-c:v".into(), "h264_qsv".into(),
-            "-pix_fmt".into(), "yuv420p".into(),
-            "-global_quality".into(), "18".into(),
+            "-c:v".into(),
+            "h264_qsv".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+            "-global_quality".into(),
+            "18".into(),
         ],
         _ => vec![
-            "-c:v".into(), "libx264".into(),
-            "-pix_fmt".into(), "yuv420p".into(),
-            "-preset".into(), "veryfast".into(),
-            "-crf".into(), "18".into(),
-            "-threads".into(), "0".into(),
+            "-c:v".into(),
+            "libx264".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+            "-preset".into(),
+            "veryfast".into(),
+            "-crf".into(),
+            "18".into(),
+            "-threads".into(),
+            "0".into(),
         ],
     }
 }
@@ -211,11 +282,19 @@ fn build_paragraph_for_message(
 
     for fragment in &msg.fragments {
         match fragment {
-            FormattedFragment::Custom { id, code, provider, .. } => {
+            FormattedFragment::Custom {
+                id, code, provider, ..
+            } => {
                 let mut should_render = true;
-                if provider == "7TV" && !config.enable7tv { should_render = false; }
-                if provider == "BTTV" && !config.enable_bttv { should_render = false; }
-                if provider == "FFZ" && !config.enable_ffz { should_render = false; }
+                if provider == "7TV" && !config.enable7tv {
+                    should_render = false;
+                }
+                if provider == "BTTV" && !config.enable_bttv {
+                    should_render = false;
+                }
+                if provider == "FFZ" && !config.enable_ffz {
+                    should_render = false;
+                }
 
                 let key = format!("{}:{}", provider, id);
                 if should_render && asset_manager.get_emote(&key).is_some() {
@@ -226,9 +305,21 @@ fn build_paragraph_for_message(
 
                     let placeholder_h = config.font_size * 1.8;
                     let is_zw = asset_manager.is_zero_width(&key);
-                    let placeholder_w = if is_zw { 0.0 } else if src_h > 0.0 { (src_w / src_h) * placeholder_h } else { config.font_size * 1.8 };
+                    let placeholder_w = if is_zw {
+                        0.0
+                    } else if src_h > 0.0 {
+                        (src_w / src_h) * placeholder_h
+                    } else {
+                        config.font_size * 1.8
+                    };
 
-                    let ph_style = PlaceholderStyle::new(placeholder_w, placeholder_h, PlaceholderAlignment::Middle, TextBaseline::Alphabetic, 0.0);
+                    let ph_style = PlaceholderStyle::new(
+                        placeholder_w,
+                        placeholder_h,
+                        PlaceholderAlignment::Middle,
+                        TextBaseline::Alphabetic,
+                        0.0,
+                    );
                     builder.add_placeholder(&ph_style);
                     placeholders.push(PlaceholderData::Emote(key));
                 } else {
@@ -242,9 +333,19 @@ fn build_paragraph_for_message(
                     let src_w = frame.width() as f32;
                     let src_h = frame.height() as f32;
                     let placeholder_h = config.font_size * 1.8;
-                    let placeholder_w = if src_h > 0.0 { (src_w / src_h) * placeholder_h } else { config.font_size * 1.8 };
+                    let placeholder_w = if src_h > 0.0 {
+                        (src_w / src_h) * placeholder_h
+                    } else {
+                        config.font_size * 1.8
+                    };
 
-                    let ph_style = PlaceholderStyle::new(placeholder_w, placeholder_h, PlaceholderAlignment::Middle, TextBaseline::Alphabetic, 0.0);
+                    let ph_style = PlaceholderStyle::new(
+                        placeholder_w,
+                        placeholder_h,
+                        PlaceholderAlignment::Middle,
+                        TextBaseline::Alphabetic,
+                        0.0,
+                    );
                     builder.add_placeholder(&ph_style);
                     placeholders.push(PlaceholderData::Emote(key));
                 } else {
@@ -280,7 +381,9 @@ fn build_paragraph_for_message(
                 builder.add_text(text);
                 builder.pop();
             }
-            FormattedFragment::Text { text } => { builder.add_text(text); }
+            FormattedFragment::Text { text } => {
+                builder.add_text(text);
+            }
         }
     }
 
@@ -305,13 +408,20 @@ fn render_frame(
     for msg in active_messages.iter().rev() {
         draw_y -= msg.total_height;
 
-        if draw_y < -100.0 { break; }
+        if draw_y < -100.0 {
+            break;
+        }
 
-        msg.para.paint(canvas, Point::new(MESSAGE_PADDING_X, draw_y + MESSAGE_PADDING_Y));
+        msg.para.paint(
+            canvas,
+            Point::new(MESSAGE_PADDING_X, draw_y + MESSAGE_PADDING_Y),
+        );
 
         let placeholder_rects = msg.para.get_rects_for_placeholders();
         for (pi, rect) in placeholder_rects.iter().enumerate() {
-            if pi >= msg.placeholders.len() { continue; }
+            if pi >= msg.placeholders.len() {
+                continue;
+            }
 
             let px = MESSAGE_PADDING_X + rect.rect.left;
             let py = draw_y + MESSAGE_PADDING_Y + rect.rect.top;
@@ -320,21 +430,42 @@ fn render_frame(
             match &msg.placeholders[pi] {
                 PlaceholderData::Badge(key) => {
                     if let Some(badge_img) = asset_manager.get_badge(key) {
-                        let src_rect = Rect::from_xywh(0.0, 0.0, badge_img.width() as f32, badge_img.height() as f32);
-                        canvas.draw_image_rect(badge_img, Some((&src_rect, SrcRectConstraint::Fast)), &dst_rect, &paint);
+                        let src_rect = Rect::from_xywh(
+                            0.0,
+                            0.0,
+                            badge_img.width() as f32,
+                            badge_img.height() as f32,
+                        );
+                        canvas.draw_image_rect(
+                            badge_img,
+                            Some((&src_rect, SrcRectConstraint::Fast)),
+                            &dst_rect,
+                            &paint,
+                        );
                     }
                 }
                 PlaceholderData::Emote(key) => {
                     if let Some(emote_img) = asset_manager.get_emote(key) {
                         let frame = emote_img.get_frame_for_time(elapsed_ms);
-                        let src_rect = Rect::from_xywh(0.0, 0.0, frame.width() as f32, frame.height() as f32);
+                        let src_rect =
+                            Rect::from_xywh(0.0, 0.0, frame.width() as f32, frame.height() as f32);
                         let actual_ph_height = dst_rect.height();
                         let final_dst = if asset_manager.is_zero_width(key) {
-                            Rect::from_xywh(px - actual_ph_height, py, actual_ph_height, actual_ph_height)
+                            Rect::from_xywh(
+                                px - actual_ph_height,
+                                py,
+                                actual_ph_height,
+                                actual_ph_height,
+                            )
                         } else {
                             dst_rect
                         };
-                        canvas.draw_image_rect(frame, Some((&src_rect, SrcRectConstraint::Fast)), &final_dst, &paint);
+                        canvas.draw_image_rect(
+                            frame,
+                            Some((&src_rect, SrcRectConstraint::Fast)),
+                            &final_dst,
+                            &paint,
+                        );
                     }
                 }
             }
@@ -354,7 +485,13 @@ fn render_frame_as_white_mask(
     let scratch_canvas = scratch_surface.canvas();
     scratch_canvas.clear(Color::TRANSPARENT);
 
-    render_frame(scratch_canvas, active_messages, asset_manager, elapsed_ms, height as f32);
+    render_frame(
+        scratch_canvas,
+        active_messages,
+        asset_manager,
+        elapsed_ms,
+        height as f32,
+    );
 
     let scratch_image = scratch_surface.image_snapshot();
 
@@ -382,11 +519,17 @@ pub fn render_chat_video(
     job_id: Option<String>,
 ) -> Result<(), String> {
     let total_frames = (duration_sec * config.fps as f64) as usize;
-    if total_frames == 0 { return Err("Duration is zero or negative".to_string()); }
+    if total_frames == 0 {
+        return Err("Duration is zero or negative".to_string());
+    }
 
-    let mut color_surface = skia_safe::surfaces::raster_n32_premul((config.width, config.height)).ok_or("Failed to create Color surface")?;
+    let mut color_surface = skia_safe::surfaces::raster_n32_premul((config.width, config.height))
+        .ok_or("Failed to create Color surface")?;
     let mut mask_surface = if config.generate_mask {
-        Some(skia_safe::surfaces::raster_n32_premul((config.width, config.height)).ok_or("Failed to create Mask surface")?)
+        Some(
+            skia_safe::surfaces::raster_n32_premul((config.width, config.height))
+                .ok_or("Failed to create Mask surface")?,
+        )
     } else {
         None
     };
@@ -395,37 +538,68 @@ pub fn render_chat_video(
 
     // ─── PIPE 1: STANDARD COLOR VIDEO ───
     let mut color_args = vec![
-        "-y".into(), "-f".into(), "rawvideo".into(), "-pixel_format".into(), "bgra".into(),
-        "-video_size".into(), format!("{}x{}", config.width, config.height),
-        "-framerate".into(), config.fps.to_string(), "-thread_queue_size".into(), "1024".into(), "-i".into(), "-".into(),
+        "-y".into(),
+        "-f".into(),
+        "rawvideo".into(),
+        "-pixel_format".into(),
+        "bgra".into(),
+        "-video_size".into(),
+        format!("{}x{}", config.width, config.height),
+        "-framerate".into(),
+        config.fps.to_string(),
+        "-thread_queue_size".into(),
+        "1024".into(),
+        "-i".into(),
+        "-".into(),
     ];
     color_args.extend(get_h264_args(encoder));
     color_args.push(output_path.to_string());
 
     let mut color_cmd = crate::media::build_std_command(&ffmpeg_path);
-    color_cmd.args(&color_args).stdin(std::process::Stdio::piped());
+    color_cmd
+        .args(&color_args)
+        .stdin(std::process::Stdio::piped());
 
-    let mut color_child = color_cmd.spawn().map_err(|e| format!("Failed to spawn Color FFmpeg: {}", e))?;
-    let mut color_stdin = color_child.stdin.take().ok_or("Failed to take Color stdin")?;
+    let mut color_child = color_cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn Color FFmpeg: {}", e))?;
+    let mut color_stdin = color_child
+        .stdin
+        .take()
+        .ok_or("Failed to take Color stdin")?;
 
     // ─── PIPE 2: TRACK MATTE BLACK & WHITE MASK VIDEO (Conditional) ───
     let mut mask_child = None;
     let mut mask_stdin = None;
-    
+
     if config.generate_mask {
         let mask_output_path = output_path.replace(".mp4", "_mask.mp4");
         let mut mask_args = vec![
-            "-y".into(), "-f".into(), "rawvideo".into(), "-pixel_format".into(), "bgra".into(),
-            "-video_size".into(), format!("{}x{}", config.width, config.height),
-            "-framerate".into(), config.fps.to_string(), "-thread_queue_size".into(), "1024".into(), "-i".into(), "-".into(),
+            "-y".into(),
+            "-f".into(),
+            "rawvideo".into(),
+            "-pixel_format".into(),
+            "bgra".into(),
+            "-video_size".into(),
+            format!("{}x{}", config.width, config.height),
+            "-framerate".into(),
+            config.fps.to_string(),
+            "-thread_queue_size".into(),
+            "1024".into(),
+            "-i".into(),
+            "-".into(),
         ];
         mask_args.extend(get_h264_args(encoder));
         mask_args.push(mask_output_path);
 
         let mut mask_cmd = crate::media::build_std_command(&ffmpeg_path);
-        mask_cmd.args(&mask_args).stdin(std::process::Stdio::piped());
+        mask_cmd
+            .args(&mask_args)
+            .stdin(std::process::Stdio::piped());
 
-        let mut child = mask_cmd.spawn().map_err(|e| format!("Failed to spawn Mask FFmpeg: {}", e))?;
+        let mut child = mask_cmd
+            .spawn()
+            .map_err(|e| format!("Failed to spawn Mask FFmpeg: {}", e))?;
         mask_stdin = Some(child.stdin.take().ok_or("Failed to take Mask stdin")?);
         mask_child = Some(child);
     }
@@ -434,24 +608,63 @@ pub fn render_chat_video(
     let mut fc = FontCollection::new();
     fc.set_default_font_manager(font_mgr, None);
 
-    let ignored_users: Vec<String> = config.ignored_users.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
-    let banned_words: Vec<String> = config.banned_words.split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
+    let ignored_users: Vec<String> = config
+        .ignored_users
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let banned_words: Vec<String> = config
+        .banned_words
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
 
-    let mut filtered_messages: Vec<FormattedMessage> = messages.into_iter().filter(|msg| {
-        if ignored_users.contains(&msg.display_name.to_lowercase()) { return false; }
-        let msg_text = msg.fragments.iter().filter_map(|f| match f { FormattedFragment::Text { text } => Some(text.as_str()), _ => None }).collect::<Vec<_>>().join(" ").to_lowercase();
-        for word in &banned_words { if msg_text.contains(word) { return false; } }
-        true
-    }).collect();
+    let mut filtered_messages: Vec<FormattedMessage> = messages
+        .into_iter()
+        .filter(|msg| {
+            if ignored_users.contains(&msg.display_name.to_lowercase()) {
+                return false;
+            }
+            let msg_text = msg
+                .fragments
+                .iter()
+                .filter_map(|f| match f {
+                    FormattedFragment::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+                .to_lowercase();
+            for word in &banned_words {
+                if msg_text.contains(word) {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
 
-    filtered_messages.sort_by(|a, b| a.content_offset_seconds.partial_cmp(&b.content_offset_seconds).unwrap_or(std::cmp::Ordering::Equal));
+    filtered_messages.sort_by(|a, b| {
+        a.content_offset_seconds
+            .partial_cmp(&b.content_offset_seconds)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let mut frame_buf = vec![0u8; config.width as usize * config.height as usize * 4];
 
-    let bg_color = if config.generate_mask { Color::BLACK } else { hex_color_to_skia(&config.background_color) };
+    let bg_color = if config.generate_mask {
+        Color::BLACK
+    } else {
+        hex_color_to_skia(&config.background_color)
+    };
 
     let mut scratch_surface = if config.generate_mask {
-        Some(skia_safe::surfaces::raster_n32_premul((config.width, config.height)).ok_or("Failed to create scratch surface")?)
+        Some(
+            skia_safe::surfaces::raster_n32_premul((config.width, config.height))
+                .ok_or("Failed to create scratch surface")?,
+        )
     } else {
         None
     };
@@ -463,26 +676,53 @@ pub fn render_chat_video(
         let current_time_sec = start_sec + (frame_idx as f64 / config.fps as f64);
         let elapsed_ms = (frame_idx as u32) * (1000 / config.fps as u32);
 
-        while next_msg_idx < filtered_messages.len() && filtered_messages[next_msg_idx].content_offset_seconds <= current_time_sec {
+        while next_msg_idx < filtered_messages.len()
+            && filtered_messages[next_msg_idx].content_offset_seconds <= current_time_sec
+        {
             let msg = &filtered_messages[next_msg_idx];
             let user_color = hex_color_to_skia(&msg.user_color);
 
-            let (para, placeholders) = build_paragraph_for_message(msg, user_color, &asset_manager, &fc, &config, bg_color);
+            let (para, placeholders) = build_paragraph_for_message(
+                msg,
+                user_color,
+                &asset_manager,
+                &fc,
+                &config,
+                bg_color,
+            );
             let total_height = para.height() + MESSAGE_GAP;
-            messages.push_back(MessageLayout { para, placeholders, total_height });
+            messages.push_back(MessageLayout {
+                para,
+                placeholders,
+                total_height,
+            });
 
             next_msg_idx += 1;
         }
 
         let mut acc = 0.0;
         let mut keep = 0.0;
-        for msg in messages.iter().rev() { acc += msg.total_height; keep += 1.0; if acc > config.height as f32 + 200.0 { break; } }
-        while messages.len() > keep as usize { messages.pop_front(); }
+        for msg in messages.iter().rev() {
+            acc += msg.total_height;
+            keep += 1.0;
+            if acc > config.height as f32 + 200.0 {
+                break;
+            }
+        }
+        while messages.len() > keep as usize {
+            messages.pop_front();
+        }
 
         let color_canvas = color_surface.canvas();
         color_canvas.clear(bg_color);
-        render_frame(&color_canvas, &messages, &asset_manager, elapsed_ms, config.height as f32);
-        
+        render_frame(
+            &color_canvas,
+            &messages,
+            &asset_manager,
+            elapsed_ms,
+            config.height as f32,
+        );
+
         if let Some(pixmap) = color_surface.image_snapshot().peek_pixels() {
             if let Some(bytes) = pixmap.bytes() {
                 frame_buf.copy_from_slice(bytes);
@@ -493,11 +733,21 @@ pub fn render_chat_video(
             }
         }
 
-        if let (Some(m_surface), Some(m_stdin), Some(ref mut scratch)) = (&mut mask_surface, &mut mask_stdin, &mut scratch_surface) {
+        if let (Some(m_surface), Some(m_stdin), Some(ref mut scratch)) =
+            (&mut mask_surface, &mut mask_stdin, &mut scratch_surface)
+        {
             let mask_canvas = m_surface.canvas();
             mask_canvas.clear(Color::BLACK);
-            render_frame_as_white_mask(&mask_canvas, &messages, &asset_manager, elapsed_ms, config.width, config.height, scratch);
-            
+            render_frame_as_white_mask(
+                &mask_canvas,
+                &messages,
+                &asset_manager,
+                elapsed_ms,
+                config.width,
+                config.height,
+                scratch,
+            );
+
             if let Some(pixmap) = m_surface.image_snapshot().peek_pixels() {
                 if let Some(bytes) = pixmap.bytes() {
                     frame_buf.copy_from_slice(bytes);
@@ -515,16 +765,24 @@ pub fn render_chat_video(
                 let render_fraction = (frame_idx + 1) as f64 / total_frames as f64;
                 let progress = (20.0 + (80.0 * render_fraction)).min(100.0) as u8;
                 crate::media::job_queue::get_queue().update_progress(job_id_ref, progress, app_ref);
-                let payload = RenderProgressPayload { job_id: job_id_ref.clone(), progress };
+                let payload = RenderProgressPayload {
+                    job_id: job_id_ref.clone(),
+                    progress,
+                };
                 let _ = app_ref.emit("chat-render-progress", &payload);
             }
         }
     }
 
     drop(color_stdin);
-    let status = color_child.wait_with_output().map_err(|e| format!("Color FFmpeg wait failed: {}", e))?;
+    let status = color_child
+        .wait_with_output()
+        .map_err(|e| format!("Color FFmpeg wait failed: {}", e))?;
     if !status.status.success() {
-        return Err(format!("Color FFmpeg failed: {}", String::from_utf8_lossy(&status.stderr)));
+        return Err(format!(
+            "Color FFmpeg failed: {}",
+            String::from_utf8_lossy(&status.stderr)
+        ));
     }
 
     if let (Some(m_stdin), Some(mut m_child)) = (mask_stdin, mask_child) {
@@ -533,7 +791,10 @@ pub fn render_chat_video(
     }
 
     if let (Some(app_ref), Some(ref job_id_ref)) = (&app, &job_id) {
-        let payload = RenderCompletePayload { job_id: job_id_ref.clone(), output_path: output_path.to_string() };
+        let payload = RenderCompletePayload {
+            job_id: job_id_ref.clone(),
+            output_path: output_path.to_string(),
+        };
         let _ = app_ref.emit("chat-render-complete", &payload);
     }
 

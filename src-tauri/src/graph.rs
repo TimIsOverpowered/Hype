@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::media::chat::emotes::count_emotes_in_message;
-use crate::utils::{parse_timecode, to_hhmmss};
 use crate::media::chat::models::{
     AggregateClipsPayload, AggregatePayload, ChapterEntry, ChapterPayload, ClipDataPoint,
     ClipPayload, ClipsResult, GraphDataPoint, GraphResult, SerializedEmote, TopEmote, TopSpike,
 };
+use crate::utils::{parse_timecode, to_hhmmss};
 
 const MIN_LOG_LINE_LENGTH: usize = 10;
 const TOP_EMOTES_COUNT: usize = 5;
@@ -298,7 +298,11 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
 
             GraphDataPoint {
                 x: *x,
-                y: if is_search { v.search_matches } else { v.messages },
+                y: if is_search {
+                    v.search_matches
+                } else {
+                    v.messages
+                },
                 duration: to_hhmmss(*x),
                 subs: if v.subs > 0 { Some(v.subs) } else { None },
                 emotes: if !top_emotes.is_empty() {
@@ -306,7 +310,11 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
                 } else {
                     None
                 },
-                messages: Some(if is_search { v.search_matches } else { v.messages }),
+                messages: Some(if is_search {
+                    v.search_matches
+                } else {
+                    v.messages
+                }),
                 game: v.game.clone(),
             }
         })

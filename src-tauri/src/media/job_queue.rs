@@ -27,7 +27,6 @@ impl JobType {
             JobType::ChatRender => "chat-render",
         }
     }
-
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize)]

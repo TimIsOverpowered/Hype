@@ -1,10 +1,10 @@
 use std::sync::atomic::Ordering;
 
 use serde::Serialize;
+use tauri::path::BaseDirectory;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
-use tauri::path::BaseDirectory;
 use tokio::io::AsyncBufReadExt;
 
 use crate::media::job_queue;
@@ -15,7 +15,7 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
     let os = std::env::consts::OS;
 
     let ext = if os == "windows" { ".exe" } else { "" };
-    
+
     // 1. Production: Tauri strips the target triple during the build process.
     // The bundled file will simply be named "ffmpeg.exe" (or "ffmpeg").
     let prod_name = format!("ffmpeg{}", ext);
@@ -23,12 +23,12 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
     // Check right next to the executable
     if let Ok(mut exe_path) = std::env::current_exe() {
         exe_path.pop();
-        
+
         let sidecar_path = exe_path.join(&prod_name);
         if sidecar_path.exists() {
             return sidecar_path;
         }
-        
+
         // Fallback: Check if Tauri kept the "binaries" folder structure
         let nested_path = exe_path.join("binaries").join(&prod_name);
         if nested_path.exists() {
@@ -38,8 +38,8 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
 
     // Production Fallback: Check Tauri's Resource directory
     if let Ok(resource_path) = app.path().resolve(&prod_name, BaseDirectory::Resource) {
-        if resource_path.exists() { 
-            return resource_path; 
+        if resource_path.exists() {
+            return resource_path;
         }
     }
 
@@ -51,7 +51,7 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
         ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
         _ => "x86_64-pc-windows-msvc",
     };
-    
+
     let dev_name = format!("ffmpeg-{}{}", triple, ext);
 
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -145,7 +145,11 @@ async fn run_ffmpeg(
             }
         }
 
-        let total = if event_prefix == "clip" { duration_hint } else { total_duration.unwrap_or(duration_hint) };
+        let total = if event_prefix == "clip" {
+            duration_hint
+        } else {
+            total_duration.unwrap_or(duration_hint)
+        };
         if total <= 0.0 {
             continue;
         }
@@ -257,10 +261,7 @@ pub async fn submit_clip(
 
     // Omit the ADTS bitstream translator for fMP4 streams to keep the audio pipeline clean
     if !is_fmp4 {
-        args.extend(vec![
-            "-bsf:a".into(),
-            "aac_adtstoasc".into(),
-        ]);
+        args.extend(vec!["-bsf:a".into(), "aac_adtstoasc".into()]);
     }
 
     args.extend(vec![
@@ -314,18 +315,10 @@ pub async fn submit_download(
         ]);
     }
 
-    args.extend(vec![
-        "-i".into(),
-        m3u8_url,
-        "-c".into(),
-        "copy".into(),
-    ]);
+    args.extend(vec!["-i".into(), m3u8_url, "-c".into(), "copy".into()]);
 
     if !is_fmp4 {
-        args.extend(vec![
-            "-bsf:a".into(),
-            "aac_adtstoasc".into(),
-        ]);
+        args.extend(vec!["-bsf:a".into(), "aac_adtstoasc".into()]);
     }
 
     args.extend(vec![
