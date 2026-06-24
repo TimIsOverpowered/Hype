@@ -3,14 +3,12 @@ use std::sync::atomic::Ordering;
 use serde::Serialize;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tauri::Manager;
-use tauri::path::BaseDirectory;
 use tokio::io::AsyncBufReadExt;
 
 use crate::media::job_queue;
 use crate::utils::parse_timecode;
 
-pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
+pub fn get_ffmpeg_path(_app: &AppHandle) -> std::path::PathBuf {
     let arch = std::env::consts::ARCH;
     let os = std::env::consts::OS;
 
@@ -25,26 +23,19 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
     let ext = if os == "windows" { ".exe" } else { "" };
     let binary_name = format!("ffmpeg-{}{}", triple, ext);
 
-    let dev_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    // 1. Production: Check next to the current executable (Standard Sidecar location)
+    if let Ok(mut exe_path) = std::env::current_exe() {
+        exe_path.pop();
+        let sidecar_path = exe_path.join(&binary_name);
+        if sidecar_path.exists() {
+            return sidecar_path;
+        }
+    }
+
+    // 2. Development: Fallback to the local workspace binaries folder
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("binaries")
-        .join(&binary_name);
-    if dev_path.exists() {
-        return dev_path;
-    }
-
-    if let Ok(prod_path) = app.path().resolve(format!("binaries/{}", binary_name), BaseDirectory::Resource) {
-        if prod_path.exists() {
-            return prod_path;
-        }
-    }
-
-    if let Ok(prod_path_root) = app.path().resolve(&binary_name, BaseDirectory::Resource) {
-        if prod_path_root.exists() {
-            return prod_path_root;
-        }
-    }
-
-    dev_path
+        .join(&binary_name)
 }
 
 #[derive(Serialize, Clone)]
