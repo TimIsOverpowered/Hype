@@ -183,5 +183,3 @@ export function useTooltipControls({ duration, chapters }: UseTooltipControlsOpt
     handleVolumeMouseDown,
   };
 }
-
-

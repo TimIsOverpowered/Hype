@@ -109,11 +109,9 @@ export default function ChannelPage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const vods =
-    data?.pages
-      .flatMap((p: VodPage) =>
-        p.edges.filter((v: VodEdge) => v.node.broadcastType === 'ARCHIVE' || v.node.broadcastType === 'HIGHLIGHT'),
-      )
-      ?? [];
+    data?.pages.flatMap((p: VodPage) =>
+      p.edges.filter((v: VodEdge) => v.node.broadcastType === 'ARCHIVE' || v.node.broadcastType === 'HIGHLIGHT'),
+    ) ?? [];
   const twitchUser = data?.pages[0]?.user;
 
   useEffect(() => {

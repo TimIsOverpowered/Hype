@@ -48,7 +48,8 @@ const GAME_COLORS = [
 
 function findNearestIndex(targetSec: number, xDataSeconds: number[]): number {
   if (xDataSeconds.length === 0) return 0;
-  let lo = 0, hi = xDataSeconds.length - 1;
+  let lo = 0,
+    hi = xDataSeconds.length - 1;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
     if (xDataSeconds[mid] < targetSec) lo = mid + 1;
@@ -572,7 +573,14 @@ const VodGraph = memo(function VodGraph({
   ]);
 
   useEffect(() => {
-    if (vodId && propDurationRef.current > 0 && !fetchedRef.current && isWhitelisted === true && emotesLoaded && !isHighlight) {
+    if (
+      vodId &&
+      propDurationRef.current > 0 &&
+      !fetchedRef.current &&
+      isWhitelisted === true &&
+      emotesLoaded &&
+      !isHighlight
+    ) {
       runAggregate(vodId, activeTab, propDurationRef.current, userMessageThreshold, userSearchThreshold, interval);
     }
   }, [
@@ -946,7 +954,7 @@ const VodGraph = memo(function VodGraph({
               <div className="h-24 w-full bg-white/5 rounded" />
               <div className="h-32 w-full bg-white/5 rounded" />
             </div>
-) : error || isWhitelisted === false || isHighlight ? (
+          ) : error || isWhitelisted === false || isHighlight ? (
             <span className="text-xs text-text-hint">No insights available</span>
           ) : (
             <div className="flex flex-col h-full min-h-0 gap-4 overflow-y-auto chat-scrollbar pr-1">
