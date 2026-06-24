@@ -64,6 +64,19 @@ function main() {
   );
   writeFileSync('src-tauri/Cargo.toml', cargoLines.join('\n'));
 
+  const lockLines = readFileSync('src-tauri/Cargo.lock', 'utf-8').split('\n');
+  let inHype = false;
+  for (let i = 0; i < lockLines.length; i++) {
+    const line = lockLines[i];
+    if (line.trim().startsWith('[[')) inHype = false;
+    if (/^name\s*=\s*"hype"/.test(line)) inHype = true;
+    if (inHype && /^version\s*=/.test(line)) {
+      lockLines[i] = line.replace(/(version\s*=\s*)"([^"]+)"/, `$1"${newVersion}"`);
+      break;
+    }
+  }
+  writeFileSync('src-tauri/Cargo.lock', lockLines.join('\n'));
+
   const conf = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf-8'));
   conf.version = newVersion;
   writeFileSync('src-tauri/tauri.conf.json', `${JSON.stringify(conf, null, 2)}\n`);
