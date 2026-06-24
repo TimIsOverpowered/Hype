@@ -1,10 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
-import { useEffect } from 'react';
+import { check, type Update } from '@tauri-apps/plugin-updater';
+import { useEffect, useState } from 'react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import DeepLinkHandler from './components/DeepLinkHandler';
 import AppLayout from './components/layout/AppLayout';
+import UpdateDialog from './components/ui/UpdateDialog';
 import { DEFAULT_RETRY_COUNT, STALE_TIME_5MIN } from './constants/auth';
 import { JobQueueProvider } from './contexts/JobQueueContext';
 import ChannelPage from './pages/ChannelPage';
@@ -19,8 +22,30 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  const [update, setUpdate] = useState<Update | null>(null);
+  const [currentVersion, setCurrentVersion] = useState('');
+
   useEffect(() => {
     invoke('show_window').catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (import.meta.env.DEV) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const version = await getVersion();
+      setCurrentVersion(version);
+
+      const update = await check();
+      if (cancelled || !update) return;
+      setUpdate(update);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -49,6 +74,7 @@ function App() {
         closeButton
         duration={2000}
       />
+      {update && <UpdateDialog open update={update} currentVersion={currentVersion} onClose={() => setUpdate(null)} />}
     </QueryClientProvider>
   );
 }
