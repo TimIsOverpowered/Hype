@@ -219,6 +219,28 @@ async fn run_ffmpeg(
     }
 }
 
+fn build_base_args(is_fmp4: bool) -> Vec<String> {
+    let mut args = vec![
+        "-v".into(), "info".into(),
+        "-threads".into(), "0".into(),
+        "-thread_queue_size".into(), "1024".into(),
+    ];
+    if is_fmp4 {
+        args.extend(["-fflags".into(), "+genpts+igndts".into(),
+                      "-correct_ts_overflow".into(), "1".into()]);
+    }
+    args
+}
+
+fn build_output_args(is_fmp4: bool, output_path: &str) -> Vec<String> {
+    let mut args = vec!["-c".into(), "copy".into()];
+    if !is_fmp4 {
+        args.extend(["-bsf:a".into(), "aac_adtstoasc".into()]);
+    }
+    args.extend(["-movflags".into(), "+faststart".into(), "-y".into(), output_path.to_string()]);
+    args
+}
+
 #[tauri::command]
 pub async fn submit_clip(
     m3u8_url: String,
@@ -237,47 +259,10 @@ pub async fn submit_clip(
             .to_string(),
     );
 
-    let mut args: Vec<String> = vec![
-        "-v".into(),
-        "info".into(),
-        "-threads".into(),
-        "0".into(),
-        "-thread_queue_size".into(),
-        "1024".into(),
-    ];
-
-    // Keep the demuxer helper flags for reading Fragmented MP4 streams stably
-    if is_fmp4 {
-        args.extend(vec![
-            "-fflags".into(),
-            "+genpts+igndts".into(),
-            "-correct_ts_overflow".into(),
-            "1".into(),
-        ]);
-    }
-
-    args.extend(vec![
-        "-ss".into(),
-        start.to_string(),
-        "-i".into(),
-        m3u8_url,
-        "-t".into(),
-        duration.to_string(),
-        "-c".into(),
-        "copy".into(),
-    ]);
-
-    // Omit the ADTS bitstream translator for fMP4 streams to keep the audio pipeline clean
-    if !is_fmp4 {
-        args.extend(vec!["-bsf:a".into(), "aac_adtstoasc".into()]);
-    }
-
-    args.extend(vec![
-        "-movflags".into(),
-        "+faststart".into(),
-        "-y".into(),
-        output_path,
-    ]);
+    let mut args = build_base_args(is_fmp4);
+    args.extend(["-ss".into(), start.to_string(), "-i".into(), m3u8_url]);
+    args.extend(["-t".into(), duration.to_string()]);
+    args.extend(build_output_args(is_fmp4, &output_path));
 
     let app_clone = app.clone();
     let id_clone = job_id.clone();
@@ -368,36 +353,9 @@ pub async fn submit_download(
             .to_string(),
     );
 
-    let mut args: Vec<String> = vec![
-        "-v".into(),
-        "info".into(),
-        "-threads".into(),
-        "0".into(),
-        "-thread_queue_size".into(),
-        "1024".into(),
-    ];
-
-    if is_fmp4 {
-        args.extend(vec![
-            "-fflags".into(),
-            "+genpts+igndts".into(),
-            "-correct_ts_overflow".into(),
-            "1".into(),
-        ]);
-    }
-
-    args.extend(vec!["-i".into(), m3u8_url, "-c".into(), "copy".into()]);
-
-    if !is_fmp4 {
-        args.extend(vec!["-bsf:a".into(), "aac_adtstoasc".into()]);
-    }
-
-    args.extend(vec![
-        "-movflags".into(),
-        "+faststart".into(),
-        "-y".into(),
-        output_path,
-    ]);
+    let mut args = build_base_args(is_fmp4);
+    args.extend(["-i".into(), m3u8_url]);
+    args.extend(build_output_args(is_fmp4, &output_path));
 
     let app_clone = app.clone();
     let id_clone = job_id.clone();
