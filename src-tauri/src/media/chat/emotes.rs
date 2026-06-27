@@ -27,13 +27,13 @@ pub async fn init_channel_emotes(broadcaster_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-async fn fetch_seventv(
+async fn fetch_seventv_from_url(
     client: &reqwest::Client,
-    broadcaster_id: &str,
+    url: &str,
+    emote_key: &str,
     channel_emotes: &mut HashMap<String, CachedEmote>,
 ) {
-    let url = format!("https://7tv.io/v3/users/twitch/{}", broadcaster_id);
-    let res = match client.get(&url).send().await {
+    let res = match client.get(url).send().await {
         Ok(r) => r,
         Err(_) => return,
     };
@@ -43,7 +43,7 @@ async fn fetch_seventv(
         Err(_) => return,
     };
 
-    let emotes = match json["emote_set"]["emotes"].as_array() {
+    let emotes = match json[emote_key].as_array() {
         Some(e) => e,
         None => return,
     };
@@ -78,54 +78,44 @@ async fn fetch_seventv(
     }
 }
 
+async fn fetch_seventv(
+    client: &reqwest::Client,
+    broadcaster_id: &str,
+    channel_emotes: &mut HashMap<String, CachedEmote>,
+) {
+    let url = format!("https://7tv.io/v3/users/twitch/{}", broadcaster_id);
+    fetch_seventv_from_url(client, &url, "emote_set.emotes", channel_emotes).await;
+}
+
 async fn fetch_seventv_global(
     client: &reqwest::Client,
     channel_emotes: &mut HashMap<String, CachedEmote>,
 ) {
     let url = "https://7tv.io/v3/emote-sets/global";
-    let res = match client.get(url).send().await {
-        Ok(r) => r,
-        Err(_) => return,
-    };
+    fetch_seventv_from_url(client, url, "emotes", channel_emotes).await;
+}
 
-    let json = match res.json::<Value>().await {
-        Ok(j) => j,
-        Err(_) => return,
-    };
+fn insert_bttv_emote(
+    emote_val: &Value,
+    channel_emotes: &mut HashMap<String, CachedEmote>,
+) {
+    let id = emote_val["id"].as_str().unwrap_or("").to_string();
+    let code = emote_val["code"].as_str().unwrap_or("").to_string();
+    let width = emote_val["width"].as_u64().map(|w| w as u32);
+    let height = emote_val["height"].as_u64().map(|h| h as u32);
 
-    let emotes = match json["emotes"].as_array() {
-        Some(e) => e,
-        None => return,
-    };
-
-    for emote in emotes {
-        let id = emote["id"].as_str().unwrap_or("").to_string();
-        let name = emote["name"].as_str().unwrap_or("").to_string();
-        let flags = emote["flags"].as_u64().unwrap_or(0);
-        let is_zero_width = (flags & SEVENTV_ZERO_WIDTH_FLAG) != 0;
-
-        let width = emote["data"]["host"]["files"]
-            .get(0)
-            .and_then(|f| f["width"].as_u64())
-            .map(|w| w as u32);
-        let height = emote["data"]["host"]["files"]
-            .get(0)
-            .and_then(|f| f["height"].as_u64())
-            .map(|h| h as u32);
-
-        channel_emotes.insert(
-            name.clone(),
-            CachedEmote {
-                id,
-                code: name.clone(),
-                name,
-                provider: "7TV".to_string(),
-                is_zero_width,
-                width,
-                height,
-            },
-        );
-    }
+    channel_emotes.insert(
+        code.clone(),
+        CachedEmote {
+            id,
+            code: code.clone(),
+            name: code,
+            provider: "BTTV".to_string(),
+            is_zero_width: false,
+            width,
+            height,
+        },
+    );
 }
 
 async fn fetch_bttv_emotes(
@@ -188,45 +178,13 @@ async fn fetch_bttv(
 
     if let Some(shared) = json["sharedEmotes"].as_array() {
         for emote_val in shared {
-            let id = emote_val["id"].as_str().unwrap_or("").to_string();
-            let code = emote_val["code"].as_str().unwrap_or("").to_string();
-            let width = emote_val["width"].as_u64().map(|w| w as u32);
-            let height = emote_val["height"].as_u64().map(|h| h as u32);
-
-            channel_emotes.insert(
-                code.clone(),
-                CachedEmote {
-                    id,
-                    code: code.clone(),
-                    name: code,
-                    provider: "BTTV".to_string(),
-                    is_zero_width: false,
-                    width,
-                    height,
-                },
-            );
+            insert_bttv_emote(emote_val, channel_emotes);
         }
     }
 
     if let Some(channel) = json["channelEmotes"].as_array() {
         for emote_val in channel {
-            let id = emote_val["id"].as_str().unwrap_or("").to_string();
-            let code = emote_val["code"].as_str().unwrap_or("").to_string();
-            let width = emote_val["width"].as_u64().map(|w| w as u32);
-            let height = emote_val["height"].as_u64().map(|h| h as u32);
-
-            channel_emotes.insert(
-                code.clone(),
-                CachedEmote {
-                    id,
-                    code: code.clone(),
-                    name: code,
-                    provider: "BTTV".to_string(),
-                    is_zero_width: false,
-                    width,
-                    height,
-                },
-            );
+            insert_bttv_emote(emote_val, channel_emotes);
         }
     }
 }
