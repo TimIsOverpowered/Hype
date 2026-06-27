@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::sync::{atomic::Ordering, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use tauri::path::BaseDirectory;
@@ -10,17 +10,16 @@ use tokio::io::AsyncBufReadExt;
 use crate::media::job_queue;
 use crate::utils::parse_timecode;
 
-pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
+static FFMPEG_PATH: OnceLock<std::path::PathBuf> = OnceLock::new();
+
+fn resolve_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
     let arch = std::env::consts::ARCH;
     let os = std::env::consts::OS;
 
     let ext = if os == "windows" { ".exe" } else { "" };
 
-    // 1. Production: Tauri strips the target triple during the build process.
-    // The bundled file will simply be named "ffmpeg.exe" (or "ffmpeg").
     let prod_name = format!("ffmpeg{}", ext);
 
-    // Check right next to the executable
     if let Ok(mut exe_path) = std::env::current_exe() {
         exe_path.pop();
 
@@ -29,21 +28,18 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
             return sidecar_path;
         }
 
-        // Fallback: Check if Tauri kept the "binaries" folder structure
         let nested_path = exe_path.join("binaries").join(&prod_name);
         if nested_path.exists() {
             return nested_path;
         }
     }
 
-    // Production Fallback: Check Tauri's Resource directory
     if let Ok(resource_path) = app.path().resolve(&prod_name, BaseDirectory::Resource) {
         if resource_path.exists() {
             return resource_path;
         }
     }
 
-    // 2. Development: Tauri requires the exact target triple in the filename locally.
     let triple = match (os, arch) {
         ("windows", "x86_64") => "x86_64-pc-windows-msvc",
         ("macos", "x86_64") => "x86_64-apple-darwin",
@@ -57,6 +53,10 @@ pub fn get_ffmpeg_path(app: &AppHandle) -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("binaries")
         .join(&dev_name)
+}
+
+pub fn get_ffmpeg_path(app: &AppHandle) -> &'static std::path::Path {
+    FFMPEG_PATH.get_or_init(|| resolve_ffmpeg_path(app)).as_path()
 }
 
 #[derive(Serialize, Clone)]
@@ -313,7 +313,7 @@ pub async fn submit_vertical_clip(
         )
     };
 
-    let encoder = crate::media::chat::renderer::get_cached_encoder(&get_ffmpeg_path(&app));
+    let encoder = crate::media::chat::renderer::get_cached_encoder(get_ffmpeg_path(&app));
     let mut args = vec![
         "-v".into(), "info".into(),
         "-i".into(), source_path,
