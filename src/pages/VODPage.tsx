@@ -151,11 +151,12 @@ export default function VODPage() {
   }, []);
 
   const handleClip = useCallback(
-    (vodId: string, startSeconds: number, durationSeconds: number, includeChat: boolean) => {
+    (vodId: string, startSeconds: number, durationSeconds: number, includeChat: boolean, isVertical = false) => {
       startClip(vodId, m3u8Url, startSeconds, durationSeconds, vodInfo?.broadcasterName ?? '', {
         includeChat,
         broadcasterId: broadcasterId ?? '',
         vodId: vodId,
+        isVertical,
       });
     },
     [startClip, m3u8Url, vodInfo, broadcasterId],

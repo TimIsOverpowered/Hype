@@ -1,4 +1,4 @@
-import { Clock, Download, Minus, Plus, Scissors, Video } from 'lucide-react';
+import { Clock, Download, Minus, MonitorSmartphone, Plus, Scissors, Video } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { hmsValid, toHHMMSS, toSeconds } from '../../utils/time';
@@ -12,7 +12,13 @@ interface ClipBarProps {
   readonly clipEnd: string;
   readonly showGraph: boolean;
   readonly onToggleGraph: () => void;
-  readonly onClip: (vodId: string, startSeconds: number, durationSeconds: number, includeChat: boolean) => void;
+  readonly onClip: (
+    vodId: string,
+    startSeconds: number,
+    durationSeconds: number,
+    includeChat: boolean,
+    isVertical?: boolean,
+  ) => void;
   readonly onDownload: () => void;
   readonly onSetStart: (hms: string) => void;
   readonly onSetEnd: (hms: string) => void;
@@ -31,6 +37,7 @@ export default function ClipBar({
   onSetEnd,
 }: ClipBarProps) {
   const [includeChat, setIncludeChat] = useState(false);
+  const [isVertical, setIsVertical] = useState(false);
 
   // --- Calculations ---
   const startSec = hmsValid(clipStart) ? toSeconds(clipStart) : 0;
@@ -51,8 +58,8 @@ export default function ClipBar({
       toast.error('Invalid range', { description: 'Start time must be before end time.' });
       return;
     }
-    onClip(vodId, startSec, endSec - startSec, includeChat);
-  }, [clipStart, clipEnd, onClip, vodId, includeChat, startSec, endSec]);
+    onClip(vodId, startSec, endSec - startSec, includeChat, isVertical);
+  }, [clipStart, clipEnd, onClip, vodId, includeChat, isVertical, startSec, endSec]);
 
   const handleSetStart = useCallback(() => {
     onSetStart(toHHMMSS(Math.floor(currentTime)));
@@ -200,7 +207,22 @@ export default function ClipBar({
         </span>
       </label>
 
-      {/* 6. Download Full VOD */}
+      {/* 7. Vertical Clip Toggle */}
+      <label className="group relative inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary">
+        <input
+          type="checkbox"
+          checked={isVertical}
+          onChange={(e) => setIsVertical(e.target.checked)}
+          className="peer sr-only"
+        />
+        <div className="h-4 w-7 rounded-full bg-border transition-colors after:absolute after:top-[2px] after:left-[2px] after:h-3 after:w-3 after:rounded-full after:bg-text-secondary after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-3 peer-checked:after:bg-text-primary" />
+        <span className="flex items-center gap-1.5">
+          <MonitorSmartphone size={14} className={isVertical ? 'text-primary' : ''} />
+          Vertical (9:16)
+        </span>
+      </label>
+
+      {/* 8. Download Full VOD */}
       <button
         type="button"
         onClick={onDownload}

@@ -26,6 +26,12 @@
       ]
     },
     "dialog:default",
-    "updater:default"
+    "updater:default",
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "**" }
+      ]
+    }
   ]
 }

@@ -15,6 +15,18 @@ export interface Job {
   status: JobStatus;
   progress: number;
   error: string | null;
+  outputPath?: string;
+  isVertical?: boolean;
+}
+
+export interface SubmitJobParams {
+  type: JobType;
+  m3u8Url: string;
+  duration: number;
+  outputPath: string;
+  isFmp4: boolean;
+  start?: number;
+  isVertical?: boolean;
 }
 
 type JobsRecord = Record<string, Job>;
@@ -28,8 +40,17 @@ type JobAction =
 
 function jobsReducer(state: JobsRecord, action: JobAction): JobsRecord {
   switch (action.type) {
-    case 'UPSERT':
-      return { ...state, [action.job.id]: action.job };
+    case 'UPSERT': {
+      const existing = state[action.job.id];
+      return {
+        ...state,
+        [action.job.id]: {
+          ...action.job,
+          outputPath: action.job.outputPath ?? existing?.outputPath,
+          isVertical: action.job.isVertical ?? existing?.isVertical,
+        },
+      };
+    }
     case 'UPSERT_PROGRESS': {
       const existing = state[action.id];
       if (!existing) return state;
@@ -66,14 +87,7 @@ function jobsReducer(state: JobsRecord, action: JobAction): JobsRecord {
 
 interface JobQueueState {
   jobs: JobsRecord;
-  submitJob: (
-    type: JobType,
-    m3u8Url: string,
-    duration: number,
-    outputPath: string,
-    isFmp4: boolean,
-    start?: number,
-  ) => Promise<string>;
+  submitJob: (params: SubmitJobParams) => Promise<string>;
   cancelJob: (id: string) => Promise<void>;
   removeJob: (id: string) => void;
   renderChatOverlay: (
@@ -90,6 +104,11 @@ const JobQueueContext = createContext<JobQueueState | null>(null);
 export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   const [jobs, dispatch] = useReducer(jobsReducer, {});
   const toastedRef = useRef(new Set<string>());
+  const jobsRef = useRef<JobsRecord>(jobs);
+
+  useEffect(() => {
+    jobsRef.current = jobs;
+  }, [jobs]);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -193,6 +212,11 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         await listenFor(`${prefix}-completed`, (job) => {
           markCompleted(job);
           showToast(job.id, `${prefix.charAt(0).toUpperCase() + prefix.slice(1)} completed`, job.name, 'success');
+
+          const frontendJob = jobsRef.current[job.id];
+          if (prefix === 'clip' && frontendJob?.isVertical && frontendJob?.outputPath) {
+            window.dispatchEvent(new CustomEvent('open-vertical-editor', { detail: frontendJob.outputPath }));
+          }
         });
         await listenFor(`${prefix}-failed`, (job) => {
           markFailed(job);
@@ -272,14 +296,15 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   }, [showToast]);
 
   const submitJob = useCallback(
-    async (
-      type: JobType,
-      m3u8Url: string,
-      duration: number,
-      outputPath: string,
-      isFmp4: boolean,
-      start?: number,
-    ): Promise<string> => {
+    async ({
+      type,
+      m3u8Url,
+      duration,
+      outputPath,
+      isFmp4,
+      start = 0,
+      isVertical = false,
+    }: SubmitJobParams): Promise<string> => {
       const newJob: Job = {
         id: `pending-${Date.now()}`,
         job_type: type,
@@ -287,6 +312,8 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         status: 'running',
         progress: 0,
         error: null,
+        outputPath,
+        isVertical,
       };
 
       dispatch({ type: 'UPSERT', job: newJob });
@@ -299,21 +326,24 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
         type === 'clip'
           ? {
               m3u8Url,
-              start: start ?? 0,
+              start,
               duration,
               outputPath,
-              isFmp4: isFmp4,
+              isFmp4,
             }
           : {
               m3u8Url,
               duration,
               outputPath,
-              isFmp4: isFmp4,
+              isFmp4,
             },
       );
 
       dispatch({ type: 'REMOVE', id: newJob.id });
-      dispatch({ type: 'UPSERT', job: { ...newJob, id: job_id, status: 'running', progress: 0 } });
+      dispatch({
+        type: 'UPSERT',
+        job: { ...newJob, id: job_id, status: 'running', progress: 0, outputPath, isVertical },
+      });
 
       return job_id;
     },

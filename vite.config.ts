@@ -4,6 +4,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
+  define: {
+    'process.env': {},
+  },
   clearScreen: false,
   server: {
     port: 1420,

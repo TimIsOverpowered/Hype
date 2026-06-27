@@ -8,6 +8,7 @@ interface ChatOptions {
   includeChat: boolean;
   broadcasterId: string;
   vodId: string;
+  isVertical?: boolean;
 }
 
 interface UseClipJobResult {
@@ -68,7 +69,15 @@ export function useClipJob(): UseClipJobResult {
         return;
       }
 
-      await submitJob(type, m3u8Url, durationSeconds, outputPath, isFmp4, startSeconds);
+      await submitJob({
+        type,
+        m3u8Url,
+        duration: durationSeconds,
+        outputPath,
+        isFmp4,
+        start: startSeconds,
+        isVertical: chatOptions?.isVertical,
+      });
 
       if (chatOptions?.includeChat) {
         const chatPath = `${outputPath.replace(/\.[^/.]+$/, '')}_chat.mp4`;
@@ -90,7 +99,12 @@ export function useClipJob(): UseClipJobResult {
       const startHMS = toHHMMSS(Math.floor(startSeconds)).replace(/:/g, '-');
       const endHMS = toHHMMSS(Math.floor(startSeconds + durationSeconds)).replace(/:/g, '-');
       const defaultName = `${streamerName}-${vodId}-clip-${startHMS}-${endHMS}.mp4`;
-      return runJob(m3u8Url, startSeconds, durationSeconds, 'clip', defaultName, chatOptions);
+      return runJob(m3u8Url, startSeconds, durationSeconds, 'clip', defaultName, {
+        includeChat: chatOptions?.includeChat ?? false,
+        broadcasterId: chatOptions?.broadcasterId ?? '',
+        vodId: chatOptions?.vodId ?? '',
+        isVertical: chatOptions?.isVertical,
+      });
     },
     [runJob],
   );
