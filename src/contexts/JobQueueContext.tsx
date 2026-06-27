@@ -29,6 +29,22 @@ export interface SubmitJobParams {
   isVertical?: boolean;
 }
 
+export interface CropBoxPct {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface SubmitVerticalClipParams {
+  sourcePath: string;
+  layoutMode: string;
+  camBox: CropBoxPct;
+  gameBox: CropBoxPct;
+  singleBox: CropBoxPct;
+  fitMode: boolean;
+}
+
 type JobsRecord = Record<string, Job>;
 
 type JobAction =
@@ -88,6 +104,7 @@ function jobsReducer(state: JobsRecord, action: JobAction): JobsRecord {
 interface JobQueueState {
   jobs: JobsRecord;
   submitJob: (params: SubmitJobParams) => Promise<string>;
+  submitVerticalClip: (params: SubmitVerticalClipParams) => Promise<string>;
   cancelJob: (id: string) => Promise<void>;
   removeJob: (id: string) => void;
   renderChatOverlay: (
@@ -350,6 +367,49 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
     [showToast],
   );
 
+  const submitVerticalClip = useCallback(
+    async ({
+      sourcePath,
+      layoutMode,
+      camBox,
+      gameBox,
+      singleBox,
+      fitMode,
+    }: SubmitVerticalClipParams): Promise<string> => {
+      const name = sourcePath.split('/').pop() || 'vertical-clip.mp4';
+      const newJob: Job = {
+        id: `pending-${Date.now()}`,
+        job_type: 'clip',
+        name,
+        status: 'running',
+        progress: 0,
+        error: null,
+        isVertical: true,
+      };
+
+      dispatch({ type: 'UPSERT', job: newJob });
+      showToast(newJob.id, 'Vertical clip started', name, 'info');
+
+      const { job_id } = await invoke<SubmitJobResponse>('submit_vertical_clip', {
+        sourcePath,
+        layoutMode,
+        camBox,
+        gameBox,
+        singleBox,
+        fitMode,
+      });
+
+      dispatch({ type: 'REMOVE', id: newJob.id });
+      dispatch({
+        type: 'UPSERT',
+        job: { ...newJob, id: job_id, status: 'running', progress: 0 },
+      });
+
+      return job_id;
+    },
+    [showToast],
+  );
+
   const cancelJob = useCallback(
     async (id: string) => {
       dispatch({ type: 'UPSERT_STATUS', id, status: 'cancelled' });
@@ -402,7 +462,7 @@ export function JobQueueProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <JobQueueContext.Provider value={{ jobs, submitJob, cancelJob, removeJob, renderChatOverlay }}>
+    <JobQueueContext.Provider value={{ jobs, submitJob, submitVerticalClip, cancelJob, removeJob, renderChatOverlay }}>
       {children}
     </JobQueueContext.Provider>
   );

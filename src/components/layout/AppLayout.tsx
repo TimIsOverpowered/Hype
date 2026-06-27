@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useJobQueue } from '../../contexts/JobQueueContext';
 import { setModalOpen } from '../../lib/modalState';
 import { GraphSettingsProvider } from '../../hooks/useGraphSettings';
 import GlobalSettingsModal, { type SettingsTabKey } from '../settings/GlobalSettingsModal';
@@ -10,6 +11,7 @@ export default function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabKey>('account');
   const [verticalVideoPath, setVerticalVideoPath] = useState<string | null>(null);
+  const { submitVerticalClip } = useJobQueue();
 
   useEffect(() => {
     const handleOpen = (e: Event) => {
@@ -49,8 +51,15 @@ export default function AppLayout() {
           <LocalVerticalEditor
             localMp4Path={verticalVideoPath}
             onClose={handleVerticalClose}
-            onConfirm={() => {
-              console.log('crop data', { verticalVideoPath });
+            onConfirm={(layoutMode, camBox, gameBox, singleBox, fitMode) => {
+              submitVerticalClip({
+                sourcePath: verticalVideoPath!,
+                layoutMode,
+                camBox,
+                gameBox,
+                singleBox,
+                fitMode,
+              });
               setVerticalVideoPath(null);
             }}
           />

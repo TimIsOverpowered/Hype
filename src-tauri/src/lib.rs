@@ -129,6 +129,7 @@ pub fn run() {
             logs::fetch_vod_logs,
             media::clipper::submit_clip,
             media::clipper::submit_download,
+            media::clipper::submit_vertical_clip,
             media::clipper::cancel_job,
             media::clipper::list_jobs,
             media::clipper::remove_job,
