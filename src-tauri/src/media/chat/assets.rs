@@ -23,7 +23,7 @@ const FFZ_CDN: &str = "https://cdn.frankerfacez.com/emote";
 const TWITCH_EMOTES_CDN: &str = "https://static-cdn.jtvnw.net/emoticons/v2";
 const TWEMOJI_CDN: &str = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72";
 
-static REQWEST_CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
+pub static REQWEST_CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")

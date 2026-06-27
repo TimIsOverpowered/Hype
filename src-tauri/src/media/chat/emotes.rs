@@ -16,12 +16,12 @@ pub async fn init_channel_emotes(broadcaster_id: &str) -> Result<(), String> {
     }
 
     let mut channel_emotes = HashMap::new();
-    let client = reqwest::Client::new();
+    let client = &*crate::media::chat::assets::REQWEST_CLIENT;
 
-    fetch_seventv(&client, broadcaster_id, &mut channel_emotes).await;
-    fetch_seventv_global(&client, &mut channel_emotes).await;
-    fetch_bttv(&client, broadcaster_id, &mut channel_emotes).await;
-    fetch_ffz(&client, broadcaster_id, &mut channel_emotes).await;
+    fetch_seventv(client, broadcaster_id, &mut channel_emotes).await;
+    fetch_seventv_global(client, &mut channel_emotes).await;
+    fetch_bttv(client, broadcaster_id, &mut channel_emotes).await;
+    fetch_ffz(client, broadcaster_id, &mut channel_emotes).await;
 
     cache.insert(broadcaster_id.to_string(), channel_emotes);
     Ok(())
