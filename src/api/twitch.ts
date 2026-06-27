@@ -1,5 +1,5 @@
 import { parse as hlsParse } from 'hls-parser';
-import { M3U8_DOMAINS, Twitch } from '../constants/twitch';
+import { KnownM3u8Variants, M3U8_DOMAINS, Twitch } from '../constants/twitch';
 import type { ChapterEdge, GqlResponse, M3u8Variant, TwitchUser, VodNode, VodPage } from '../types/twitch';
 
 const PRIMARY_CLIENT_ID = Twitch.GQL_CLIENT_ID;
@@ -524,10 +524,8 @@ export async function findM3u8(hash: string): Promise<{ domains: string[]; varia
     return { domains: [], variants: [] };
   }
 
-  const knownVariants = ['chunked', '1080p60', '720p60', '720p30', '480p30', '360p30', '160p30', 'audio_only'];
-
   const variants = await Promise.all(
-    knownVariants.map(async (variant) => {
+    KnownM3u8Variants.map(async (variant) => {
       const exists = await checkM3u8(`${foundDomain}/${hash}/${variant}/index-dvr.m3u8`);
       if (!exists) return null;
       return {

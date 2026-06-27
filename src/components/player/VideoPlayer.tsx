@@ -367,11 +367,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   }, [playerSettings]);
 
   const handleVolumeChange = useCallback(
-    (_e: Event, val: number | number[]) => {
-      const v = typeof val === 'number' ? val : val[0];
-      setVolume(v);
-      playerSettings.setVolume(v);
-      if (v > 0) setIsMuted(false);
+    (val: number) => {
+      setVolume(val);
+      playerSettings.setVolume(val);
+      if (val > 0) setIsMuted(false);
     },
     [playerSettings],
   );
@@ -606,7 +605,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
                         step="any"
                         onChange={(e) => {
                           const val = parseInt(e.target.value, 10);
-                          handleVolumeChange(e.nativeEvent, val);
+                          handleVolumeChange(val);
                         }}
                         onMouseDown={tooltipControls.handleVolumeMouseDown}
                         onMouseUp={tooltipControls.handleVolumeMouseUp}

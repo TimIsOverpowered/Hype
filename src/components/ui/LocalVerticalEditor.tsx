@@ -1,6 +1,6 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Maximize, Minimize2, Pause, Play, Square, Volume2, VolumeX, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, memo } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { usePlayerSettings } from '../../hooks/usePlayerSettings';
 import { formatTime } from '../../utils/time';
@@ -37,61 +37,63 @@ const handleStyle = {
   border: '1px solid rgba(0,0,0,0.3)',
 };
 
-const DraggableBox = memo(({
-  type,
-  box,
-  setBox,
-  color,
-  aspect,
-  zIndex,
-  clampBox,
-  onLiveUpdate,
-}: {
-  type: 'cam' | 'game' | 'single';
-  box: CropBox;
-  setBox: React.Dispatch<React.SetStateAction<CropBox>>;
-  color: string;
-  aspect: number;
-  zIndex?: number;
-  clampBox: (x: number, y: number, w: number, aspect: number) => CropBox;
-  onLiveUpdate: (type: 'cam' | 'game' | 'single', box: CropBox) => void;
-}) => {
-  const [localBox, setLocalBox] = useState(box);
+const DraggableBox = memo(
+  ({
+    type,
+    box,
+    setBox,
+    color,
+    aspect,
+    zIndex,
+    clampBox,
+    onLiveUpdate,
+  }: {
+    type: 'cam' | 'game' | 'single';
+    box: CropBox;
+    setBox: React.Dispatch<React.SetStateAction<CropBox>>;
+    color: string;
+    aspect: number;
+    zIndex?: number;
+    clampBox: (x: number, y: number, w: number, aspect: number) => CropBox;
+    onLiveUpdate: (type: 'cam' | 'game' | 'single', box: CropBox) => void;
+  }) => {
+    const [localBox, setLocalBox] = useState(box);
 
-  useEffect(() => {
-    setLocalBox(box);
-  }, [box.x, box.y, box.w, box.h]);
+    useEffect(() => {
+      setLocalBox(box);
+    }, [box]);
 
-  return (
-    <Rnd
-      style={{ zIndex }}
-      bounds="parent"
-      lockAspectRatio={aspect}
-      minWidth={40}
-      size={{ width: localBox.w, height: localBox.h }}
-      position={{ x: localBox.x, y: localBox.y }}
-      onDrag={(_e, d) => {
-        const clamped = clampBox(d.x, d.y, localBox.w, aspect);
-        setLocalBox(clamped);
-        onLiveUpdate(type, clamped);
-      }}
-      onResize={(_e, _dir, ref, _d, pos) => {
-        const clamped = clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect);
-        setLocalBox(clamped);
-        onLiveUpdate(type, clamped);
-      }}
-      onDragStop={(_e, d) => setBox(clampBox(d.x, d.y, localBox.w, aspect))}
-      onResizeStop={(_e, _dir, ref, _d, pos) => setBox(clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect))}
-      className={`absolute border-2 ${color} cursor-move`}
-      resizeHandleStyles={{
-        bottomRight: { ...handleStyle, bottom: '-4px', right: '-4px' },
-        bottomLeft: { ...handleStyle, bottom: '-4px', left: '-4px' },
-        topRight: { ...handleStyle, top: '-4px', right: '-4px' },
-        topLeft: { ...handleStyle, top: '-4px', left: '-4px' },
-      }}
-    />
-  );
-});
+    return (
+      <Rnd
+        style={{ zIndex }}
+        bounds="parent"
+        lockAspectRatio={aspect}
+        minWidth={40}
+        size={{ width: localBox.w, height: localBox.h }}
+        position={{ x: localBox.x, y: localBox.y }}
+        onDrag={(_e, d) => {
+          const clamped = clampBox(d.x, d.y, localBox.w, aspect);
+          setLocalBox(clamped);
+          onLiveUpdate(type, clamped);
+        }}
+        onResize={(_e, _dir, ref, _d, pos) => {
+          const clamped = clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect);
+          setLocalBox(clamped);
+          onLiveUpdate(type, clamped);
+        }}
+        onDragStop={(_e, d) => setBox(clampBox(d.x, d.y, localBox.w, aspect))}
+        onResizeStop={(_e, _dir, ref, _d, pos) => setBox(clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect))}
+        className={`absolute border-2 ${color} cursor-move`}
+        resizeHandleStyles={{
+          bottomRight: { ...handleStyle, bottom: '-4px', right: '-4px' },
+          bottomLeft: { ...handleStyle, bottom: '-4px', left: '-4px' },
+          topRight: { ...handleStyle, top: '-4px', right: '-4px' },
+          topLeft: { ...handleStyle, top: '-4px', left: '-4px' },
+        }}
+      />
+    );
+  },
+);
 
 export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }: LocalVerticalEditorProps) {
   const videoSrc = localMp4Path ? convertFileSrc(localMp4Path) : undefined;
@@ -225,7 +227,7 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
         syncSlave(top);
         syncSlave(bottom);
       }
-      
+
       rafId = requestAnimationFrame(syncVideos);
     };
 
@@ -302,7 +304,7 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
   const updatePreviewDom = useCallback((type: 'cam' | 'game' | 'single', updatedBox: CropBox) => {
     const targetRef = type === 'game' ? slaveBottomRef : slaveTopRef;
     if (!targetRef.current) return;
-    
+
     targetRef.current.style.width = `${(C_WIDTH / updatedBox.w) * 100}%`;
     targetRef.current.style.height = `${(C_HEIGHT / updatedBox.h) * 100}%`;
     targetRef.current.style.left = `${-(updatedBox.x / updatedBox.w) * 100}%`;
@@ -454,35 +456,35 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
                 <div className="absolute inset-0 cursor-default" onClick={(e) => e.stopPropagation()}>
                   {layoutMode === 'stacked' && (
                     <>
-                      <DraggableBox 
+                      <DraggableBox
                         type="cam"
-                        box={camBox} 
-                        setBox={setCamBox} 
-                        color="border-pink-500" 
-                        aspect={camAspect} 
-                        zIndex={camBox.w * camBox.h <= gameBox.w * gameBox.h ? 20 : 10} 
+                        box={camBox}
+                        setBox={setCamBox}
+                        color="border-pink-500"
+                        aspect={camAspect}
+                        zIndex={camBox.w * camBox.h <= gameBox.w * gameBox.h ? 20 : 10}
                         clampBox={clampBox}
                         onLiveUpdate={updatePreviewDom}
                       />
-                      <DraggableBox 
+                      <DraggableBox
                         type="game"
-                        box={gameBox} 
-                        setBox={setGameBox} 
-                        color="border-cyan-400" 
-                        aspect={gameAspect} 
-                        zIndex={gameBox.w * gameBox.h < camBox.w * camBox.h ? 20 : 10} 
+                        box={gameBox}
+                        setBox={setGameBox}
+                        color="border-cyan-400"
+                        aspect={gameAspect}
+                        zIndex={gameBox.w * gameBox.h < camBox.w * camBox.h ? 20 : 10}
                         clampBox={clampBox}
                         onLiveUpdate={updatePreviewDom}
                       />
                     </>
                   )}
                   {layoutMode === 'full' && !isFitMode && (
-                    <DraggableBox 
+                    <DraggableBox
                       type="single"
-                      box={singleBox} 
-                      setBox={setSingleBox} 
-                      color="border-cyan-400" 
-                      aspect={9 / 16} 
+                      box={singleBox}
+                      setBox={setSingleBox}
+                      color="border-cyan-400"
+                      aspect={9 / 16}
                       clampBox={clampBox}
                       onLiveUpdate={updatePreviewDom}
                     />

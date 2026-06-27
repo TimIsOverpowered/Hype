@@ -123,6 +123,22 @@ interface TextRenderResult {
 
 type RenderResult = EmoteRenderResult | TextRenderResult;
 
+const BASE_EMOTE_STYLE: React.CSSProperties = {
+  verticalAlign: 'middle',
+  border: 'none',
+  maxWidth: '100%',
+  height: 'auto',
+} as const;
+
+const ZW_EMOTE_STYLE: React.CSSProperties = {
+  ...BASE_EMOTE_STYLE,
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  pointerEvents: 'none',
+} as const;
+
 function getEmoteSrc(
   id: string | number,
   provider: string,
@@ -187,22 +203,9 @@ function renderSingleEmote(
     emoteHeight = 28;
   }
 
-  const imgStyle: React.CSSProperties = {
-    verticalAlign: 'middle',
-    border: 'none',
-    maxWidth: '100%',
-    height: 'auto',
-    width: isZW ? '0px' : `${emoteWidth ?? 28}px`,
-    minHeight: isZW ? '0px' : '28px',
-  };
-
-  if (isZW) {
-    (imgStyle as React.CSSProperties & { pointerEvents: string }).pointerEvents = 'none';
-    imgStyle.position = 'absolute' as const;
-    imgStyle.top = '50%';
-    imgStyle.left = '50%';
-    imgStyle.transform = 'translate(-50%, -50%)';
-  }
+  const imgStyle: React.CSSProperties = isZW
+    ? { ...ZW_EMOTE_STYLE, width: '0px', minHeight: '0px' }
+    : { ...BASE_EMOTE_STYLE, width: `${emoteWidth ?? 28}px`, minHeight: '28px' };
 
   const emoteElement = (
     <span
@@ -271,28 +274,14 @@ function renderCombinedEmote(normalEmote: EmoteFragment, zwEmote: CustomEmoteFra
   const normalWidth = 'width' in normalEmote ? normalEmote.width : 28;
   const normalHeight = 'height' in normalEmote ? normalEmote.height : 28;
 
-  const normalImgStyle: React.CSSProperties = {
-    verticalAlign: 'middle',
-    border: 'none',
-    maxWidth: '100%',
-    height: 'auto',
-    width: `${normalWidth}px`,
-    minHeight: '28px',
-  };
+  const normalImgStyle: React.CSSProperties = { ...BASE_EMOTE_STYLE, width: `${normalWidth}px`, minHeight: '28px' };
 
   const zwImgStyle: React.CSSProperties & { pointerEvents: string } = {
-    verticalAlign: 'middle',
-    border: 'none',
-    maxWidth: '100%',
-    height: 'auto',
+    ...ZW_EMOTE_STYLE,
     minWidth: '0px',
     minHeight: '0px',
     maxHeight: '32px',
     pointerEvents: 'none',
-    position: 'absolute' as const,
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
   };
 
   const combinedElement = (
@@ -403,27 +392,33 @@ function renderFragment(fragment: FormattedFragment, keyPrefix: string, index: n
 }
 
 function renderFragmentsWithCombining(fragments: readonly FormattedFragment[], keyPrefix: string): React.ReactNode {
-  const results: RenderResult[] = [];
-  for (let i = 0; i < fragments.length; i++) {
-    results.push(renderFragment(fragments[i], keyPrefix, i));
-  }
-
   const output: React.ReactNode[] = [];
   let i = 0;
 
-  while (i < results.length) {
-    const result = results[i];
+  while (i < fragments.length) {
+    const currentFrag = fragments[i];
+    const current = renderFragment(currentFrag, keyPrefix, i);
 
-    if (result.isEmote && !result.isZeroWidth && results[i + 1]?.isEmote && results[i + 1]?.isZeroWidth) {
-      const normalFrag = fragments[i] as EmoteFragment;
-      const zwFrag = fragments[i + 1] as CustomEmoteFragment;
-      const combinedKey = `${keyPrefix}-frag-${i}-combined-${normalFrag}${zwFrag.code || zwFrag.id}`;
-      output.push(renderCombinedEmote(normalFrag, zwFrag, combinedKey).element);
-      i += 2;
-    } else {
-      output.push(result.element);
-      i++;
+    if (
+      current.isEmote &&
+      !current.isZeroWidth &&
+      i + 1 < fragments.length
+    ) {
+      const nextFrag = fragments[i + 1];
+      const nextResult = renderFragment(nextFrag, keyPrefix, i + 1);
+      if (nextResult.isEmote && nextResult.isZeroWidth) {
+        const normalFrag = currentFrag as EmoteFragment;
+        const zwFrag = nextFrag as CustomEmoteFragment;
+        const normalId = 'emote_id' in normalFrag ? normalFrag.emote_id : String(normalFrag.id);
+        const combinedKey = `${keyPrefix}-frag-${i}-combined-${normalId}${zwFrag.code || zwFrag.id}`;
+        output.push(renderCombinedEmote(normalFrag, zwFrag, combinedKey).element);
+        i += 2;
+        continue;
+      }
     }
+
+    output.push(current.element);
+    i++;
   }
 
   return output;

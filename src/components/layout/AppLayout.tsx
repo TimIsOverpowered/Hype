@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useJobQueue } from '../../contexts/JobQueueContext';
-import { setModalOpen } from '../../lib/modalState';
 import { GraphSettingsProvider } from '../../hooks/useGraphSettings';
+import { setModalOpen } from '../../lib/modalState';
 import GlobalSettingsModal, { type SettingsTabKey } from '../settings/GlobalSettingsModal';
 import LocalVerticalEditor from '../ui/LocalVerticalEditor';
 import NavBar from './NavBar';
@@ -53,7 +53,7 @@ export default function AppLayout() {
             onClose={handleVerticalClose}
             onConfirm={(layoutMode, camBox, gameBox, singleBox, fitMode) => {
               submitVerticalClip({
-                sourcePath: verticalVideoPath!,
+                sourcePath: verticalVideoPath,
                 layoutMode,
                 camBox,
                 gameBox,

@@ -1,6 +1,6 @@
 import { save } from '@tauri-apps/plugin-dialog';
 import { parse as hlsParse } from 'hls-parser';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useJobQueue } from '../contexts/JobQueueContext';
 import { toHHMMSS } from '../utils/time';
 
@@ -44,7 +44,6 @@ async function detectFmp4(m3u8Url: string): Promise<boolean> {
 export function useClipJob(): UseClipJobResult {
   const { submitJob, renderChatOverlay } = useJobQueue();
   const [jobType, setJobType] = useState<'clip' | 'download' | 'chat-render'>('clip');
-  const cancelledRef = useRef(false);
 
   const runJob = useCallback(
     async (
@@ -55,7 +54,6 @@ export function useClipJob(): UseClipJobResult {
       defaultName: string,
       chatOptions?: ChatOptions,
     ) => {
-      cancelledRef.current = false;
       setJobType(type);
 
       const isFmp4 = await detectFmp4(m3u8Url);

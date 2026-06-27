@@ -10,7 +10,7 @@ export const Twitch = {
   GQL_PERSISTED_QUERY_VERSION: 1,
 } as const;
 
-export const KnownM3u8Variants = ['chunked', '720p60', '480p30', 'audio_only', '360p30', '160p30'] as const;
+export const KnownM3u8Variants = ['chunked', '1080p60', '720p60', '720p30', '480p30', '360p30', '160p30', 'audio_only'] as const;
 
 export const M3U8_DOMAINS = [
   'https://vod-secure.twitch.tv',

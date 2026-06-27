@@ -9,10 +9,10 @@ import VodGraph from '../components/graph/VodGraph';
 import VideoPlayer, { type VideoPlayerHandle } from '../components/player/VideoPlayer';
 import ClipBar from '../components/ui/ClipBar';
 import DownloadVodModal from '../components/ui/DownloadVodModal';
+import { API_BASE } from '../constants/api';
 import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
 import { useGraphSettings } from '../hooks/useGraphSettings';
-import { API_BASE } from '../constants/api';
 import type { SerializedEmoteSet } from '../types/graph';
 import type { ChapterEdge, M3u8Variant } from '../types/twitch';
 
@@ -23,6 +23,7 @@ export interface VodInfo {
   broadcasterName: string;
   broadcastType: string;
 }
+
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
