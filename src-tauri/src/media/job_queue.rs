@@ -190,14 +190,26 @@ impl JobQueue {
     }
 
     pub fn update_progress(&self, id: &str, percent: u8, app: &AppHandle) {
-        let jobs = self.jobs.read().unwrap();
-        if let Some(job) = jobs.get(id) {
-            let status = job.status.lock().unwrap();
-            if *status == JobStatus::Running {
-                job.progress.store(percent.min(100), Ordering::SeqCst);
+        let summary = {
+            let jobs = self.jobs.read().unwrap();
+            if let Some(job) = jobs.get(id) {
+                let status = job.status.lock().unwrap();
+                if *status == JobStatus::Running {
+                    job.progress.store(percent.min(100), Ordering::SeqCst);
+                }
+                let error = job.error.lock().unwrap();
+                Some(JobSummary {
+                    id: job.id.clone(),
+                    job_type: job.job_type.as_str().to_string(),
+                    name: job.name.clone(),
+                    status: status.as_str().to_string(),
+                    progress: job.progress.load(Ordering::SeqCst) as f32,
+                    error: error.clone(),
+                })
+            } else {
+                None
             }
-        }
-        let summary = self.get_summary(id);
+        };
         if let Some(s) = summary {
             let _ = app.emit("job-state-changed", &s);
         }
@@ -223,7 +235,7 @@ impl JobQueue {
     }
 
     pub fn complete(&self, id: &str, success: bool, app: &AppHandle, event_prefix: &str) {
-        {
+        let summary = {
             let mut jobs = self.jobs.write().unwrap();
             if let Some(job) = jobs.get_mut(id) {
                 let mut status = job.status.lock().unwrap();
@@ -240,10 +252,21 @@ impl JobQueue {
                         *error = Some("FFmpeg exited with error".to_string());
                     }
                 }
-            }
-        }
 
-        let summary = self.get_summary(id);
+                let error = job.error.lock().unwrap();
+                Some(JobSummary {
+                    id: job.id.clone(),
+                    job_type: job.job_type.as_str().to_string(),
+                    name: job.name.clone(),
+                    status: status.as_str().to_string(),
+                    progress: job.progress.load(Ordering::SeqCst) as f32,
+                    error: error.clone(),
+                })
+            } else {
+                None
+            }
+        };
+
         if let Some(s) = summary {
             let _ = app.emit("job-state-changed", &s);
             if success {
@@ -255,17 +278,27 @@ impl JobQueue {
     }
 
     pub fn fail(&self, id: &str, error: String, app: &AppHandle, event_prefix: &str) {
-        {
+        let summary = {
             let mut jobs = self.jobs.write().unwrap();
             if let Some(job) = jobs.get_mut(id) {
                 let mut status = job.status.lock().unwrap();
                 *status = JobStatus::Failed;
                 let mut err = job.error.lock().unwrap();
                 *err = Some(error);
-            }
-        }
 
-        let summary = self.get_summary(id);
+                Some(JobSummary {
+                    id: job.id.clone(),
+                    job_type: job.job_type.as_str().to_string(),
+                    name: job.name.clone(),
+                    status: status.as_str().to_string(),
+                    progress: job.progress.load(Ordering::SeqCst) as f32,
+                    error: err.clone(),
+                })
+            } else {
+                None
+            }
+        };
+
         if let Some(s) = summary {
             let _ = app.emit("job-state-changed", &s);
             let _ = app.emit(&format!("{}-failed", event_prefix), s);
