@@ -45,10 +45,9 @@ async fn fetch_badges(vod_id: String) -> Result<BadgeSet, String> {
 async fn aggregate_graph(
     payload: AggregatePayload,
 ) -> Result<crate::media::chat::models::GraphResult, String> {
-    let (data, result) = tokio::task::spawn_blocking(move || aggregate_logs(payload))
+    let result = tokio::task::spawn_blocking(move || aggregate_logs(payload))
         .await
         .map_err(|e| e.to_string())?;
-    let _ = data;
     Ok(result)
 }
 

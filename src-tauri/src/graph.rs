@@ -127,7 +127,7 @@ struct BucketData {
     game: Option<String>,
 }
 
-pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphResult) {
+pub fn aggregate_logs(payload: AggregatePayload) -> GraphResult {
     let emote_lookup = build_emote_lookup(
         &payload.emotes.bttv,
         &payload.emotes.ffz,
@@ -339,7 +339,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
     };
 
     let result = GraphResult {
-        data: data.clone(),
+        data,
         computed_threshold: threshold,
         percentile: percentile_value,
         chapters: Some(chapters),
@@ -356,7 +356,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> (Vec<GraphDataPoint>, GraphR
         },
     };
 
-    (data, result)
+    result
 }
 
 pub fn aggregate_clips(payload: AggregateClipsPayload) -> ClipsResult {
