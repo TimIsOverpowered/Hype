@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { isModalCurrentlyOpen } from '../lib/modalState';
 
 interface UseKeyboardShortcutsOptions {
   playerRef: React.RefObject<HTMLVideoElement | null>;
@@ -15,6 +16,8 @@ export function useKeyboardShortcuts({
 }: UseKeyboardShortcutsOptions): void {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (isModalCurrentlyOpen()) return;
+
       if (
         e.target instanceof HTMLElement &&
         (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)

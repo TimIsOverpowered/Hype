@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { setModalOpen } from '../../lib/modalState';
 import { GraphSettingsProvider } from '../../hooks/useGraphSettings';
 import GlobalSettingsModal, { type SettingsTabKey } from '../settings/GlobalSettingsModal';
 import LocalVerticalEditor from '../ui/LocalVerticalEditor';
@@ -20,6 +21,7 @@ export default function AppLayout() {
     const handleOpenVertical = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       setVerticalVideoPath(customEvent.detail);
+      setModalOpen(true);
     };
 
     window.addEventListener('open-global-settings', handleOpen);
@@ -30,7 +32,10 @@ export default function AppLayout() {
     };
   }, []);
 
-  const handleVerticalClose = () => setVerticalVideoPath(null);
+  const handleVerticalClose = () => {
+    setVerticalVideoPath(null);
+    setModalOpen(false);
+  };
 
   return (
     <GraphSettingsProvider>

@@ -1,6 +1,6 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Maximize, Minimize2, Pause, Play, Square, Volume2, VolumeX, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, memo } from 'react';
 import { Rnd } from 'react-rnd';
 import { usePlayerSettings } from '../../hooks/usePlayerSettings';
 import { formatTime } from '../../utils/time';
@@ -28,6 +28,53 @@ interface LocalVerticalEditorProps {
 // Master inner canvas dimensions (16:9 ratio)
 const C_WIDTH = 720;
 const C_HEIGHT = 405;
+
+// --- MOVED OUTSIDE TO PREVENT RE-RENDERS DURING VIDEO PLAYBACK ---
+const handleStyle = {
+  width: '8px',
+  height: '8px',
+  backgroundColor: '#ffffff',
+  border: '1px solid rgba(0,0,0,0.3)',
+};
+
+const DraggableBox = memo(({
+  box,
+  setBox,
+  color,
+  aspect,
+  zIndex,
+  clampBox,
+}: {
+  type?: 'cam' | 'game' | 'single';
+  box: CropBox;
+  setBox: React.Dispatch<React.SetStateAction<CropBox>>;
+  color: string;
+  aspect: number;
+  zIndex?: number;
+  clampBox: (x: number, y: number, w: number, aspect: number) => CropBox;
+}) => {
+  return (
+    <Rnd
+      style={{ zIndex }}
+      bounds="parent"
+      lockAspectRatio={aspect}
+      minWidth={40}
+      size={{ width: box.w, height: box.h }}
+      position={{ x: box.x, y: box.y }}
+      onDrag={(_e, d) => setBox(clampBox(d.x, d.y, box.w, aspect))}
+      onResize={(_e, _dir, ref, _d, pos) => setBox(clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect))}
+      onDragStop={(_e, d) => setBox(clampBox(d.x, d.y, box.w, aspect))}
+      onResizeStop={(_e, _dir, ref, _d, pos) => setBox(clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect))}
+      className={`absolute border-2 ${color} cursor-move`}
+      resizeHandleStyles={{
+        bottomRight: { ...handleStyle, bottom: '-4px', right: '-4px' },
+        bottomLeft: { ...handleStyle, bottom: '-4px', left: '-4px' },
+        topRight: { ...handleStyle, top: '-4px', right: '-4px' },
+        topLeft: { ...handleStyle, top: '-4px', left: '-4px' },
+      }}
+    />
+  );
+});
 
 export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }: LocalVerticalEditorProps) {
   const videoSrc = localMp4Path ? convertFileSrc(localMp4Path) : undefined;
@@ -133,20 +180,39 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
     if (masterRef.current) masterRef.current.volume = nextMute ? 0 : volume;
   };
 
-  const syncPlay = useCallback(() => {
-    slaveTopRef.current?.play();
-    slaveBottomRef.current?.play();
-  }, []);
+  // --- CONTINUOUS SYNC ENFORCER ---
+  useEffect(() => {
+    let rafId: number;
 
-  const syncPause = useCallback(() => {
-    slaveTopRef.current?.pause();
-    slaveBottomRef.current?.pause();
-  }, []);
+    const syncVideos = () => {
+      const master = masterRef.current;
+      const top = slaveTopRef.current;
+      const bottom = slaveBottomRef.current;
 
-  const syncSeek = useCallback(() => {
-    const time = masterRef.current?.currentTime ?? 0;
-    if (slaveTopRef.current) slaveTopRef.current.currentTime = time;
-    if (slaveBottomRef.current) slaveBottomRef.current.currentTime = time;
+      if (master) {
+        const syncSlave = (slave: HTMLVideoElement | null) => {
+          if (!slave) return;
+
+          if (!master.paused && slave.paused) {
+            slave.play().catch(() => {});
+          } else if (master.paused && !slave.paused) {
+            slave.pause();
+          }
+
+          if (Math.abs(master.currentTime - slave.currentTime) > 0.1) {
+            slave.currentTime = master.currentTime;
+          }
+        };
+
+        syncSlave(top);
+        syncSlave(bottom);
+      }
+      
+      rafId = requestAnimationFrame(syncVideos);
+    };
+
+    rafId = requestAnimationFrame(syncVideos);
+    return () => cancelAnimationFrame(rafId);
   }, []);
 
   // --- EDIT WORKFLOW ---
@@ -160,12 +226,6 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
     setGameBox(snapshot.game);
     setSingleBox(snapshot.single);
     setSplitRatio(snapshot.split);
-
-    // Sync the native DOM back instantly on discard
-    updatePreviewDom('cam', snapshot.cam);
-    updatePreviewDom('game', snapshot.game);
-    updatePreviewDom('single', snapshot.single);
-
     setIsEditing(false);
   };
 
@@ -202,104 +262,78 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
     return { x: newX, y: newY, w: newW, h: newH };
   }, []);
 
-  // --- DIRECT DOM MANIPULATION FOR 144HZ REAL-TIME DRAGGING ---
-  const updatePreviewDom = (type: 'cam' | 'game' | 'single', box: CropBox) => {
-    const videoEl = type === 'game' ? slaveBottomRef.current : slaveTopRef.current;
-    if (videoEl) {
-      videoEl.style.width = `${(C_WIDTH / box.w) * 100}%`;
-      videoEl.style.height = `${(C_HEIGHT / box.h) * 100}%`;
-      videoEl.style.left = `${-(box.x / box.w) * 100}%`;
-      videoEl.style.top = `${-(box.y / box.h) * 100}%`;
-    }
-  };
+  // Scale box to new aspect ratio while keeping it centered.
+  // Used by the slider to resize cam/game boxes when splitRatio changes.
+  const scaleBoxToAspect = useCallback((box: CropBox, newAspect: number): CropBox => {
+    const MAX_W = C_WIDTH;
+    const MAX_H = C_HEIGHT;
+    const MIN_W = 40;
 
-  // --- SLIDER DRAG LOGIC ---
+    let newH = box.h;
+    let newW = newH * newAspect;
+
+    if (newW > MAX_W) {
+      newW = MAX_W;
+      newH = newW / newAspect;
+    } else if (newW < MIN_W) {
+      newW = MIN_W;
+      newH = newW / newAspect;
+    }
+
+    if (newH > MAX_H) {
+      newH = MAX_H;
+      newW = newH * newAspect;
+    }
+
+    let newX = box.x + (box.w - newW) / 2;
+    let newY = box.y + (box.h - newH) / 2;
+
+    if (newX < 0) newX = 0;
+    if (newY < 0) newY = 0;
+    if (newX + newW > MAX_W) newX = MAX_W - newW;
+    if (newY + newH > MAX_H) newY = MAX_H - newH;
+
+    return { x: newX, y: newY, w: newW, h: newH };
+  }, []);
+
+  // --- SLIDER DRAG LOGIC (rAF-batched for smooth 60fps React updates) ---
   const handlePillMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!portraitContainerRef.current) return;
 
     const rect = portraitContainerRef.current.getBoundingClientRect();
+    let rafId: number | null = null;
+
+    const commitRatio = (ratio: number) => {
+      const newCamAspect = 180 / (320 * (ratio / 100));
+      const newGameAspect = 180 / (320 * ((100 - ratio) / 100));
+      setSplitRatio(ratio);
+      setCamBox((prev) => scaleBoxToAspect(prev, newCamAspect));
+      setGameBox((prev) => scaleBoxToAspect(prev, newGameAspect));
+    };
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       let newRatio = ((moveEvent.clientY - rect.top) / rect.height) * 100;
-      newRatio = Math.max(5, Math.min(newRatio, 95));
-      setSplitRatio(newRatio);
+      newRatio = Math.max(20, Math.min(newRatio, 80));
 
-      const newCamAspect = 180 / (320 * (newRatio / 100));
-      const newGameAspect = 180 / (320 * ((100 - newRatio) / 100));
-
-      setCamBox((prev) => {
-        const clamped = clampBox(prev.x, prev.y, prev.w, newCamAspect);
-        updatePreviewDom('cam', clamped);
-        return clamped;
-      });
-
-      setGameBox((prev) => {
-        const clamped = clampBox(prev.x, prev.y, prev.w, newGameAspect);
-        updatePreviewDom('game', clamped);
-        return clamped;
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        commitRatio(newRatio);
       });
     };
 
     const onMouseUp = () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
     };
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-  };
-
-  const handleStyle = {
-    width: '8px',
-    height: '8px',
-    backgroundColor: '#ffffff',
-    border: '1px solid rgba(0,0,0,0.3)',
-  };
-
-  const DraggableBox = ({
-    type,
-    box,
-    setBox,
-    color,
-    aspect,
-  }: {
-    type: 'cam' | 'game' | 'single';
-    box: CropBox;
-    setBox: React.Dispatch<React.SetStateAction<CropBox>>;
-    color: string;
-    aspect: number;
-  }) => {
-    return (
-      <Rnd
-        bounds="parent"
-        lockAspectRatio={aspect}
-        minWidth={40}
-        size={{ width: box.w, height: box.h }}
-        position={{ x: box.x, y: box.y }}
-        // Bypasses React core loop during live interaction to avoid mouse binding drops
-        onDrag={(_e, d) => updatePreviewDom(type, { x: d.x, y: d.y, w: box.w, h: box.h })}
-        onResize={(_e, _dir, ref, _d, pos) =>
-          updatePreviewDom(type, {
-            x: pos.x,
-            y: pos.y,
-            w: parseFloat(ref.style.width),
-            h: parseFloat(ref.style.height),
-          })
-        }
-        // Commits layout state changes smoothly at transaction completion
-        onDragStop={(_e, d) => setBox(clampBox(d.x, d.y, box.w, aspect))}
-        onResizeStop={(_e, _dir, ref, _d, pos) => setBox(clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect))}
-        className={`absolute border-2 ${color} cursor-move`}
-        resizeHandleClasses={{}}
-        resizeHandleStyles={{
-          bottomRight: { ...handleStyle, bottom: '-4px', right: '-4px' },
-          bottomLeft: { ...handleStyle, bottom: '-4px', left: '-4px' },
-          topRight: { ...handleStyle, top: '-4px', right: '-4px' },
-          topLeft: { ...handleStyle, top: '-4px', left: '-4px' },
-        }}
-      />
-    );
   };
 
   const getSlaveStyle = (box: CropBox) => ({
@@ -363,10 +397,6 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
                 src={videoSrc || undefined}
                 className="h-full w-full object-contain pointer-events-none"
                 loop
-                onPlay={syncPlay}
-                onPause={syncPause}
-                onSeeked={syncSeek}
-                onTimeUpdate={syncSeek}
               >
                 <track kind="captions" />
               </video>
@@ -375,29 +405,31 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
                 <div className="absolute inset-0 cursor-default" onClick={(e) => e.stopPropagation()}>
                   {layoutMode === 'stacked' && (
                     <>
-                      <DraggableBox
-                        type="cam"
-                        box={camBox}
-                        setBox={setCamBox}
-                        color="border-pink-500"
-                        aspect={camAspect}
+                      <DraggableBox 
+                        box={camBox} 
+                        setBox={setCamBox} 
+                        color="border-pink-500" 
+                        aspect={camAspect} 
+                        zIndex={camBox.w * camBox.h <= gameBox.w * gameBox.h ? 20 : 10} 
+                        clampBox={clampBox} 
                       />
-                      <DraggableBox
-                        type="game"
-                        box={gameBox}
-                        setBox={setGameBox}
-                        color="border-cyan-400"
-                        aspect={gameAspect}
+                      <DraggableBox 
+                        box={gameBox} 
+                        setBox={setGameBox} 
+                        color="border-cyan-400" 
+                        aspect={gameAspect} 
+                        zIndex={gameBox.w * gameBox.h < camBox.w * camBox.h ? 20 : 10} 
+                        clampBox={clampBox} 
                       />
                     </>
                   )}
                   {layoutMode === 'full' && !isFitMode && (
-                    <DraggableBox
-                      type="single"
-                      box={singleBox}
-                      setBox={setSingleBox}
-                      color="border-cyan-400"
-                      aspect={9 / 16}
+                    <DraggableBox 
+                      box={singleBox} 
+                      setBox={setSingleBox} 
+                      color="border-cyan-400" 
+                      aspect={9 / 16} 
+                      clampBox={clampBox} 
                     />
                   )}
                 </div>
