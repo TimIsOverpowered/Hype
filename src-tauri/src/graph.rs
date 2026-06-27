@@ -139,7 +139,9 @@ pub fn aggregate_logs(payload: AggregatePayload) -> GraphResult {
     let mut total_messages: u64 = 0;
     let mut global_emotes: HashMap<String, u64> = HashMap::new();
 
-    let search_lower: Option<String> = if payload.search_type == "search" {
+    let is_search = payload.search_type == "search";
+
+    let search_lower: Option<String> = if is_search {
         payload.search_term.as_deref().map(|s| s.to_lowercase())
     } else {
         None
@@ -243,7 +245,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> GraphResult {
         })
         .collect();
 
-    let percentile_value = if payload.search_type != "search" {
+    let percentile_value = if !is_search {
         let mut counts: Vec<u64> = buckets.values().map(|v| v.messages).collect();
         counts.sort_unstable();
         percentile(&counts, 25.0)
@@ -251,7 +253,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> GraphResult {
         0.0
     };
 
-    let results: Vec<_> = if payload.search_type == "search" {
+    let results: Vec<_> = if is_search {
         let search_threshold = if payload.threshold > 0.0 {
             payload.threshold
         } else {
@@ -279,8 +281,6 @@ pub fn aggregate_logs(payload: AggregatePayload) -> GraphResult {
 
     let mut results: Vec<(f64, &BucketData)> = results;
     results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-
-    let is_search = payload.search_type == "search";
 
     let data: Vec<GraphDataPoint> = results
         .iter()
@@ -320,7 +320,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> GraphResult {
         })
         .collect();
 
-    let threshold = if payload.search_type == "search" {
+    let threshold = if is_search {
         if payload.threshold > 0.0 {
             payload.threshold as u64
         } else {
@@ -332,7 +332,7 @@ pub fn aggregate_logs(payload: AggregatePayload) -> GraphResult {
         (percentile_value as u64).max(1)
     };
 
-    let percentile_value = if payload.search_type == "search" {
+    let percentile_value = if is_search {
         0
     } else {
         percentile_value as u64
