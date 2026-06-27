@@ -15,6 +15,14 @@ import { useGraphSettings } from '../hooks/useGraphSettings';
 import { API_BASE } from '../constants/api';
 import type { SerializedEmoteSet } from '../types/graph';
 import type { ChapterEdge, M3u8Variant } from '../types/twitch';
+
+export interface VodInfo {
+  id: string;
+  title: string;
+  lengthSeconds: number;
+  broadcasterName: string;
+  broadcastType: string;
+}
 import { safeLocalStorage } from '../utils/safeLocalStorage';
 
 export default function VODPage() {
@@ -23,13 +31,7 @@ export default function VODPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [m3u8Url, setM3u8Url] = useState('');
-  const [vodInfo, setVodInfo] = useState<{
-    id: string;
-    title: string;
-    lengthSeconds: number;
-    broadcasterName: string;
-    broadcastType: string;
-  } | null>(null);
+  const [vodInfo, setVodInfo] = useState<VodInfo | null>(null);
   const [broadcasterId, setBroadcasterId] = useState<string | undefined>();
   const [isWhitelisted, setIsWhitelisted] = useState<boolean | undefined>(undefined);
 
