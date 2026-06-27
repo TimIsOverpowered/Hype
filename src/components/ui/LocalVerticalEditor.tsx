@@ -38,32 +38,49 @@ const handleStyle = {
 };
 
 const DraggableBox = memo(({
+  type,
   box,
   setBox,
   color,
   aspect,
   zIndex,
   clampBox,
+  onLiveUpdate,
 }: {
-  type?: 'cam' | 'game' | 'single';
+  type: 'cam' | 'game' | 'single';
   box: CropBox;
   setBox: React.Dispatch<React.SetStateAction<CropBox>>;
   color: string;
   aspect: number;
   zIndex?: number;
   clampBox: (x: number, y: number, w: number, aspect: number) => CropBox;
+  onLiveUpdate: (type: 'cam' | 'game' | 'single', box: CropBox) => void;
 }) => {
+  const [localBox, setLocalBox] = useState(box);
+
+  useEffect(() => {
+    setLocalBox(box);
+  }, [box.x, box.y, box.w, box.h]);
+
   return (
     <Rnd
       style={{ zIndex }}
       bounds="parent"
       lockAspectRatio={aspect}
       minWidth={40}
-      size={{ width: box.w, height: box.h }}
-      position={{ x: box.x, y: box.y }}
-      onDrag={(_e, d) => setBox(clampBox(d.x, d.y, box.w, aspect))}
-      onResize={(_e, _dir, ref, _d, pos) => setBox(clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect))}
-      onDragStop={(_e, d) => setBox(clampBox(d.x, d.y, box.w, aspect))}
+      size={{ width: localBox.w, height: localBox.h }}
+      position={{ x: localBox.x, y: localBox.y }}
+      onDrag={(_e, d) => {
+        const clamped = clampBox(d.x, d.y, localBox.w, aspect);
+        setLocalBox(clamped);
+        onLiveUpdate(type, clamped);
+      }}
+      onResize={(_e, _dir, ref, _d, pos) => {
+        const clamped = clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect);
+        setLocalBox(clamped);
+        onLiveUpdate(type, clamped);
+      }}
+      onDragStop={(_e, d) => setBox(clampBox(d.x, d.y, localBox.w, aspect))}
       onResizeStop={(_e, _dir, ref, _d, pos) => setBox(clampBox(pos.x, pos.y, parseFloat(ref.style.width), aspect))}
       className={`absolute border-2 ${color} cursor-move`}
       resizeHandleStyles={{
@@ -87,6 +104,7 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
   const slaveTopRef = useRef<HTMLVideoElement>(null);
   const slaveBottomRef = useRef<HTMLVideoElement>(null);
   const portraitContainerRef = useRef<HTMLDivElement>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
 
   // Layout & UI States
   const [isEditing, setIsEditing] = useState(false);
@@ -215,6 +233,24 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  // --- HMR / UNMOUNT LEAK PREVENTION ---
+  useEffect(() => {
+    return () => {
+      if (dragCleanupRef.current) {
+        dragCleanupRef.current();
+      }
+
+      const videos = [masterRef.current, slaveTopRef.current, slaveBottomRef.current];
+      videos.forEach((video) => {
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        }
+      });
+    };
+  }, []);
+
   // --- EDIT WORKFLOW ---
   const handleStartEdit = () => {
     setSnapshot({ cam: camBox, game: gameBox, single: singleBox, split: splitRatio });
@@ -260,6 +296,17 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
     if (newY < 0) newY = 0;
 
     return { x: newX, y: newY, w: newW, h: newH };
+  }, []);
+
+  // --- REAL-TIME DOM SYNC (Bypasses React Render Lag) ---
+  const updatePreviewDom = useCallback((type: 'cam' | 'game' | 'single', updatedBox: CropBox) => {
+    const targetRef = type === 'game' ? slaveBottomRef : slaveTopRef;
+    if (!targetRef.current) return;
+    
+    targetRef.current.style.width = `${(C_WIDTH / updatedBox.w) * 100}%`;
+    targetRef.current.style.height = `${(C_HEIGHT / updatedBox.h) * 100}%`;
+    targetRef.current.style.left = `${-(updatedBox.x / updatedBox.w) * 100}%`;
+    targetRef.current.style.top = `${-(updatedBox.y / updatedBox.h) * 100}%`;
   }, []);
 
   // Scale box to new aspect ratio while keeping it centered.
@@ -330,10 +377,12 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
         cancelAnimationFrame(rafId);
         rafId = null;
       }
+      dragCleanupRef.current = null;
     };
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+    dragCleanupRef.current = onMouseUp;
   };
 
   const getSlaveStyle = (box: CropBox) => ({
@@ -406,30 +455,36 @@ export default function LocalVerticalEditor({ localMp4Path, onClose, onConfirm }
                   {layoutMode === 'stacked' && (
                     <>
                       <DraggableBox 
+                        type="cam"
                         box={camBox} 
                         setBox={setCamBox} 
                         color="border-pink-500" 
                         aspect={camAspect} 
                         zIndex={camBox.w * camBox.h <= gameBox.w * gameBox.h ? 20 : 10} 
-                        clampBox={clampBox} 
+                        clampBox={clampBox}
+                        onLiveUpdate={updatePreviewDom}
                       />
                       <DraggableBox 
+                        type="game"
                         box={gameBox} 
                         setBox={setGameBox} 
                         color="border-cyan-400" 
                         aspect={gameAspect} 
                         zIndex={gameBox.w * gameBox.h < camBox.w * camBox.h ? 20 : 10} 
-                        clampBox={clampBox} 
+                        clampBox={clampBox}
+                        onLiveUpdate={updatePreviewDom}
                       />
                     </>
                   )}
                   {layoutMode === 'full' && !isFitMode && (
                     <DraggableBox 
+                      type="single"
                       box={singleBox} 
                       setBox={setSingleBox} 
                       color="border-cyan-400" 
                       aspect={9 / 16} 
-                      clampBox={clampBox} 
+                      clampBox={clampBox}
+                      onLiveUpdate={updatePreviewDom}
                     />
                   )}
                 </div>
