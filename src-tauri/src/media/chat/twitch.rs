@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use lazy_static::lazy_static;
+
 use regex::Regex;
 use serde::Serialize;
 use serde_json::json;
@@ -233,9 +233,9 @@ fn is_url(word: &str) -> bool {
     word.starts_with("http://") || word.starts_with("https://")
 }
 
-lazy_static! {
-    // Highly specific Regex that extracts individual emojis while preserving valid Zero-Width Joiner (ZWJ) sequences
-    static ref EMOJI_RE: Regex = Regex::new(r"(?x)
+// Highly specific Regex that extracts individual emojis while preserving valid Zero-Width Joiner (ZWJ) sequences
+static EMOJI_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?x)
         (?:
             [\p{Emoji_Presentation}\p{Extended_Pictographic}]
             [\x{1F3FB}-\x{1F3FF}]?
@@ -249,8 +249,8 @@ lazy_static! {
                 \x{FE0F}?
             )
         )*
-    ").unwrap();
-}
+    ").unwrap()
+});
 
 // Intercepts a word block (like "LUL😂😂") and cleanly separates the text from the emojis
 fn split_emojis_and_text(text: &str) -> Vec<FormattedFragment> {

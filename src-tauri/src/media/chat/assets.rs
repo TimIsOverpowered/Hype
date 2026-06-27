@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use image::AnimationDecoder;
-use lazy_static::lazy_static;
+
 use serde::Serialize;
 use skia_safe::{
     codec::{Codec, Options},
@@ -23,13 +23,13 @@ const FFZ_CDN: &str = "https://cdn.frankerfacez.com/emote";
 const TWITCH_EMOTES_CDN: &str = "https://static-cdn.jtvnw.net/emoticons/v2";
 const TWEMOJI_CDN: &str = "https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72";
 
-lazy_static! {
-    static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::builder()
+static REQWEST_CLIENT: std::sync::LazyLock<reqwest::Client> = std::sync::LazyLock::new(|| {
+    reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .build()
-        .expect("failed to build reqwest client");
-}
+        .expect("failed to build reqwest client")
+});
 
 // ─── Event payload types ───────────────────────────────────────────────────
 
@@ -286,10 +286,8 @@ impl RenderAssetManager {
     }
 }
 
-lazy_static! {
-    pub static ref RENDER_ASSET_CACHE: Arc<RwLock<RenderAssetManager>> =
-        Arc::new(RwLock::new(RenderAssetManager::new()));
-}
+pub static RENDER_ASSET_CACHE: std::sync::LazyLock<std::sync::Arc<tokio::sync::RwLock<RenderAssetManager>>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::RwLock::new(RenderAssetManager::new())));
 
 #[allow(dead_code)]
 pub async fn get_render_asset_cache() -> tokio::sync::RwLockReadGuard<'static, RenderAssetManager> {

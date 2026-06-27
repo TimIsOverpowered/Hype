@@ -8,9 +8,7 @@ use serde::Serialize;
 use tauri::AppHandle;
 use tauri::Emitter;
 
-lazy_static::lazy_static! {
-    static ref JOB_QUEUE: JobQueue = JobQueue::new();
-}
+static JOB_QUEUE: std::sync::LazyLock<JobQueue> = std::sync::LazyLock::new(JobQueue::new);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum JobType {

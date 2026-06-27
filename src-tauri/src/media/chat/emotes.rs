@@ -1,18 +1,13 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use lazy_static::lazy_static;
 use serde_json::Value;
-use tokio::sync::RwLock;
 
 use crate::media::chat::models::{CachedEmote, SerializedEmote, SerializedEmoteSet};
 
 const SEVENTV_ZERO_WIDTH_FLAG: u64 = 1 << 8;
 
-lazy_static! {
-    pub static ref EMOTE_CACHE: Arc<RwLock<HashMap<String, HashMap<String, CachedEmote>>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-}
+pub static EMOTE_CACHE: std::sync::LazyLock<std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, HashMap<String, CachedEmote>>>>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::RwLock::new(HashMap::new())));
 
 pub async fn init_channel_emotes(broadcaster_id: &str) -> Result<(), String> {
     let mut cache = EMOTE_CACHE.write().await;
