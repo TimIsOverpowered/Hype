@@ -222,19 +222,27 @@ pub fn get_h264_args(encoder: &str) -> Vec<String> {
     }
 }
 
+fn build_font_list(config: &ChatRenderConfig) -> Vec<String> {
+    let mut list: Vec<String> = config
+        .font_family
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect();
+    list.extend(["Arial".into(), "Segoe UI".into(), "Helvetica".into(), "San Francisco".into()]);
+    list
+}
+
 fn build_paragraph_for_message(
     msg: &FormattedMessage,
     username_color: Color,
     asset_manager: &RenderAssetManager,
     fc: &FontCollection,
+    font_list: &[String],
     config: &ChatRenderConfig,
     bg_color: Color,
 ) -> (Paragraph, Vec<PlaceholderData>) {
     let mut builder = ParagraphBuilder::new(&ParagraphStyle::new(), fc.clone());
     let mut placeholders = Vec::new();
-
-    let mut font_list: Vec<&str> = config.font_family.split(',').map(|s| s.trim()).collect();
-    font_list.extend(["Arial", "Segoe UI", "Helvetica", "San Francisco"]);
 
     if config.show_badges {
         if let Some(badges) = &msg.badges {
@@ -672,6 +680,8 @@ pub fn render_chat_video(
     let mut messages: VecDeque<MessageLayout> = VecDeque::new();
     let mut next_msg_idx = 0;
 
+    let font_list = build_font_list(&config);
+
     for frame_idx in 0..total_frames {
         let current_time_sec = start_sec + (frame_idx as f64 / config.fps as f64);
         let elapsed_ms = (frame_idx as u32) * (1000 / config.fps as u32);
@@ -687,6 +697,7 @@ pub fn render_chat_video(
                 user_color,
                 &asset_manager,
                 &fc,
+                &font_list,
                 &config,
                 bg_color,
             );
