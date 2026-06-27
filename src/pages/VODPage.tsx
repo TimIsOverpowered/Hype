@@ -12,6 +12,7 @@ import DownloadVodModal from '../components/ui/DownloadVodModal';
 import { useChatSettings } from '../hooks/useChatSettings';
 import { useClipJob } from '../hooks/useClipJob';
 import { useGraphSettings } from '../hooks/useGraphSettings';
+import { API_BASE } from '../constants/api';
 import type { SerializedEmoteSet } from '../types/graph';
 import type { ChapterEdge, M3u8Variant } from '../types/twitch';
 import { safeLocalStorage } from '../utils/safeLocalStorage';
@@ -128,7 +129,7 @@ export default function VODPage() {
       setVariants(m3u8Variants);
       setBroadcasterId(vod.creator.id);
 
-      const wlRes = await fetch(`https://api.hype.lol/v1/whitelist?twitchId=${vod.creator.id}`);
+      const wlRes = await fetch(`${API_BASE}/v1/whitelist?twitchId=${vod.creator.id}`);
       if (wlRes.ok) {
         const wlData = await wlRes.json();
         setIsWhitelisted(!!(wlData.data && wlData.data.length > 0));
